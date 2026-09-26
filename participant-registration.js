@@ -1,7 +1,7 @@
 (()=>{
   function install(){
     const form=document.querySelector('#registerForm');
-    if(!form||typeof loadPublicLot!=='function'||typeof bid!=='function')return false;
+    if(!form||typeof loadPublicLot!=='function'||typeof openLot!=='function')return false;
 
     async function continueWithExistingUser(l,id,email,password){
       const {data:loginData,error:loginError}=await db.auth.signInWithPassword({email,password});
@@ -35,7 +35,7 @@
       participant={id:p.id,name:p.full_name,cpf:p.cpf,phone:p.phone,email:p.email,companyId:p.company_id};
       registerModal.close();
       pendingBid=null;
-      await bid(id);
+      await openLot(id);
     }
 
     form.onsubmit=async e=>{
@@ -68,8 +68,9 @@
         const p=result.participant;
         if(!p?.id)throw new Error('Cadastro criado, mas o participante não foi retornado.');
         participant={id:p.id,name:p.full_name,cpf:p.cpf,phone:p.phone,email:p.email,companyId:p.company_id};
-        registerModal.close();pendingBid=null;
-        await bid(id);
+        registerModal.close();
+        pendingBid=null;
+        await openLot(id);
       }catch(err){
         let message=err?.message||'Não foi possível realizar o cadastro.';
         if(/invalid login credentials/i.test(message))message='Este e-mail já está cadastrado. Informe a senha correta para continuar.';
