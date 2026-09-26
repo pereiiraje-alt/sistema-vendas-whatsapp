@@ -1,18 +1,35 @@
+const SUPABASE_URL='https://dsgnyfnddyxilakjwavu.supabase.co';
+const PUBLIC_KEY='sb_publishable_4-pk8-WndWKwy_8plTVTAA_KXUNf-Lr';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 
-module.exports=(req,res)=>{
+async function loadLot(id){
+  const key=process.env.SUPABASE_SERVICE_ROLE_KEY||PUBLIC_KEY;
+  const url=`${SUPABASE_URL}/rest/v1/lots?id=eq.${encodeURIComponent(id)}&select=id,lot_number,title,image_url,current_bid,valuation,min_increment`;
+  const response=await fetch(url,{headers:{apikey:key,Authorization:`Bearer ${key}`}});
+  if(!response.ok)throw new Error('Não foi possível carregar o lote.');
+  const rows=await response.json();
+  return rows?.[0]||null;
+}
+
+module.exports=async(req,res)=>{
   const q=req.query||{};
-  const lotId=String(q.lot||q.id||'');
-  const lotNumber=esc(q.number||'');
-  const name=esc(q.name||'Lote em leilão');
-  const current=esc(q.current||'');
-  const valuation=esc(q.valuation||'');
-  const step=esc(q.step||'');
-  const rawImage=String(q.image||'');
+  const lotId=String(q.l||q.lot||q.id||'');
+  if(!lotId)return res.status(400).send('Lote não informado.');
+
+  let lot=null;
+  try{lot=await loadLot(lotId)}catch(error){console.error('share lot',error)}
+
+  const lotNumber=esc(lot?.lot_number??q.number??'');
+  const name=esc(lot?.title||q.name||'Lote em leilão');
+  const current=esc(lot?money(lot.current_bid):(q.current||''));
+  const valuation=esc(lot?money(lot.valuation):(q.valuation||''));
+  const step=esc(lot?money(lot.min_increment):(q.step||''));
+  const rawImage=String(lot?.image_url||q.image||'');
 
   const origin=`https://${req.headers.host}`;
   const target=`${origin}/?lote=${encodeURIComponent(lotId)}`;
-  const canonical=`${origin}${req.url||'/api/share'}`;
+  const canonical=`${origin}/api/share?l=${encodeURIComponent(lotId)}`;
 
   let image='https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80';
   try{
@@ -30,6 +47,6 @@ module.exports=(req,res)=>{
   const desc=details.length?details.join(' • '):'Veja a foto, acompanhe o lote e participe do leilão.';
 
   res.setHeader('Content-Type','text/html; charset=utf-8');
-  res.setHeader('Cache-Control','public, max-age=60, s-maxage=300');
+  res.setHeader('Cache-Control','public, max-age=30, s-maxage=60');
   res.end(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><meta name="description" content="${desc}"><meta property="og:type" content="website"><meta property="og:site_name" content="LanceCerto"><meta property="og:title" content="${title}"><meta property="og:description" content="${desc}"><meta property="og:image" content="${esc(image)}"><meta property="og:image:secure_url" content="${esc(image)}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:url" content="${esc(canonical)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${title}"><meta name="twitter:description" content="${desc}"><meta name="twitter:image" content="${esc(image)}"></head><body><p>Abrindo lote...</p><p><a href="${esc(target)}">Clique aqui se o lote não abrir automaticamente.</a></p><script>location.replace(${JSON.stringify(target)})<\/script></body></html>`);
 };
