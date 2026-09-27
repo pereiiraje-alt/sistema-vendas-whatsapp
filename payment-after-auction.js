@@ -81,17 +81,37 @@
     finally{syncingReturn=false}
   }
 
+  async function checkPaymentStatus(id){
+    const session=await db.auth.getSession();
+    const token=session?.data?.session?.access_token;
+    if(!token)return null;
+    const response=await fetch('/api/payment-status',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+      body:JSON.stringify({lotId:id})
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||'Não foi possível verificar o pagamento.');
+    return data?.payment||null;
+  }
+
   function watchPaymentApproval(id){
     stopPaymentWatch();
-    paymentWatcher=setInterval(async()=>{
+    let checking=false;
+    const check=async()=>{
+      if(checking)return;
+      checking=true;
       try{
-        const data=await finalize(id);
-        if(data?.payment?.status==='paid'){
+        const payment=await checkPaymentStatus(id);
+        if(payment?.status==='paid'){
           stopPaymentWatch();
           await enhancedOpenLot(id,true);
         }
       }catch(e){console.error('Verificação do pagamento:',e)}
-    },3000);
+      finally{checking=false}
+    };
+    check();
+    paymentWatcher=setInterval(check,3000);
   }
 
   function renderWinnerPayment(box,id,data){
