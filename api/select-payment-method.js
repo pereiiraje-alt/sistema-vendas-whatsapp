@@ -38,6 +38,7 @@ async function createPreference(accessToken,{lot,arremate,payment,payerEmail,mar
     payer:{email:payerEmail},
     external_reference:String(payment.id),
     back_urls:{success:`${returnUrl}&payment=success`,pending:`${returnUrl}&payment=pending`,failure:`${returnUrl}&payment=failure`},
+    notification_url:`${PUBLIC_ORIGIN}/api/mercadopago-webhook?company_id=${encodeURIComponent(arremate.company_id)}`,
     auto_return:'approved',
     statement_descriptor:'LANCECERTO',
     payment_methods:paymentMethodRules(method),
