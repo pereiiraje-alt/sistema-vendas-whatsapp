@@ -1,4 +1,4 @@
-const {authUser,serviceFetch,membershipForUser}=require('./_mercadopago');
+const {authUser,serviceFetch,membershipForUser}=require('../lib/mercadopago');
 
 module.exports=async(req,res)=>{
   if(req.method!=='GET'){
