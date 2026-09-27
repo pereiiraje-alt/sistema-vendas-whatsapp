@@ -64,51 +64,62 @@
         ? `<div class="row"><span>Conta Mercado Pago</span><b>${esc(accountName)}</b></div>
            <div class="row"><span>E-mail</span><b>${esc(acc.email||'Não informado')}</b></div>
            <div class="row"><span>ID Mercado Pago</span><b>${esc(acc.id||'—')}</b></div>
-           <div class="row"><span>Mensalidades</span><b class="badge">Nesta conta</b></div>
-           <div class="row"><span>Comissão por venda</span><b class="badge ${accountInfo?.marketplaceReady?'':'warn'}">${accountInfo?.marketplaceReady?'Marketplace configurado':'Verificar credenciais'}</b></div>`
+           <div class="row"><span>Mensalidades de R$ 99,90</span><b class="badge">Receber nesta conta</b></div>
+           <div class="row"><span>Comissão de 5% das vendas</span><b class="badge ${accountInfo?.marketplaceReady?'':'warn'}">${accountInfo?.marketplaceReady?'Receber nesta conta':'Verificar credenciais'}</b></div>`
         : `<div class="row"><span>Status</span><b class="badge warn">Conta configurada, mas não identificada</b></div><p class="muted">${esc(accountInfo?.warning||accountInfo?.error||'Verifique as credenciais do Mercado Pago.')}</p>`;
 
     app.innerHTML=`
+      <div class="panel" style="margin-bottom:16px">
+        <h2 style="margin:0 0 6px">Meus recebimentos</h2>
+        <p class="muted" style="margin:0">Valores que pertencem à plataforma: comissões de 5% e mensalidades dos clientes.</p>
+      </div>
+
       <div class="cards">
-        <div class="card"><small>Comissões recebidas</small><h2>${money(commissions)}</h2><span class="up">Percentual das vendas pagas</span></div>
-        <div class="card"><small>Mensalidades ativas</small><h2>${money(monthlyRecurring)}</h2><span class="up">Receita recorrente por mês</span></div>
-        <div class="card"><small>Vendas pagas</small><h2>${money(salesVolume)}</h2><span class="up">Volume processado</span></div>
-        <div class="card"><small>Pagamentos pendentes</small><h2>${pendingPayments.length}</h2><span class="up">Aguardando confirmação</span></div>
+        <div class="card"><small>Comissões de 5% recebidas</small><h2>${money(commissions)}</h2><span class="up">Somente vendas já pagas</span></div>
+        <div class="card"><small>Mensalidades ativas</small><h2>${activeSubscriptions.length}</h2><span class="up">Clientes com assinatura ativa</span></div>
+        <div class="card"><small>Receita mensal contratada</small><h2>${money(monthlyRecurring)}</h2><span class="up">Valor previsto por mês</span></div>
+        <div class="card"><small>Pagamentos de vendas pendentes</small><h2>${pendingPayments.length}</h2><span class="up">Aguardando confirmação</span></div>
       </div>
 
       <div class="panels">
         <div class="panel">
-          <h3>Conta que recebe o dinheiro</h3>
-          <p class="muted">As mensalidades da plataforma e a comissão percentual são configurações diferentes do Mercado Pago.</p>
+          <h3>Minha conta de recebimento</h3>
+          <p class="muted">Esta é a conta Mercado Pago usada pela plataforma para receber mensalidades e comissões.</p>
           ${accountHtml}
         </div>
         <div class="panel">
-          <h3>Como mudar a conta de recebimento</h3>
-          <p><b>Plano mensal:</b> troque no Vercel o valor de <code>MP_PLATFORM_ACCESS_TOKEN</code> pelo Access Token de produção da nova conta Mercado Pago.</p>
-          <p><b>Plano por porcentagem:</b> use <code>MP_CLIENT_ID</code> e <code>MP_CLIENT_SECRET</code> de uma aplicação criada na nova conta Mercado Pago.</p>
-          <p class="muted">Para fazer mensalidades e comissões caírem na mesma conta, use o Access Token e a aplicação Marketplace pertencentes à mesma conta Mercado Pago.</p>
-          <p class="muted"><b>Atenção:</b> ao trocar Client ID/Secret, as empresas já conectadas ao Mercado Pago precisarão conectar novamente. Assinaturas mensais existentes também podem precisar ser recriadas na nova conta.</p>
+          <h3>Como mudar minha conta de recebimento</h3>
+          <p><b>Mensalidades:</b> no Vercel, troque o valor de <code>MP_PLATFORM_ACCESS_TOKEN</code> pelo Access Token de produção da nova conta Mercado Pago.</p>
+          <p><b>Comissão de 5%:</b> use <code>MP_CLIENT_ID</code> e <code>MP_CLIENT_SECRET</code> de uma aplicação Marketplace criada na nova conta Mercado Pago.</p>
+          <p class="muted">Para mensalidades e comissões caírem na mesma conta, use credenciais pertencentes à mesma conta Mercado Pago.</p>
+          <p class="muted"><b>Atenção:</b> ao trocar Client ID/Secret, empresas já conectadas ao Mercado Pago precisarão conectar novamente. Assinaturas existentes também podem precisar ser recriadas.</p>
         </div>
       </div>
 
       <div class="panel">
-        <h3>Movimentações de vendas</h3>
-        <p class="muted">Pagamentos dos lotes e a comissão da plataforma.</p>
-        ${payments.length?`<table><thead><tr><th>EMPRESA</th><th>VALOR DA VENDA</th><th>COMISSÃO</th><th>FORMA</th><th>STATUS</th><th>DATA</th></tr></thead><tbody>${payments.map(x=>{
+        <h3>Comissões das vendas</h3>
+        <p class="muted">Aqui aparecem as vendas dos clientes que geraram ou poderão gerar comissão para a plataforma. O valor total da venda pertence ao vendedor; seu recebimento é a coluna Comissão.</p>
+        ${payments.length?`<table><thead><tr><th>EMPRESA</th><th>VALOR DA VENDA</th><th>MINHA COMISSÃO</th><th>FORMA</th><th>STATUS</th><th>DATA</th></tr></thead><tbody>${payments.map(x=>{
           const company=companyMap.get(x.company_id);
-          return `<tr><td><b>${esc(company?.name||'Empresa')}</b></td><td><b>${money(x.amount)}</b></td><td>${money(x.platform_fee_amount||0)}${Number(x.platform_fee_percent||0)>0?` <small>(${Number(x.platform_fee_percent)}%)</small>`:''}</td><td>${esc(methodLabel(x.method))}</td><td><span class="badge ${['pending','processing'].includes(String(x.status).toLowerCase())?'warn':''}">${esc(paymentStatusLabel(x.status))}</span></td><td>${date(x.paid_at||x.created_at)}</td></tr>`;
-        }).join('')}</tbody></table>`:'<p class="muted">Nenhum pagamento de venda registrado.</p>'}
+          return `<tr><td><b>${esc(company?.name||'Empresa')}</b></td><td><b>${money(x.amount)}</b></td><td><b>${money(x.platform_fee_amount||0)}</b>${Number(x.platform_fee_percent||0)>0?` <small>(${Number(x.platform_fee_percent)}%)</small>`:''}</td><td>${esc(methodLabel(x.method))}</td><td><span class="badge ${['pending','processing'].includes(String(x.status).toLowerCase())?'warn':''}">${esc(paymentStatusLabel(x.status))}</span></td><td>${date(x.paid_at||x.created_at)}</td></tr>`;
+        }).join('')}</tbody></table>`:'<p class="muted">Nenhuma venda registrada.</p>'}
       </div>
 
       <div class="panel">
-        <h3>Assinaturas mensais</h3>
-        <p class="muted">Clientes do plano mensal e situação da assinatura.</p>
+        <h3>Minhas mensalidades</h3>
+        <p class="muted">Empresas que pagam o plano mensal para a plataforma.</p>
         ${subscriptions.length?`<table><thead><tr><th>EMPRESA</th><th>VALOR/MÊS</th><th>STATUS</th><th>PRÓXIMA COBRANÇA</th></tr></thead><tbody>${subscriptions.map(x=>{
           const company=companyMap.get(x.company_id);
           return `<tr><td><b>${esc(company?.name||'Empresa')}</b></td><td><b>${money(x.amount)}</b></td><td><span class="badge ${String(x.status).toLowerCase()==='authorized'?'':'warn'}">${esc(subscriptionStatusLabel(x.status))}</span></td><td>${x.next_payment_at?date(x.next_payment_at):'—'}</td></tr>`;
         }).join('')}</tbody></table>`:'<p class="muted">Nenhuma assinatura mensal registrada.</p>'}
+      </div>
+
+      <div class="panel">
+        <h3>Volume processado pelos vendedores</h3>
+        <div class="row"><span>Total de vendas pagas na plataforma</span><b>${money(salesVolume)}</b></div>
+        <p class="muted">Este valor não é sua receita. Ele representa o valor total das vendas pagas pelos arrematantes.</p>
       </div>`;
   }
 
-  pages.finance=[financeEnhanced,'Financeiro','Receitas, comissões, mensalidades e conta de recebimento'];
+  pages.finance=[financeEnhanced,'Meus recebimentos','Comissões, mensalidades e conta Mercado Pago da plataforma'];
 })();
