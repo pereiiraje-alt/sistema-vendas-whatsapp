@@ -23,4 +23,7 @@ Plataforma SaaS multiempresa para criação e gestão de leilões online.
 ## Marca
 Nome oficial da plataforma: **JP Leilões**.
 
+## Implantação
+A produção deve sempre usar a versão mais recente da branch `main`.
+
 > O dinheiro das vendas permanece na conta Mercado Pago conectada de cada vendedor. A plataforma exibe e gerencia as informações de recebimento sem custodiar diretamente os valores dos clientes.
