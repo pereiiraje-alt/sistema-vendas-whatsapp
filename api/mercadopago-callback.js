@@ -1,4 +1,4 @@
-const {readState,exchangeCode,encrypt,serviceFetch}=require('./_mercadopago');
+const {readState,exchangeCode,encrypt,serviceFetch}=require('../lib/mercadopago');
 
 module.exports=async(req,res)=>{
   try{
