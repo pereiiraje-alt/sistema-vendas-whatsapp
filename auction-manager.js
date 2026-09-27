@@ -7,7 +7,7 @@
 
   const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
   const dateLabel=value=>value?new Date(value).toLocaleString('pt-BR'):'—';
-  const statusLabel=value=>({draft:'Rascunho',scheduled:'Agendado',live:'Ao vivo',ended:'Encerrado',cancelled:'Cancelado'}[value]||value||'—');
+  const statusLabel=value=>({draft:'Aguardando lote',scheduled:'Agendado',live:'Ao vivo',ended:'Encerrado',cancelled:'Cancelado'}[value]||value||'—');
 
   async function getAuctions(){
     if(!currentCompany)return [];
@@ -43,7 +43,7 @@
     app.innerHTML=`
       <div class="panel">
         <h2>Criar novo leilão</h2>
-        <p class="muted">Cadastre o leilão. Assim que criar, abriremos automaticamente o cadastro do primeiro lote.</p>
+        <p class="muted">Cadastre o leilão. Assim que criar o primeiro lote, o leilão entrará automaticamente ao vivo.</p>
         ${message?`<div class="login-message" style="margin:12px 0">${safe(message)}</div>`:''}
         <form id="auctionCreateForm">
           <label>Nome do leilão<input id="auctionTitle" required placeholder="Ex.: Leilão de eletrônicos"></label>
@@ -52,13 +52,6 @@
             <label>Início<input id="auctionStart" type="datetime-local"></label>
             <label>Término<input id="auctionEnd" type="datetime-local"></label>
           </div>
-          <label>Status
-            <select id="auctionStatus">
-              <option value="draft">Rascunho</option>
-              <option value="scheduled">Agendado</option>
-              <option value="live">Ao vivo</option>
-            </select>
-          </label>
           <div class="actions"><button class="primary" type="submit">Criar leilão e adicionar lote</button></div>
         </form>
       </div>
@@ -74,7 +67,7 @@
         ${auctions.length?`<table><thead><tr><th>LEILÃO</th><th>INÍCIO</th><th>TÉRMINO</th><th>STATUS</th><th>AÇÕES</th></tr></thead><tbody>${auctions.map(a=>`<tr><td><strong>${safe(a.title)}</strong><br><small>${safe(a.description||'')}</small></td><td>${dateLabel(a.starts_at)}</td><td>${dateLabel(a.ends_at)}</td><td><span class="badge">${statusLabel(a.status)}</span></td><td><button class="ghost mini choose-auction" type="button" data-auction="${a.id}">${selected?.id===a.id?'Selecionado':'Selecionar'}</button> <button class="primary mini add-auction-lot" type="button" data-auction="${a.id}">+ Lote</button></td></tr>`).join('')}</tbody></table>`:'<p class="muted">Nenhum leilão cadastrado ainda.</p>'}
       </div>
 
-      ${selected?`<div class="panel" style="margin-top:16px"><h3>Lotes de ${safe(selected.title)}</h3>${selectedLots.length?`<table><thead><tr><th>LOTE</th><th>AVALIAÇÃO</th><th>LANCE ATUAL</th><th>STATUS</th></tr></thead><tbody>${selectedLots.map(l=>`<tr><td><strong>#${l.number} · ${safe(l.name)}</strong></td><td>${money(l.valuation)}</td><td>${money(l.current)}</td><td><span class="badge">${safe(l.status)}</span></td></tr>`).join('')}</tbody></table>`:'<p class="muted">Este leilão ainda não possui lotes. Clique em “Adicionar lote”.</p>'}</div>`:''}
+      ${selected?`<div class="panel" style="margin-top:16px"><h3>Lotes de ${safe(selected.title)}</h3>${selectedLots.length?`<table><thead><tr><th>LOTE</th><th>AVALIAÇÃO</th><th>LANCE ATUAL</th><th>STATUS</th></tr></thead><tbody>${selectedLots.map(l=>`<tr><td><strong>#${l.number} · ${safe(l.name)}</strong></td><td>${money(l.valuation)}</td><td>${money(l.current)}</td><td><span class="badge">${safe(l.status)}</span></td></tr>`).join('')}</tbody></table>`:'<p class="muted">Este leilão ainda não possui lotes. Cadastre o primeiro lote para colocá-lo ao vivo.</p>'}</div>`:''}
     `;
 
     const form=document.querySelector('#auctionCreateForm');
@@ -90,19 +83,18 @@
       button.disabled=true;
       button.textContent='Criando...';
       try{
-        const status=document.querySelector('#auctionStatus').value;
         const payload={
           company_id:currentCompany.id,
           title:document.querySelector('#auctionTitle').value.trim(),
           description:document.querySelector('#auctionDescription').value.trim()||null,
-          status,
-          starts_at:start?new Date(start).toISOString():(status==='live'?new Date().toISOString():null),
+          status:'draft',
+          starts_at:start?new Date(start).toISOString():null,
           ends_at:end?new Date(end).toISOString():null
         };
         const {data,error}=await timeout(db.from('auctions').insert(payload).select().single(),7000,'criar leilão');
         if(error)throw error;
         currentAuction=data;
-        await renderAuctionManager('Leilão criado com sucesso. Cadastre agora o primeiro lote.');
+        await renderAuctionManager('Leilão criado. Cadastre o primeiro lote para colocá-lo ao vivo.');
         openLotForm();
       }catch(error){
         alert('Erro ao criar leilão: '+(error.message||error));
@@ -142,9 +134,27 @@
   if(saveLotButton&&saveLotButton.onclick){
     const originalSaveLot=saveLotButton.onclick;
     saveLotButton.onclick=async function(event){
+      const auctionBeforeSave=currentAuction;
       await originalSaveLot.call(this,event);
-      if(!modal.open&&navButton.classList.contains('active')){
-        await renderAuctionManager('Lote adicionado ao leilão com sucesso.');
+      if(!modal.open&&auctionBeforeSave){
+        try{
+          const {data,error}=await timeout(
+            db.from('auctions')
+              .update({status:'live',starts_at:new Date().toISOString()})
+              .eq('id',auctionBeforeSave.id)
+              .select()
+              .single(),
+            7000,
+            'ativar leilão'
+          );
+          if(error)throw error;
+          currentAuction=data;
+        }catch(error){
+          alert('O lote foi criado, mas não foi possível colocar o leilão ao vivo: '+(error.message||error));
+        }
+        if(navButton.classList.contains('active')){
+          await renderAuctionManager('Lote adicionado. Leilão ao vivo!');
+        }
       }
     };
   }
