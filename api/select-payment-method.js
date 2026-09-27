@@ -1,4 +1,4 @@
-const {authUser,serviceFetch,decrypt}=require('./_mercadopago');
+const {authUser,serviceFetch,decrypt}=require('../lib/mercadopago');
 const PUBLIC_ORIGIN='https://sistema-vendas-whatsapp.vercel.app';
 
 function paymentMethodRules(method){
