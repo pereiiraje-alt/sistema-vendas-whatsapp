@@ -82,7 +82,7 @@ async function createOrReuse(company,user,plan){
 
   const amount=Number(plan.price||0);
   const payload={
-    reason:`LanceCerto - ${plan.name||'Plano mensal'}`,
+    reason:`JP Leilões - ${plan.name||'Plano mensal'}`,
     external_reference:String(company.id),
     payer_email:String(company.email||user.email||'').trim().toLowerCase(),
     auto_recurring:{frequency:1,frequency_type:'months',transaction_amount:amount,currency_id:'BRL'},
