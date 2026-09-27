@@ -1,30 +1,26 @@
-# VendeZap — MVP
+# JP Leilões
 
-Sistema web de gestão de vendas e catálogo com integração de compartilhamento pelo WhatsApp.
+Plataforma SaaS multiempresa para criação e gestão de leilões online.
 
-## MVP atual
-- Dashboard responsivo
-- Produtos e estoque
-- Cadastro de produtos salvo no navegador (localStorage)
-- Pedidos demonstrativos
-- Clientes demonstrativos
-- Catálogo público demonstrativo
-- Botão para iniciar pedido pelo WhatsApp
-- Configurações da loja
+## Recursos atuais
+- Cadastro e login de empresas
+- Planos por mensalidade, porcentagem ou cortesia
+- Criação e gestão de leilões e lotes
+- Cadastro de participantes e registro de lances
+- Encerramento automático e identificação do arrematante
+- Pagamentos via Mercado Pago com PIX e cartão
+- Comissão da plataforma via marketplace/split
+- Carteira visual com recebimentos e histórico
+- Compartilhamento de lotes pelo WhatsApp
+- Painel administrativo da plataforma
+- Integração com Supabase para autenticação, banco e armazenamento de fotos
 
-## Rodar localmente
-Abra `index.html` no navegador. Para desenvolvimento, também pode usar qualquer servidor HTTP estático.
+## Infraestrutura
+- Front-end e APIs publicados na Vercel
+- Supabase para autenticação e dados
+- Mercado Pago para pagamentos e assinaturas
 
-## Publicação
-O projeto atual é estático e pode ser publicado em Vercel, Cloudflare Pages, GitHub Pages ou outro host estático.
+## Marca
+Nome oficial da plataforma: **JP Leilões**.
 
-## Próximas fases
-1. Autenticação e banco PostgreSQL/Supabase
-2. Multiempresa/multiloja e permissões
-3. CRUD completo de produtos, clientes e pedidos
-4. Carrinho e checkout/reserva
-5. Mercado Pago
-6. WhatsApp Cloud API oficial
-7. Relatórios e webhooks
-
-> Este projeto possui identidade e implementação próprias. Referências externas são apenas funcionais.
+> O dinheiro das vendas permanece na conta Mercado Pago conectada de cada vendedor. A plataforma exibe e gerencia as informações de recebimento sem custodiar diretamente os valores dos clientes.
