@@ -4,6 +4,26 @@
   const SB_KEY='sb_publishable_4-pk8-WndWKwy_8plTVTAA_KXUNf-Lr';
   const client=window.supabase?.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
 
+  // O botão Sair precisa funcionar mesmo quando o carregamento do painel para
+  // antes de app.js (por exemplo, erro de assinatura ou vínculo de empresa).
+  const logoutButton=document.getElementById('logoutButton');
+  if(logoutButton&&client){
+    logoutButton.addEventListener('click',async e=>{
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      logoutButton.disabled=true;
+      logoutButton.textContent='Saindo...';
+      try{
+        await client.auth.signOut({scope:'local'});
+      }catch(err){
+        console.warn('Falha ao encerrar sessão pelo Supabase:',err?.message||err);
+        try{localStorage.removeItem('sb-dsgnyfnddyxilakjwavu-auth-token')}catch(_){}
+      }finally{
+        location.replace('./login.html?logout=1');
+      }
+    },true);
+  }
+
   function ensureDialog(){
     let d=document.getElementById('firstAuctionModal');
     if(d)return d;
