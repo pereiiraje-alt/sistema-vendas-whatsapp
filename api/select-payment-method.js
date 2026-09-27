@@ -1,7 +1,30 @@
 const {authUser,serviceFetch,decrypt}=require('./_mercadopago');
 const PUBLIC_ORIGIN='https://sistema-vendas-whatsapp.vercel.app';
 
-async function createPreference(accessToken,{lot,arremate,payment,payerEmail,marketplaceFee=0}){
+function paymentMethodRules(method){
+  if(method==='pix'){
+    return {
+      excluded_payment_types:[
+        {id:'ticket'},
+        {id:'credit_card'},
+        {id:'debit_card'},
+        {id:'prepaid_card'},
+        {id:'digital_currency'},
+        {id:'atm'}
+      ]
+    };
+  }
+  return {
+    excluded_payment_types:[
+      {id:'ticket'},
+      {id:'bank_transfer'},
+      {id:'digital_currency'},
+      {id:'atm'}
+    ]
+  };
+}
+
+async function createPreference(accessToken,{lot,arremate,payment,payerEmail,marketplaceFee=0,method}){
   const returnUrl=`${PUBLIC_ORIGIN}/?lote=${encodeURIComponent(lot.id)}`;
   const preference={
     items:[{
@@ -17,7 +40,8 @@ async function createPreference(accessToken,{lot,arremate,payment,payerEmail,mar
     back_urls:{success:`${returnUrl}&payment=success`,pending:`${returnUrl}&payment=pending`,failure:`${returnUrl}&payment=failure`},
     auto_return:'approved',
     statement_descriptor:'LANCECERTO',
-    metadata:{payment_id:String(payment.id),arremate_id:String(arremate.id),lot_id:String(lot.id),company_id:String(arremate.company_id),platform_fee_amount:Number(marketplaceFee||0)}
+    payment_methods:paymentMethodRules(method),
+    metadata:{payment_id:String(payment.id),arremate_id:String(arremate.id),lot_id:String(lot.id),company_id:String(arremate.company_id),platform_fee_amount:Number(marketplaceFee||0),selected_method:method}
   };
   if(Number(marketplaceFee)>0) preference.marketplace_fee=Number(marketplaceFee);
 
@@ -46,7 +70,7 @@ module.exports=async(req,res)=>{
     const lotId=String(body.lotId||'').trim();
     const method=String(body.method||'').toLowerCase();
     if(!/^[0-9a-f-]{36}$/i.test(lotId))return res.status(400).json({error:'Lote inválido.'});
-    if(!['pix','card','boleto'].includes(method))return res.status(400).json({error:'Forma de pagamento inválida.'});
+    if(!['pix','card'].includes(method))return res.status(400).json({error:'Escolha PIX ou cartão.'});
 
     await serviceFetch('/rest/v1/rpc/finalize_lot',{method:'POST',body:JSON.stringify({p_lot_id:lotId})});
     const lots=await serviceFetch(`/rest/v1/lots?id=eq.${encodeURIComponent(lotId)}&select=id,lot_number,title,company_id&limit=1`);
@@ -80,12 +104,12 @@ module.exports=async(req,res)=>{
     }
 
     const accessToken=decrypt(connection.access_token_encrypted);
-    const preference=await createPreference(accessToken,{lot,arremate,payment,payerEmail:participant.email||user.email,marketplaceFee});
+    const preference=await createPreference(accessToken,{lot,arremate,payment,payerEmail:participant.email||user.email,marketplaceFee,method});
     const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{
       method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({checkout_url:preference.init_point,provider_payment_id:String(preference.id||''),updated_at:new Date().toISOString()})
     });
     payment=Array.isArray(updated)?updated[0]:payment;
-    return res.status(200).json({payment,onlineReady:true,checkoutUrl:preference.init_point,marketplaceFee,feePercent,message:marketplaceFee>0?`Checkout gerado com comissão LanceCerto de ${feePercent}%.`:'Checkout Mercado Pago gerado com sucesso.'});
+    return res.status(200).json({payment,onlineReady:true,checkoutUrl:preference.init_point,marketplaceFee,feePercent,method,message:marketplaceFee>0?`Checkout gerado com comissão LanceCerto de ${feePercent}%.`:'Checkout Mercado Pago gerado com sucesso.'});
   }catch(error){
     console.error('select-payment-method',error);
     return res.status(500).json({error:error.message||'Não foi possível preparar o pagamento.'});
