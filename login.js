@@ -5,6 +5,39 @@ const form=document.querySelector('#loginForm'),emailEl=document.querySelector('
 function showError(text){errorEl.textContent=text;errorEl.hidden=false;messageEl.hidden=true}
 function showMessage(text){messageEl.textContent=text;messageEl.hidden=false;errorEl.hidden=true}
 
+let pendingConfirmationEmail='';
+function confirmationRedirect(){return location.origin+'/login.html?email=confirmed'}
+function ensureResendButton(){
+  let resend=document.querySelector('#resendConfirmationButton');
+  if(resend)return resend;
+  resend=document.createElement('button');
+  resend.id='resendConfirmationButton';
+  resend.type='button';
+  resend.className='login-link';
+  resend.textContent='Reenviar e-mail de confirmação';
+  resend.hidden=true;
+  const forgot=document.querySelector('#forgotButton');
+  forgot.insertAdjacentElement('afterend',resend);
+  resend.addEventListener('click',async()=>{
+    const email=(pendingConfirmationEmail||emailEl.value||'').trim().toLowerCase();
+    if(!email)return showError('Digite seu e-mail para reenviar a confirmação.');
+    resend.disabled=true;resend.textContent='Reenviando...';
+    try{
+      const{error}=await authDb.auth.resend({type:'signup',email,options:{emailRedirectTo:confirmationRedirect()}});
+      if(error)throw error;
+      showMessage(`Enviamos um novo e-mail de confirmação para ${email}. Verifique também a caixa de spam.`);
+    }catch(e){
+      showError(e.message||'Não foi possível reenviar o e-mail de confirmação.');
+    }finally{
+      resend.disabled=false;resend.textContent='Reenviar e-mail de confirmação';
+    }
+  });
+  return resend;
+}
+function showResend(email){pendingConfirmationEmail=String(email||'').trim().toLowerCase();ensureResendButton().hidden=false}
+function hideResend(){const b=ensureResendButton();b.hidden=true;pendingConfirmationEmail=''}
+ensureResendButton();
+
 async function billingGate(session){
   if(!session?.access_token)return true;
   const headers={Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'};
@@ -36,9 +69,14 @@ async function routeUser(user,session=null){
   if(allowed)location.replace('./');
 }
 
-(async()=>{try{const{data}=await authDb.auth.getSession();if(data.session){if(new URLSearchParams(location.search).get('subscription')==='return')showMessage('Verificando sua assinatura no Mercado Pago...');await routeUser(data.session.user,data.session)}}catch(e){showError(e.message||'Não foi possível verificar sua conta.')}})();
+(async()=>{try{
+  const params=new URLSearchParams(location.search);
+  if(params.get('email')==='confirmed')showMessage('E-mail confirmado com sucesso. Agora você já pode entrar.');
+  const{data}=await authDb.auth.getSession();
+  if(data.session){if(params.get('subscription')==='return')showMessage('Verificando sua assinatura no Mercado Pago...');await routeUser(data.session.user,data.session)}
+}catch(e){showError(e.message||'Não foi possível verificar sua conta.')}})();
 
-form.addEventListener('submit',async e=>{e.preventDefault();errorEl.hidden=true;button.disabled=true;button.textContent='Entrando...';try{const{data,error}=await authDb.auth.signInWithPassword({email:emailEl.value.trim().toLowerCase(),password:passwordEl.value});if(error)throw error;if(!data.session)throw new Error('Não foi possível iniciar a sessão.');await routeUser(data.session.user,data.session)}catch(e){let msg=e.message||'Não foi possível entrar.';if(/invalid login credentials/i.test(msg))msg='E-mail ou senha incorretos.';if(/email not confirmed/i.test(msg))msg='Confirme seu e-mail antes de entrar.';showError(msg);button.disabled=false;button.textContent='Entrar'}});
+form.addEventListener('submit',async e=>{e.preventDefault();errorEl.hidden=true;hideResend();button.disabled=true;button.textContent='Entrando...';try{const{data,error}=await authDb.auth.signInWithPassword({email:emailEl.value.trim().toLowerCase(),password:passwordEl.value});if(error)throw error;if(!data.session)throw new Error('Não foi possível iniciar a sessão.');await routeUser(data.session.user,data.session)}catch(e){let msg=e.message||'Não foi possível entrar.';if(/invalid login credentials/i.test(msg))msg='E-mail ou senha incorretos.';if(/email not confirmed/i.test(msg)){msg='Seu e-mail ainda não foi confirmado. Abra a mensagem enviada pelo LanceCerto e clique em Confirmar cadastro.';showResend(emailEl.value)}showError(msg);button.disabled=false;button.textContent='Entrar'}});
 
 document.querySelector('#forgotButton').addEventListener('click',async()=>{const email=emailEl.value.trim().toLowerCase();if(!email)return showError('Digite seu e-mail acima para recuperar a senha.');try{const{error}=await authDb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/login.html'});if(error)throw error;showMessage('Enviamos as instruções de recuperação para o seu e-mail.')}catch(e){showError(e.message||'Não foi possível enviar a recuperação de senha.')}});
 
@@ -71,14 +109,20 @@ signupForm.addEventListener('submit',async e=>{
   if(!email||!company||!responsible)return signupFail('Preencha empresa, responsável e e-mail.');
   signupButton.disabled=true;signupButton.textContent='Criando conta...';
   try{
-    const emailRedirectTo=location.origin+'/login.html';
+    const emailRedirectTo=confirmationRedirect();
     const{data,error}=await authDb.auth.signUp({email,password,options:{emailRedirectTo,data:{account_type:'company_owner',company_name:company,responsible_name:responsible,document:document.querySelector('#signupDocument').value.trim(),phone:document.querySelector('#signupPhone').value.trim(),plan}}});
     if(error)throw error;
     if(data.session){
       signupOk(plan==='profissional'?'Conta criada. Abrindo a assinatura de R$ 99,90/mês...':'Conta criada com sucesso. Entrando...');
       await routeUser(data.user,data.session);
     }else{
-      signupOk('Conta criada! Faça o login para continuar.');signupForm.reset();signupPlan.value=plan;signupButton.disabled=false;signupButton.textContent='Criar minha conta';
+      pendingConfirmationEmail=email;
+      signupOk(`Cadastro recebido! Enviamos um e-mail de confirmação para ${email}. Abra a mensagem e clique em Confirmar cadastro antes de entrar.`);
+      emailEl.value=email;
+      showResend(email);
+      signupForm.reset();signupPlan.value=plan;signupButton.disabled=false;signupButton.textContent='Criar minha conta';
+      setAuthView('login');
+      showMessage(`Enviamos um e-mail de confirmação para ${email}. Confirme o cadastro e depois faça o login.`);
     }
   }catch(e){
     let msg=e.message||'Não foi possível criar sua conta.';if(/already registered|already been registered|user already/i.test(msg))msg='Este e-mail já possui cadastro. Use a opção Entrar.';
