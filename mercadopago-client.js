@@ -17,6 +17,7 @@
 
   const moneyBRL=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const percentBR=value=>Number(value||0).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
+  const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
   async function planDetails(){
     try{
@@ -34,38 +35,47 @@
     }
   }
 
+  function planType(plan){
+    if(plan?.charge_type==='percentage')return 'Por porcentagem';
+    if(plan?.billing_period==='monthly'&&Number(plan?.price||0)>0)return 'Mensal';
+    return 'Cortesia';
+  }
+
   function feeBody(plan){
     const percentagePlan=plan?.charge_type==='percentage';
     const platformFee=Number(plan?.percentage||currentCompany?.platform_fee_value||0);
     const monthlyPrice=Number(plan?.price||0);
 
     if(percentagePlan){
-      return `<div class="row"><span>Plano atual</span><b>${plan?.name||'Plano por venda'}</b></div>
+      return `<div class="row"><span>Tipo do plano</span><b>Por porcentagem</b></div>
+        <div class="row"><span>Plano atual</span><b>${safe(plan?.name||'Plano por venda')}</b></div>
         <div class="row"><span>Taxa da plataforma</span><b>${percentBR(platformFee)} por venda paga</b></div>
-        <div class="row"><span>Tarifa do Mercado Pago</span><b>Variável conforme PIX, cartão, parcelamento e prazo</b></div>
-        <div class="row"><span>Desconto total</span><b>${percentBR(platformFee)} + tarifa do Mercado Pago</b></div>
-        <p class="muted" style="margin-top:12px">A taxa de ${percentBR(platformFee)} é da plataforma. A tarifa do Mercado Pago é separada e pertence ao processador de pagamento. O percentual do Mercado Pago pode variar conforme a forma de pagamento e as condições da conta do vendedor.</p>`;
+        <div class="row"><span>Taxa do Mercado Pago</span><b>Variável conforme PIX, cartão, parcelamento e prazo</b></div>
+        <div class="row"><span>Como é calculado</span><b>Venda − ${percentBR(platformFee)} − tarifa Mercado Pago</b></div>
+        <p class="muted" style="margin-top:12px">A plataforma desconta somente ${percentBR(platformFee)} de cada venda paga. Além disso, o Mercado Pago pode cobrar a tarifa própria de processamento, conforme a forma de pagamento e as condições da conta do vendedor.</p>`;
     }
 
     if(plan?.billing_period==='monthly'&&monthlyPrice>0){
-      return `<div class="row"><span>Plano atual</span><b>${plan?.name||'Plano mensal'}</b></div>
+      return `<div class="row"><span>Tipo do plano</span><b>Mensal</b></div>
+        <div class="row"><span>Plano atual</span><b>${safe(plan?.name||'Plano mensal')}</b></div>
         <div class="row"><span>Mensalidade</span><b>${moneyBRL(monthlyPrice)} por mês</b></div>
         <div class="row"><span>Comissão da plataforma sobre vendas</span><b>0%</b></div>
-        <div class="row"><span>Tarifa do Mercado Pago</span><b>Descontada pelo Mercado Pago conforme a cobrança</b></div>
-        <p class="muted" style="margin-top:12px">Neste plano não existe comissão percentual da plataforma sobre as vendas. A cobrança da plataforma é a mensalidade de ${moneyBRL(monthlyPrice)}. As tarifas de processamento do Mercado Pago seguem as condições da conta e do meio de pagamento utilizado.</p>`;
+        <div class="row"><span>Taxas do Mercado Pago nas vendas</span><b>Conforme PIX, cartão, parcelamento e prazo</b></div>
+        <p class="muted" style="margin-top:12px">Neste plano a plataforma não cobra porcentagem sobre as vendas. A cobrança da plataforma é somente a mensalidade de ${moneyBRL(monthlyPrice)}. O Mercado Pago continua podendo aplicar as tarifas próprias de processamento dos pagamentos.</p>`;
     }
 
-    return `<div class="row"><span>Plano atual</span><b>${plan?.name||'Cortesia'}</b></div>
+    return `<div class="row"><span>Tipo do plano</span><b>Cortesia</b></div>
+      <div class="row"><span>Plano atual</span><b>${safe(plan?.name||'Cortesia')}</b></div>
       <div class="row"><span>Taxa da plataforma</span><b>0%</b></div>
       <div class="row"><span>Mensalidade</span><b>R$ 0,00</b></div>
-      <p class="muted" style="margin-top:12px">Plano liberado sem cobrança da plataforma.</p>`;
+      <p class="muted" style="margin-top:12px">Plano liberado manualmente pelo administrador, sem cobrança da plataforma.</p>`;
   }
 
   async function renderFeeExplanation(host){
     if(document.getElementById('clientFeePanel'))return;
     const plan=await planDetails();
     if(!plan)return;
-    host.insertAdjacentHTML('beforeend',`<div class="panel" id="clientFeePanel"><h3>Seu plano e taxas</h3><p class="muted">Veja claramente o que pertence à plataforma e o que é cobrado pelo Mercado Pago.</p>${feeBody(plan)}</div>`);
+    host.insertAdjacentHTML('beforeend',`<div class="panel" id="clientFeePanel"><h3>Meu plano</h3><p class="muted">Consulte seu plano atual e veja como as cobranças funcionam.</p>${feeBody(plan)}</div>`);
   }
 
   async function renderTaxPage(){
@@ -74,15 +84,21 @@
     host.innerHTML='<div class="panel"><h3>Carregando seu plano...</h3><p class="muted">Consultando as condições da sua conta.</p></div>';
     const plan=await planDetails();
     if(!plan){
-      host.innerHTML='<div class="panel"><h3>Plano e taxas</h3><p class="muted">Não foi possível identificar o plano desta empresa. Atualize a página ou entre novamente.</p></div>';
+      host.innerHTML='<div class="panel"><h3>Meu plano</h3><p class="muted">Não foi possível identificar o plano desta empresa. Atualize a página ou entre novamente.</p></div>';
       return;
     }
-    host.innerHTML=`<div class="panel"><h2 style="margin:0 0 6px">Plano e taxas</h2><p class="muted" style="margin:0 0 18px">Confira o plano contratado e como cada cobrança funciona.</p>${feeBody(plan)}${plan.description?`<div style="margin-top:18px;padding-top:16px;border-top:1px solid #e5e7eb"><b>Descrição do plano</b><p class="muted">${String(plan.description).replace(/[&<>]/g,'')}</p></div>`:''}</div>
-      <div class="panel"><h3>Importante</h3><p class="muted">A taxa da plataforma e a tarifa do Mercado Pago são cobranças diferentes. A plataforma cobra somente o valor indicado no seu plano. O Mercado Pago pode aplicar tarifa própria de processamento conforme o meio de pagamento e o prazo de recebimento.</p></div>`;
+    const type=planType(plan);
+    const intro=type==='Mensal'
+      ? 'Seu plano é mensal. Abaixo estão a mensalidade e as condições aplicáveis às vendas.'
+      : type==='Por porcentagem'
+        ? 'Seu plano é por porcentagem. Abaixo estão separadas a taxa da plataforma e a tarifa do Mercado Pago.'
+        : 'Seu plano é uma cortesia liberada pelo administrador.';
+    host.innerHTML=`<div class="panel"><h2 style="margin:0 0 6px">Meu plano</h2><p class="muted" style="margin:0 0 18px">${intro}</p>${feeBody(plan)}${plan.description?`<div style="margin-top:18px;padding-top:16px;border-top:1px solid #e5e7eb"><b>Descrição do plano</b><p class="muted">${safe(plan.description)}</p></div>`:''}</div>
+      <div class="panel"><h3>Entenda as cobranças</h3><p class="muted">A cobrança da plataforma e as tarifas do Mercado Pago são valores diferentes. No plano mensal, a plataforma cobra apenas a mensalidade. No plano por porcentagem, a plataforma cobra o percentual indicado acima em cada venda paga. As tarifas do Mercado Pago dependem do meio de pagamento e das condições da conta.</p></div>`;
   }
 
   if(typeof pages!=='undefined'){
-    pages.taxas=[renderTaxPage,'Plano e taxas','Veja seu plano atual e as cobranças aplicáveis'];
+    pages.taxas=[renderTaxPage,'Meu plano','Veja seu plano atual e as taxas aplicáveis'];
   }
 
   async function renderMpPanel(){
@@ -105,7 +121,7 @@
         button.disabled=!data.canConnect;
         if(!data.canConnect)button.textContent='Somente proprietário/gerente pode conectar';
       }catch(e){
-        status.innerHTML=`<span>Status</span><b class="badge">${String(e.message||'Erro')}</b>`;
+        status.innerHTML=`<span>Status</span><b class="badge">${safe(e.message||'Erro')}</b>`;
       }
     }
 
