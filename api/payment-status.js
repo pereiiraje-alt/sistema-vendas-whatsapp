@@ -9,6 +9,25 @@ function mapStatus(status){
   return 'failed';
 }
 
+async function getPaymentById(accessToken,paymentId){
+  const response=await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`,{
+    headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/json'}
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.message||data.error||'Não foi possível consultar o pagamento no Mercado Pago.');
+  return data;
+}
+
+async function searchPayment(accessToken,externalReference){
+  const response=await fetch(`https://api.mercadopago.com/v1/payments/search?external_reference=${encodeURIComponent(externalReference)}&sort=date_created&criteria=desc`,{
+    headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/json'}
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.message||data.error||'Não foi possível localizar o pagamento no Mercado Pago.');
+  const results=Array.isArray(data.results)?data.results:[];
+  return results.find(item=>item?.status==='approved')||results[0]||null;
+}
+
 module.exports=async(req,res)=>{
   if(req.method!=='POST'){
     res.setHeader('Allow','POST');
@@ -36,20 +55,23 @@ module.exports=async(req,res)=>{
     let payment=Array.isArray(rows)?rows[0]:null;
     if(!payment)return res.status(200).json({payment:null});
 
-    if(providerPaymentId){
+    if(payment.status!=='paid'){
       const connections=await serviceFetch(`/rest/v1/mercado_pago_connections?company_id=eq.${encodeURIComponent(arremate.company_id)}&active=eq.true&select=access_token_encrypted&limit=1`);
       const connection=Array.isArray(connections)?connections[0]:null;
       if(connection?.access_token_encrypted){
         const accessToken=decrypt(connection.access_token_encrypted);
-        const response=await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(providerPaymentId)}`,{
-          headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/json'}
-        });
-        const mp=await response.json().catch(()=>({}));
-        if(response.ok){
+        let mp=null;
+
+        if(providerPaymentId){
+          try{mp=await getPaymentById(accessToken,providerPaymentId)}catch(error){console.error('payment-status direct lookup',error)}
+        }
+        if(!mp)mp=await searchPayment(accessToken,payment.id);
+
+        if(mp){
           const internalId=String(mp.external_reference||mp.metadata?.payment_id||'');
           if(internalId===payment.id){
             const status=mapStatus(String(mp.status||''));
-            const update={status,provider_payment_id:String(mp.id||providerPaymentId),updated_at:new Date().toISOString()};
+            const update={status,provider_payment_id:String(mp.id||providerPaymentId||payment.provider_payment_id||''),updated_at:new Date().toISOString()};
             if(status==='paid')update.paid_at=mp.date_approved||new Date().toISOString();
             const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{
               method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(update)
