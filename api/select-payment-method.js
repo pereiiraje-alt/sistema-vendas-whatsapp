@@ -1,7 +1,7 @@
 const {authUser,serviceFetch,decrypt}=require('./_mercadopago');
 const PUBLIC_ORIGIN='https://sistema-vendas-whatsapp.vercel.app';
 
-async function createPreference(accessToken,{lot,arremate,payment,payerEmail}){
+async function createPreference(accessToken,{lot,arremate,payment,payerEmail,marketplaceFee=0}){
   const returnUrl=`${PUBLIC_ORIGIN}/?lote=${encodeURIComponent(lot.id)}`;
   const preference={
     items:[{
@@ -17,8 +17,10 @@ async function createPreference(accessToken,{lot,arremate,payment,payerEmail}){
     back_urls:{success:`${returnUrl}&payment=success`,pending:`${returnUrl}&payment=pending`,failure:`${returnUrl}&payment=failure`},
     auto_return:'approved',
     statement_descriptor:'LANCECERTO',
-    metadata:{payment_id:String(payment.id),arremate_id:String(arremate.id),lot_id:String(lot.id),company_id:String(arremate.company_id)}
+    metadata:{payment_id:String(payment.id),arremate_id:String(arremate.id),lot_id:String(lot.id),company_id:String(arremate.company_id),platform_fee_amount:Number(marketplaceFee||0)}
   };
+  if(Number(marketplaceFee)>0) preference.marketplace_fee=Number(marketplaceFee);
+
   const r=await fetch('https://api.mercadopago.com/checkout/preferences',{
     method:'POST',
     headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
@@ -59,8 +61,13 @@ module.exports=async(req,res)=>{
     const participant=Array.isArray(participants)?participants[0]:null;
     if(!participant||participant.id!==arremate.participant_id)return res.status(403).json({error:'Somente o arrematante pode escolher a forma de pagamento.'});
 
+    const companies=await serviceFetch(`/rest/v1/companies?id=eq.${encodeURIComponent(arremate.company_id)}&select=plan,platform_fee_type,platform_fee_value&limit=1`);
+    const company=Array.isArray(companies)?companies[0]:null;
     const amount=Number(arremate.total_amount||arremate.winning_bid||0);
-    const payload={company_id:arremate.company_id,arremate_id:arremate.id,provider:'mercado_pago',method,status:'pending',amount,updated_at:new Date().toISOString()};
+    const feePercent=company?.platform_fee_type==='percentage'?Number(company.platform_fee_value||0):0;
+    const marketplaceFee=feePercent>0?Number((amount*feePercent/100).toFixed(2)):0;
+
+    const payload={company_id:arremate.company_id,arremate_id:arremate.id,provider:'mercado_pago',method,status:'pending',amount,platform_fee_amount:marketplaceFee,platform_fee_percent:feePercent,updated_at:new Date().toISOString()};
     const savedRows=await serviceFetch('/rest/v1/payments?on_conflict=arremate_id',{
       method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)
     });
@@ -73,12 +80,12 @@ module.exports=async(req,res)=>{
     }
 
     const accessToken=decrypt(connection.access_token_encrypted);
-    const preference=await createPreference(accessToken,{lot,arremate,payment,payerEmail:participant.email||user.email});
+    const preference=await createPreference(accessToken,{lot,arremate,payment,payerEmail:participant.email||user.email,marketplaceFee});
     const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{
       method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({checkout_url:preference.init_point,provider_payment_id:String(preference.id||''),updated_at:new Date().toISOString()})
     });
     payment=Array.isArray(updated)?updated[0]:payment;
-    return res.status(200).json({payment,onlineReady:true,checkoutUrl:preference.init_point,message:'Checkout Mercado Pago gerado com sucesso.'});
+    return res.status(200).json({payment,onlineReady:true,checkoutUrl:preference.init_point,marketplaceFee,feePercent,message:marketplaceFee>0?`Checkout gerado com comissão LanceCerto de ${feePercent}%.`:'Checkout Mercado Pago gerado com sucesso.'});
   }catch(error){
     console.error('select-payment-method',error);
     return res.status(500).json({error:error.message||'Não foi possível preparar o pagamento.'});
