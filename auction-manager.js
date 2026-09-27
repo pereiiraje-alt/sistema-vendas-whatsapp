@@ -181,6 +181,6 @@
   }
 
   const expiryScript=document.createElement('script');
-  expiryScript.src='auction-expiry-ui.js?v=20260927-1';
+  expiryScript.src='auction-expiry-ui.js?v=20260927-2';
   document.body.appendChild(expiryScript);
 })();
