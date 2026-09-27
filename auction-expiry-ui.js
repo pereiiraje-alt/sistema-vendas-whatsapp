@@ -3,6 +3,7 @@
 
   const finalizedLots=new Set();
   let closingAuction=false;
+  let painting=false;
 
   function isEnded(lot){
     if(!lot?.ends)return false;
@@ -29,7 +30,7 @@
   }
 
   async function closeAuctionIfFinished(){
-    if(closingAuction||typeof currentAuction==='undefined'||!currentAuction?.id||typeof lots==='undefined')return;
+    if(closingAuction||typeof currentAuction==='undefined'||!currentAuction?.id||currentAuction.status==='ended'||typeof lots==='undefined')return;
     const auctionLots=lots.filter(l=>l.auctionId===currentAuction.id);
     if(!auctionLots.length||!auctionLots.every(isEnded))return;
 
@@ -50,38 +51,42 @@
   }
 
   function paintEndedCards(){
-    if(typeof lots==='undefined')return;
+    if(painting||typeof lots==='undefined')return;
+    painting=true;
+    try{
+      document.querySelectorAll('.product').forEach(card=>{
+        const timer=card.querySelector('.timer[data-end]');
+        if(!timer)return;
+        const endMs=new Date(timer.dataset.end).getTime();
+        if(!Number.isFinite(endMs)||Date.now()<endMs)return;
 
-    document.querySelectorAll('.product').forEach(card=>{
-      const timer=card.querySelector('.timer[data-end]');
-      if(!timer)return;
-      const endMs=new Date(timer.dataset.end).getTime();
-      if(!Number.isFinite(endMs)||Date.now()<endMs)return;
+        if(timer.textContent!=='ENCERRADO')timer.textContent='ENCERRADO';
+        timer.classList.add('auction-ended-timer');
 
-      timer.textContent='ENCERRADO';
-      timer.classList.add('auction-ended-timer');
-
-      const action=card.querySelector('button.primary.full');
-      if(action){
-        action.textContent='Ver resultado';
-        action.classList.add('auction-result-button');
-        const match=String(action.getAttribute('onclick')||'').match(/openLot\(['\"]([^'\"]+)/);
-        if(match){
-          const lot=lots.find(l=>String(l.id)===match[1]);
-          if(lot)finalizeLot(lot);
+        const action=card.querySelector('button.primary.full');
+        if(action){
+          if(action.textContent!=='Ver resultado')action.textContent='Ver resultado';
+          action.classList.add('auction-result-button');
+          const match=String(action.getAttribute('onclick')||'').match(/openLot\(['\"]([^'\"]+)/);
+          if(match){
+            const lot=lots.find(l=>String(l.id)===match[1]);
+            if(lot)finalizeLot(lot);
+          }
         }
+      });
+
+      const auctionLots=currentAuction?.id?lots.filter(l=>l.auctionId===currentAuction.id):[];
+      const allEnded=auctionLots.length>0&&auctionLots.every(isEnded);
+      const label=document.querySelector('.auction-head .live');
+      if(label&&allEnded){
+        if(label.textContent!=='● ENCERRADO')label.textContent='● ENCERRADO';
+        label.classList.add('auction-ended-label');
       }
-    });
 
-    const auctionLots=currentAuction?.id?lots.filter(l=>l.auctionId===currentAuction.id):[];
-    const allEnded=auctionLots.length>0&&auctionLots.every(isEnded);
-    const label=document.querySelector('.auction-head .live');
-    if(label&&allEnded){
-      label.textContent='● ENCERRADO';
-      label.classList.add('auction-ended-label');
+      if(allEnded)closeAuctionIfFinished();
+    }finally{
+      painting=false;
     }
-
-    if(allEnded)closeAuctionIfFinished();
   }
 
   if(!document.getElementById('auction-expiry-style')){
@@ -95,8 +100,9 @@
     document.head.appendChild(style);
   }
 
-  const observer=new MutationObserver(paintEndedCards);
-  observer.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
+  // Atualização controlada. Evita MutationObserver recursivo, que travava a página
+  // ao alterar o próprio texto do cronômetro e disparar novas mutações sem parar.
   setInterval(paintEndedCards,1000);
-  setTimeout(paintEndedCards,250);
+  setTimeout(paintEndedCards,100);
+  setTimeout(paintEndedCards,500);
 })();
