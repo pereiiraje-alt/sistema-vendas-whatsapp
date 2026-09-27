@@ -1,4 +1,4 @@
-const {authUser,serviceFetch}=require('./_mercadopago');
+const {authUser,serviceFetch}=require('../lib/mercadopago');
 
 async function assertPlatformAdmin(token){
   const user=await authUser(token);
