@@ -1,0 +1,1 @@
+Forçar nova implantação do Vercel para publicar a opção Meu plano no menu do cliente.
