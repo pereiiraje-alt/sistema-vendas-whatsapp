@@ -18,6 +18,8 @@
   const moneyBRL=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const percentBR=value=>Number(value||0).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
   const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const planMenuButton=document.querySelector('#nav button[data-page="taxas"]');
+  if(planMenuButton)planMenuButton.textContent='💰 Meu plano';
 
   async function planDetails(){
     try{
