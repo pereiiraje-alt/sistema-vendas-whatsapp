@@ -1,4 +1,4 @@
-const {authUser,serviceFetch}=require('./_mercadopago');
+const {authUser,serviceFetch,membershipForUser}=require('./_mercadopago');
 
 const PUBLIC_ORIGIN='https://sistema-vendas-whatsapp.vercel.app';
 
@@ -20,8 +20,7 @@ async function mpRequest(path,opts={}){
 
 async function contextFor(token){
   const user=await authUser(token);
-  const memberships=await serviceFetch(`/rest/v1/company_members?user_id=eq.${encodeURIComponent(user.id)}&select=company_id,role&limit=1`);
-  const membership=Array.isArray(memberships)?memberships[0]:null;
+  const membership=await membershipForUser(user.id,token);
   if(!membership?.company_id) throw new Error('Sua conta ainda não está vinculada a uma empresa.');
   const companies=await serviceFetch(`/rest/v1/companies?id=eq.${encodeURIComponent(membership.company_id)}&select=id,name,email,plan,subscription_status,active,platform_fee_type,platform_fee_value&limit=1`);
   const company=Array.isArray(companies)?companies[0]:null;
