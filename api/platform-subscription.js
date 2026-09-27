@@ -1,4 +1,4 @@
-const {authUser,serviceFetch,membershipForUser}=require('./_mercadopago');
+const {authUser,serviceFetch,membershipForUser}=require('../lib/mercadopago');
 
 const PUBLIC_ORIGIN='https://sistema-vendas-whatsapp.vercel.app';
 
