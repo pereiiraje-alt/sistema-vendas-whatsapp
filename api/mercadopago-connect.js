@@ -1,4 +1,4 @@
-const {env,authUser,membershipForUser,makeState,REDIRECT_URI}=require('./_mercadopago');
+const {env,authUser,membershipForUser,makeState,REDIRECT_URI}=require('../lib/mercadopago');
 
 module.exports=async(req,res)=>{
   if(req.method!=='POST'){
