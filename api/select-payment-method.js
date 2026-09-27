@@ -30,7 +30,7 @@ async function createPreference(accessToken,{lot,arremate,payment,payerEmail,mar
     items:[{
       id:String(lot.id),
       title:`Lote #${lot.lot_number} - ${lot.title}`,
-      description:'Pagamento de lote arrematado no LanceCerto',
+      description:'Pagamento de lote arrematado na JP Leilões',
       quantity:1,
       currency_id:'BRL',
       unit_price:Number(payment.amount)
@@ -40,7 +40,7 @@ async function createPreference(accessToken,{lot,arremate,payment,payerEmail,mar
     back_urls:{success:`${returnUrl}&payment=success`,pending:`${returnUrl}&payment=pending`,failure:`${returnUrl}&payment=failure`},
     notification_url:`${PUBLIC_ORIGIN}/api/mercadopago-webhook?company_id=${encodeURIComponent(arremate.company_id)}`,
     auto_return:'approved',
-    statement_descriptor:'LANCECERTO',
+    statement_descriptor:'JPLEILOES',
     payment_methods:paymentMethodRules(method),
     metadata:{payment_id:String(payment.id),arremate_id:String(arremate.id),lot_id:String(lot.id),company_id:String(arremate.company_id),platform_fee_amount:Number(marketplaceFee||0),selected_method:method}
   };
@@ -110,7 +110,7 @@ module.exports=async(req,res)=>{
       method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({checkout_url:preference.init_point,provider_payment_id:String(preference.id||''),updated_at:new Date().toISOString()})
     });
     payment=Array.isArray(updated)?updated[0]:payment;
-    return res.status(200).json({payment,onlineReady:true,checkoutUrl:preference.init_point,marketplaceFee,feePercent,method,message:marketplaceFee>0?`Checkout gerado com comissão LanceCerto de ${feePercent}%.`:'Checkout Mercado Pago gerado com sucesso.'});
+    return res.status(200).json({payment,onlineReady:true,checkoutUrl:preference.init_point,marketplaceFee,feePercent,method,message:marketplaceFee>0?`Checkout gerado com comissão JP Leilões de ${feePercent}%.`:'Checkout Mercado Pago gerado com sucesso.'});
   }catch(error){
     console.error('select-payment-method',error);
     return res.status(500).json({error:error.message||'Não foi possível preparar o pagamento.'});
