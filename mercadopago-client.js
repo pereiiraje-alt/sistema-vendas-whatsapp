@@ -15,27 +15,74 @@
     return data;
   }
 
+  const moneyBRL=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const percentBR=value=>Number(value||0).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
+
+  async function planDetails(){
+    try{
+      if(typeof currentCompany==='undefined'||!currentCompany?.plan)return null;
+      const {data,error}=await db.from('platform_plans')
+        .select('code,name,price,charge_type,percentage,billing_period,description')
+        .eq('code',currentCompany.plan)
+        .limit(1)
+        .maybeSingle();
+      if(error)throw error;
+      return data||null;
+    }catch(e){
+      console.warn('Plano do cliente:',e);
+      return null;
+    }
+  }
+
+  async function renderFeeExplanation(host){
+    if(document.getElementById('clientFeePanel'))return;
+    const plan=await planDetails();
+    if(!plan)return;
+
+    const percentagePlan=plan.charge_type==='percentage';
+    const platformFee=Number(plan.percentage||currentCompany?.platform_fee_value||0);
+    const monthlyPrice=Number(plan.price||0);
+
+    const body=percentagePlan
+      ? `<div class="row"><span>Taxa da plataforma</span><b>${percentBR(platformFee)} por venda paga</b></div>
+         <div class="row"><span>Tarifa do Mercado Pago</span><b>Variável conforme PIX, cartão e prazo</b></div>
+         <div class="row"><span>Como é descontado</span><b>${percentBR(platformFee)} + tarifa do Mercado Pago</b></div>
+         <p class="muted" style="margin-top:12px">A taxa de ${percentBR(platformFee)} pertence à plataforma. A tarifa do Mercado Pago é uma cobrança separada do próprio meio de pagamento e pode variar conforme a forma de pagamento, parcelamento e prazo de recebimento. O percentual exato do Mercado Pago é exibido nas condições da conta e da transação.</p>`
+      : plan.billing_period==='monthly'&&monthlyPrice>0
+        ? `<div class="row"><span>Plano da plataforma</span><b>${moneyBRL(monthlyPrice)} por mês</b></div>
+           <div class="row"><span>Comissão sobre vendas</span><b>0%</b></div>
+           <div class="row"><span>Tarifa do Mercado Pago</span><b>Descontada da cobrança mensal</b></div>
+           <p class="muted" style="margin-top:12px">Neste plano não há comissão percentual da plataforma sobre as vendas. A mensalidade é de ${moneyBRL(monthlyPrice)} e o Mercado Pago desconta a tarifa de processamento da própria cobrança da assinatura, conforme as condições da conta.</p>`
+        : `<div class="row"><span>Taxa da plataforma</span><b>0%</b></div><div class="row"><span>Plano</span><b>Cortesia</b></div>`;
+
+    host.insertAdjacentHTML('beforeend',`<div class="panel" id="clientFeePanel"><h3>Seu plano e taxas</h3><p class="muted">Veja claramente o que pertence à plataforma e o que é cobrado pelo Mercado Pago.</p>${body}</div>`);
+  }
+
   async function renderMpPanel(){
     if(!document.querySelector('[data-page="config"]')?.classList.contains('active'))return;
-    if(document.getElementById('mpConnectionPanel'))return;
     const host=document.getElementById('app');
     if(!host)return;
-    host.insertAdjacentHTML('beforeend',`<div class="panel" id="mpConnectionPanel"><h3>Mercado Pago</h3><p class="muted">Conecte a conta Mercado Pago da empresa para receber pagamentos dos lotes arrematados.</p><div id="mpConnectionStatus" class="row"><span>Status</span><b class="badge">Consultando...</b></div><div style="margin-top:14px"><button class="primary" id="mpConnectButton" type="button">Conectar Mercado Pago</button></div><p class="muted" style="margin-top:10px">O pagamento será processado diretamente na conta Mercado Pago desta empresa.</p></div>`);
-    const status=document.getElementById('mpConnectionStatus');
-    const button=document.getElementById('mpConnectButton');
-    try{
-      const data=await mpStatus();
-      if(data.connected){
-        status.innerHTML='<span>Status</span><b class="badge">Conectado ✓</b>';
-        button.textContent='Reconectar Mercado Pago';
-      }else{
-        status.innerHTML='<span>Status</span><b class="badge">Não conectado</b>';
+
+    if(!document.getElementById('mpConnectionPanel')){
+      host.insertAdjacentHTML('beforeend',`<div class="panel" id="mpConnectionPanel"><h3>Mercado Pago</h3><p class="muted">Conecte a conta Mercado Pago da empresa para receber pagamentos dos lotes arrematados.</p><div id="mpConnectionStatus" class="row"><span>Status</span><b class="badge">Consultando...</b></div><div style="margin-top:14px"><button class="primary" id="mpConnectButton" type="button">Conectar Mercado Pago</button></div><p class="muted" style="margin-top:10px">O pagamento será processado diretamente na conta Mercado Pago desta empresa.</p></div>`);
+      const status=document.getElementById('mpConnectionStatus');
+      const button=document.getElementById('mpConnectButton');
+      try{
+        const data=await mpStatus();
+        if(data.connected){
+          status.innerHTML='<span>Status</span><b class="badge">Conectado ✓</b>';
+          button.textContent='Reconectar Mercado Pago';
+        }else{
+          status.innerHTML='<span>Status</span><b class="badge">Não conectado</b>';
+        }
+        button.disabled=!data.canConnect;
+        if(!data.canConnect)button.textContent='Somente proprietário/gerente pode conectar';
+      }catch(e){
+        status.innerHTML=`<span>Status</span><b class="badge">${String(e.message||'Erro')}</b>`;
       }
-      button.disabled=!data.canConnect;
-      if(!data.canConnect)button.textContent='Somente proprietário/gerente pode conectar';
-    }catch(e){
-      status.innerHTML=`<span>Status</span><b class="badge">${String(e.message||'Erro')}</b>`;
     }
+
+    await renderFeeExplanation(host);
   }
 
   window.connectMercadoPago=async function(){
