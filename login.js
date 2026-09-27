@@ -52,7 +52,7 @@ async function billingGate(session){
     if(info.allowed)return true;
   }
   if(info.checkoutUrl){
-    showMessage(`Plano mensal de ${Number(info.amount||99.90).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}. Abrindo pagamento seguro no Mercado Pago...`);
+    showMessage(`Plano mensal de ${Number(info.amount||129.90).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}. Abrindo pagamento seguro no Mercado Pago...`);
     location.replace(info.checkoutUrl);
     return false;
   }
@@ -76,7 +76,7 @@ async function routeUser(user,session=null){
   if(data.session){if(params.get('subscription')==='return')showMessage('Verificando sua assinatura no Mercado Pago...');await routeUser(data.session.user,data.session)}
 }catch(e){showError(e.message||'Não foi possível verificar sua conta.')}})();
 
-form.addEventListener('submit',async e=>{e.preventDefault();errorEl.hidden=true;hideResend();button.disabled=true;button.textContent='Entrando...';try{const{data,error}=await authDb.auth.signInWithPassword({email:emailEl.value.trim().toLowerCase(),password:passwordEl.value});if(error)throw error;if(!data.session)throw new Error('Não foi possível iniciar a sessão.');await routeUser(data.session.user,data.session)}catch(e){let msg=e.message||'Não foi possível entrar.';if(/invalid login credentials/i.test(msg))msg='E-mail ou senha incorretos.';if(/email not confirmed/i.test(msg)){msg='Seu e-mail ainda não foi confirmado. Abra a mensagem enviada pelo LanceCerto e clique em Confirmar cadastro.';showResend(emailEl.value)}showError(msg);button.disabled=false;button.textContent='Entrar'}});
+form.addEventListener('submit',async e=>{e.preventDefault();errorEl.hidden=true;hideResend();button.disabled=true;button.textContent='Entrando...';try{const{data,error}=await authDb.auth.signInWithPassword({email:emailEl.value.trim().toLowerCase(),password:passwordEl.value});if(error)throw error;if(!data.session)throw new Error('Não foi possível iniciar a sessão.');await routeUser(data.session.user,data.session)}catch(e){let msg=e.message||'Não foi possível entrar.';if(/invalid login credentials/i.test(msg))msg='E-mail ou senha incorretos.';if(/email not confirmed/i.test(msg)){msg='Seu e-mail ainda não foi confirmado. Abra a mensagem enviada pela JP Leilões e clique em Confirmar cadastro.';showResend(emailEl.value)}showError(msg);button.disabled=false;button.textContent='Entrar'}});
 
 document.querySelector('#forgotButton').addEventListener('click',async()=>{const email=emailEl.value.trim().toLowerCase();if(!email)return showError('Digite seu e-mail acima para recuperar a senha.');try{const{error}=await authDb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/login.html'});if(error)throw error;showMessage('Enviamos as instruções de recuperação para o seu e-mail.')}catch(e){showError(e.message||'Não foi possível enviar a recuperação de senha.')}});
 
@@ -113,7 +113,7 @@ signupForm.addEventListener('submit',async e=>{
     const{data,error}=await authDb.auth.signUp({email,password,options:{emailRedirectTo,data:{account_type:'company_owner',company_name:company,responsible_name:responsible,document:document.querySelector('#signupDocument').value.trim(),phone:document.querySelector('#signupPhone').value.trim(),plan}}});
     if(error)throw error;
     if(data.session){
-      signupOk(plan==='profissional'?'Conta criada. Abrindo a assinatura de R$ 99,90/mês...':'Conta criada com sucesso. Entrando...');
+      signupOk(plan==='profissional'?'Conta criada. Abrindo a assinatura mensal...':'Conta criada com sucesso. Entrando...');
       await routeUser(data.user,data.session);
     }else{
       pendingConfirmationEmail=email;
