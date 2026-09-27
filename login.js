@@ -4,10 +4,44 @@ const authDb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persi
 const form=document.querySelector('#loginForm'),emailEl=document.querySelector('#loginEmail'),passwordEl=document.querySelector('#loginPassword'),button=document.querySelector('#loginButton'),errorEl=document.querySelector('#loginError'),messageEl=document.querySelector('#loginMessage');
 function showError(text){errorEl.textContent=text;errorEl.hidden=false;messageEl.hidden=true}
 function showMessage(text){messageEl.textContent=text;messageEl.hidden=false;errorEl.hidden=true}
-async function routeUser(user){if(!user)return;const{data,error}=await authDb.from('company_members').select('role').eq('user_id',user.id).eq('role','platform_admin').limit(1).maybeSingle();if(error)throw error;location.replace(data?'admin.html':'./')}
-(async()=>{try{const{data}=await authDb.auth.getSession();if(data.session)await routeUser(data.session.user)}catch(e){console.error(e)}})();
-form.addEventListener('submit',async e=>{e.preventDefault();errorEl.hidden=true;button.disabled=true;button.textContent='Entrando...';try{const{data,error}=await authDb.auth.signInWithPassword({email:emailEl.value.trim().toLowerCase(),password:passwordEl.value});if(error)throw error;if(!data.session)throw new Error('Não foi possível iniciar a sessão.');await routeUser(data.session.user)}catch(e){let msg=e.message||'Não foi possível entrar.';if(/invalid login credentials/i.test(msg))msg='E-mail ou senha incorretos.';if(/email not confirmed/i.test(msg))msg='Confirme seu e-mail antes de entrar.';showError(msg);button.disabled=false;button.textContent='Entrar'}});
+
+async function billingGate(session){
+  if(!session?.access_token)return true;
+  const headers={Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'};
+  let response=await fetch('/api/platform-subscription',{headers});
+  let info=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(info.error||'Não foi possível verificar a assinatura.');
+  if(info.allowed)return true;
+  if(info.needsSubscription||!info.checkoutUrl){
+    response=await fetch('/api/platform-subscription',{method:'POST',headers,body:'{}'});
+    info=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(info.error||'Não foi possível iniciar a assinatura.');
+    if(info.allowed)return true;
+  }
+  if(info.checkoutUrl){
+    showMessage(`Plano mensal de ${Number(info.amount||99.90).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}. Abrindo pagamento seguro no Mercado Pago...`);
+    location.replace(info.checkoutUrl);
+    return false;
+  }
+  throw new Error('Sua assinatura mensal ainda precisa ser concluída.');
+}
+
+async function routeUser(user,session=null){
+  if(!user)return;
+  const{data,error}=await authDb.from('company_members').select('role').eq('user_id',user.id).eq('role','platform_admin').limit(1).maybeSingle();
+  if(error)throw error;
+  if(data){location.replace('admin.html');return}
+  if(!session){const s=await authDb.auth.getSession();session=s?.data?.session}
+  const allowed=await billingGate(session);
+  if(allowed)location.replace('./');
+}
+
+(async()=>{try{const{data}=await authDb.auth.getSession();if(data.session){if(new URLSearchParams(location.search).get('subscription')==='return')showMessage('Verificando sua assinatura no Mercado Pago...');await routeUser(data.session.user,data.session)}}catch(e){showError(e.message||'Não foi possível verificar sua conta.')}})();
+
+form.addEventListener('submit',async e=>{e.preventDefault();errorEl.hidden=true;button.disabled=true;button.textContent='Entrando...';try{const{data,error}=await authDb.auth.signInWithPassword({email:emailEl.value.trim().toLowerCase(),password:passwordEl.value});if(error)throw error;if(!data.session)throw new Error('Não foi possível iniciar a sessão.');await routeUser(data.session.user,data.session)}catch(e){let msg=e.message||'Não foi possível entrar.';if(/invalid login credentials/i.test(msg))msg='E-mail ou senha incorretos.';if(/email not confirmed/i.test(msg))msg='Confirme seu e-mail antes de entrar.';showError(msg);button.disabled=false;button.textContent='Entrar'}});
+
 document.querySelector('#forgotButton').addEventListener('click',async()=>{const email=emailEl.value.trim().toLowerCase();if(!email)return showError('Digite seu e-mail acima para recuperar a senha.');try{const{error}=await authDb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/login.html'});if(error)throw error;showMessage('Enviamos as instruções de recuperação para o seu e-mail.')}catch(e){showError(e.message||'Não foi possível enviar a recuperação de senha.')}});
+
 const loginView=document.querySelector('#loginView'),signupView=document.querySelector('#signupView'),showLogin=document.querySelector('#showLogin'),showSignup=document.querySelector('#showSignup');
 function setAuthView(view){const signup=view==='signup';loginView.hidden=signup;signupView.hidden=!signup;showLogin.classList.toggle('active',!signup);showSignup.classList.toggle('active',signup);if(signup)loadPlans()}
 showLogin.onclick=()=>setAuthView('login');showSignup.onclick=()=>setAuthView('signup');
@@ -17,5 +51,37 @@ function signupOk(text){signupMessage.textContent=text;signupMessage.hidden=fals
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function formatPercentage(v){return Number(v||0).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%'}
 let plansLoaded=false;
-async function loadPlans(){if(plansLoaded)return;const{data,error}=await authDb.from('platform_plans').select('code,name,price,charge_type,percentage,billing_period,description').eq('active',true).order('sort_order');if(error){planCards.innerHTML='<span class="login-error">Não foi possível carregar os planos.</span>';return}plansLoaded=true;planCards.innerHTML=(data||[]).map((p,i)=>{const percentagePlan=p.charge_type==='percentage';const priceText=percentagePlan?formatPercentage(p.percentage):Number(p.price)===0?'Grátis':money(p.price);const periodText=percentagePlan?'por venda':p.billing_period==='monthly'&&Number(p.price)>0?'por mês':p.billing_period==='yearly'&&Number(p.price)>0?'por ano':'sem cobrança';return `<button type="button" class="plan-card${i===0?' selected':''}" data-plan="${p.code}"><strong>${p.name}</strong><span class="plan-price">${priceText}</span><small>${periodText}</small><p>${p.description||''}</p><b>${i===0?'Selecionado':'Escolher plano'}</b></button>`}).join('');const first=data?.[0];if(first)signupPlan.value=first.code;planCards.querySelectorAll('.plan-card').forEach(card=>card.onclick=()=>{signupPlan.value=card.dataset.plan;planCards.querySelectorAll('.plan-card').forEach(x=>{x.classList.toggle('selected',x===card);x.querySelector('b').textContent=x===card?'Selecionado':'Escolher plano'})})}
-signupForm.addEventListener('submit',async e=>{e.preventDefault();signupError.hidden=true;signupMessage.hidden=true;const password=document.querySelector('#signupPassword').value,password2=document.querySelector('#signupPassword2').value;if(password!==password2)return signupFail('As senhas não conferem.');if(password.length<6)return signupFail('A senha deve ter pelo menos 6 caracteres.');const email=document.querySelector('#signupEmail').value.trim().toLowerCase(),company=document.querySelector('#signupCompany').value.trim(),responsible=document.querySelector('#signupResponsible').value.trim(),plan=signupPlan.value;if(!plan)return signupFail('Escolha um plano.');if(!email||!company||!responsible)return signupFail('Preencha empresa, responsável e e-mail.');signupButton.disabled=true;signupButton.textContent='Criando conta...';try{const emailRedirectTo=location.origin+'/login.html';const{data,error}=await authDb.auth.signUp({email,password,options:{emailRedirectTo,data:{account_type:'company_owner',company_name:company,responsible_name:responsible,document:document.querySelector('#signupDocument').value.trim(),phone:document.querySelector('#signupPhone').value.trim(),plan}}});if(error)throw error;if(data.session){signupOk('Conta criada com sucesso. Entrando...');setTimeout(()=>routeUser(data.user),700)}else{signupOk('Conta criada! Confira seu e-mail para confirmar o cadastro e depois faça o login.');signupForm.reset();signupPlan.value=plan;signupButton.disabled=false;signupButton.textContent='Criar minha conta'}}catch(e){let msg=e.message||'Não foi possível criar sua conta.';if(/already registered|already been registered|user already/i.test(msg))msg='Este e-mail já possui cadastro. Use a opção Entrar.';signupFail(msg);signupButton.disabled=false;signupButton.textContent='Criar minha conta'}});
+async function loadPlans(){
+  if(plansLoaded)return;
+  const{data,error}=await authDb.from('platform_plans').select('code,name,price,charge_type,percentage,billing_period,description,admin_only').eq('active',true).eq('admin_only',false).order('sort_order');
+  if(error){planCards.innerHTML='<span class="login-error">Não foi possível carregar os planos.</span>';return}
+  plansLoaded=true;
+  planCards.innerHTML=(data||[]).map((p,i)=>{const percentagePlan=p.charge_type==='percentage';const priceText=percentagePlan?formatPercentage(p.percentage):money(p.price);const periodText=percentagePlan?'por venda':p.billing_period==='monthly'?'por mês':'sem cobrança';return `<button type="button" class="plan-card${i===0?' selected':''}" data-plan="${p.code}"><strong>${p.name}</strong><span class="plan-price">${priceText}</span><small>${periodText}</small><p>${p.description||''}</p><b>${i===0?'Selecionado':'Escolher plano'}</b></button>`}).join('');
+  const first=data?.[0];if(first)signupPlan.value=first.code;
+  planCards.querySelectorAll('.plan-card').forEach(card=>card.onclick=()=>{signupPlan.value=card.dataset.plan;planCards.querySelectorAll('.plan-card').forEach(x=>{x.classList.toggle('selected',x===card);x.querySelector('b').textContent=x===card?'Selecionado':'Escolher plano'})});
+}
+
+signupForm.addEventListener('submit',async e=>{
+  e.preventDefault();signupError.hidden=true;signupMessage.hidden=true;
+  const password=document.querySelector('#signupPassword').value,password2=document.querySelector('#signupPassword2').value;
+  if(password!==password2)return signupFail('As senhas não conferem.');
+  if(password.length<6)return signupFail('A senha deve ter pelo menos 6 caracteres.');
+  const email=document.querySelector('#signupEmail').value.trim().toLowerCase(),company=document.querySelector('#signupCompany').value.trim(),responsible=document.querySelector('#signupResponsible').value.trim(),plan=signupPlan.value;
+  if(!plan)return signupFail('Escolha um plano.');
+  if(!email||!company||!responsible)return signupFail('Preencha empresa, responsável e e-mail.');
+  signupButton.disabled=true;signupButton.textContent='Criando conta...';
+  try{
+    const emailRedirectTo=location.origin+'/login.html';
+    const{data,error}=await authDb.auth.signUp({email,password,options:{emailRedirectTo,data:{account_type:'company_owner',company_name:company,responsible_name:responsible,document:document.querySelector('#signupDocument').value.trim(),phone:document.querySelector('#signupPhone').value.trim(),plan}}});
+    if(error)throw error;
+    if(data.session){
+      signupOk(plan==='profissional'?'Conta criada. Abrindo a assinatura de R$ 99,90/mês...':'Conta criada com sucesso. Entrando...');
+      await routeUser(data.user,data.session);
+    }else{
+      signupOk('Conta criada! Faça o login para continuar.');signupForm.reset();signupPlan.value=plan;signupButton.disabled=false;signupButton.textContent='Criar minha conta';
+    }
+  }catch(e){
+    let msg=e.message||'Não foi possível criar sua conta.';if(/already registered|already been registered|user already/i.test(msg))msg='Este e-mail já possui cadastro. Use a opção Entrar.';
+    signupFail(msg);signupButton.disabled=false;signupButton.textContent='Criar minha conta';
+  }
+});
