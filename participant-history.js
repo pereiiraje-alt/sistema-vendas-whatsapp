@@ -62,28 +62,19 @@
     try{
       await reconcilePayments();
 
-      const {data:bids,error:bidsError}=await timeout(
-        db.from('bids')
-          .select('participant_id,lot_id,amount,created_at')
-          .eq('company_id',currentCompany.id)
-          .order('created_at',{ascending:false}),
-        9000,
-        'carregar histórico de lances'
-      );
-      if(bidsError)throw bidsError;
-
-      const participantIds=[...new Set((bids||[]).map(x=>x.participant_id).filter(Boolean))];
-      if(!participantIds.length){
-        app.innerHTML='<div class="panel"><h3>Histórico de participantes</h3><p class="muted">Ainda não há participantes que deram lances.</p></div>';
-        return;
-      }
-
-      const [{data:participants,error:participantsError},{data:wins,error:winsError}]=await Promise.all([
-        timeout(db.from('participants').select('id,full_name,phone,email,created_at').in('id',participantIds),9000,'carregar participantes'),
-        timeout(db.from('arremates').select('id,participant_id,total_amount,winning_bid,created_at').eq('company_id',currentCompany.id).in('participant_id',participantIds),9000,'carregar arremates')
+      const [{data:participants,error:participantsError},{data:bids,error:bidsError},{data:wins,error:winsError}]=await Promise.all([
+        timeout(db.from('participants').select('id,full_name,phone,email,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),9000,'carregar participantes'),
+        timeout(db.from('bids').select('participant_id,lot_id,amount,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),9000,'carregar histórico de lances'),
+        timeout(db.from('arremates').select('id,participant_id,total_amount,winning_bid,created_at').eq('company_id',currentCompany.id),9000,'carregar arremates')
       ]);
       if(participantsError)throw participantsError;
+      if(bidsError)throw bidsError;
       if(winsError)throw winsError;
+
+      if(!participants?.length){
+        app.innerHTML='<div class="panel"><h3>Histórico de participantes</h3><p class="muted">Ainda não há participantes cadastrados nesta empresa.</p></div>';
+        return;
+      }
 
       const arremateIds=(wins||[]).map(x=>x.id).filter(Boolean);
       let payments=[];
@@ -98,13 +89,11 @@
       }
 
       const paymentMap=new Map(payments.map(x=>[x.arremate_id,x]));
-      const participantMap=new Map((participants||[]).map(x=>[x.id,x]));
       const rows=new Map();
 
-      for(const id of participantIds){
-        const p=participantMap.get(id)||{};
-        rows.set(id,{
-          id,
+      for(const p of participants||[]){
+        rows.set(p.id,{
+          id:p.id,
           name:p.full_name||'Participante',
           phone:p.phone||'',
           email:p.email||'',
@@ -112,8 +101,7 @@
           lots:new Set(),
           wins:0,
           spent:0,
-          wonAmount:0,
-          lastActivity:null
+          lastActivity:p.created_at||null
         });
       }
 
@@ -129,26 +117,26 @@
         const row=rows.get(win.participant_id);
         if(!row)continue;
         row.wins+=1;
-        row.wonAmount+=Number(win.total_amount||win.winning_bid||0);
         const payment=paymentMap.get(win.id);
         if(payment?.status==='paid')row.spent+=Number(payment.amount||win.total_amount||win.winning_bid||0);
+        if(!row.lastActivity||new Date(win.created_at)>new Date(row.lastActivity))row.lastActivity=win.created_at;
       }
 
-      const list=[...rows.values()].sort((a,b)=>b.spent-a.spent||b.bids-a.bids);
+      const list=[...rows.values()].sort((a,b)=>b.spent-a.spent||b.bids-a.bids||String(a.name).localeCompare(String(b.name),'pt-BR'));
       const totalSpent=list.reduce((sum,x)=>sum+x.spent,0);
       const totalBids=list.reduce((sum,x)=>sum+x.bids,0);
       const totalWins=list.reduce((sum,x)=>sum+x.wins,0);
 
       app.innerHTML=`
         <div class="history-summary">
-          <div class="card"><small>Participantes</small><h2>${list.length}</h2><span class="up">Já deram lance</span></div>
+          <div class="card"><small>Participantes</small><h2>${list.length}</h2><span class="up">Cadastrados nos leilões</span></div>
           <div class="card"><small>Lances</small><h2>${totalBids}</h2><span class="up">Lances registrados</span></div>
           <div class="card"><small>Arremates</small><h2>${totalWins}</h2><span class="up">Lotes vencidos</span></div>
           <div class="card"><small>Total gasto</small><h2>${currency(totalSpent)}</h2><span class="up">Pagamentos aprovados</span></div>
         </div>
         <div class="panel">
           <h3>Quem já participou</h3>
-          <p class="muted">Lista dos participantes que já deram pelo menos um lance nesta empresa.</p>
+          <p class="muted">Participantes cadastrados, quantidade de lances e quanto cada pessoa já pagou na plataforma.</p>
           <div class="history-table-wrap">
             <table>
               <thead><tr><th>PARTICIPANTE</th><th>TELEFONE</th><th>LOTES PARTICIPADOS</th><th>LANCES</th><th>ARREMATES</th><th>VALOR GASTO</th><th>ÚLTIMA PARTICIPAÇÃO</th></tr></thead>
