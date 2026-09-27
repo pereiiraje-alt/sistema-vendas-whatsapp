@@ -1,6 +1,7 @@
 const crypto=require('crypto');
 
 const SUPABASE_URL='https://dsgnyfnddyxilakjwavu.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_4-pk8-WndWKwy_8plTVTAA_KXUNf-Lr';
 const REDIRECT_URI='https://sistema-vendas-whatsapp.vercel.app/api/mercadopago-callback';
 
 function env(){
@@ -13,13 +14,11 @@ function env(){
 function serviceKey(){
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada.');
+  if(String(key).startsWith('sb_publishable_')) throw new Error('SUPABASE_SERVICE_ROLE_KEY está usando uma chave pública. Configure uma Secret Key (sb_secret_...) ou a service_role do Supabase.');
   return key;
 }
 
-async function serviceFetch(path,opts={}){
-  const key=serviceKey();
-  const headers={apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json',...(opts.headers||{})};
-  const response=await fetch(`${SUPABASE_URL}${path}`,{...opts,headers});
+async function parseResponse(response){
   const text=await response.text();
   let data=null;
   try{data=text?JSON.parse(text):null}catch{data=text}
@@ -27,12 +26,41 @@ async function serviceFetch(path,opts={}){
   return data;
 }
 
-async function authUser(token){
+async function serviceFetch(path,opts={}){
   const key=serviceKey();
-  const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers:{apikey:key,Authorization:`Bearer ${token}`}});
+  const headers={apikey:key,'Content-Type':'application/json',...(opts.headers||{})};
+  // Chaves service_role antigas são JWTs e podem ser usadas como Bearer.
+  // As novas Secret Keys sb_secret_* devem ficar no cabeçalho apikey.
+  if(String(key).split('.').length===3)headers.Authorization=`Bearer ${key}`;
+  const response=await fetch(`${SUPABASE_URL}${path}`,{...opts,headers});
+  return parseResponse(response);
+}
+
+async function userFetch(path,token,opts={}){
+  const headers={apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(opts.headers||{})};
+  const response=await fetch(`${SUPABASE_URL}${path}`,{...opts,headers});
+  return parseResponse(response);
+}
+
+async function authUser(token){
+  const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${token}`}});
   const user=await r.json().catch(()=>null);
   if(!r.ok||!user?.id) throw new Error('Sessão inválida ou expirada.');
   return user;
+}
+
+async function membershipForUser(userId,token){
+  const path=`/rest/v1/company_members?user_id=eq.${encodeURIComponent(userId)}&select=company_id,role&limit=1`;
+  // Primeiro usa a própria sessão do cliente. Isso mantém o mesmo vínculo
+  // que o painel já consegue enxergar no navegador e evita falso "sem empresa".
+  try{
+    const rows=await userFetch(path,token);
+    if(Array.isArray(rows)&&rows[0]?.company_id)return rows[0];
+  }catch(error){
+    console.warn('membership-user-fetch',error.message||error);
+  }
+  const rows=await serviceFetch(path);
+  return Array.isArray(rows)?rows[0]||null:null;
 }
 
 function signingSecret(){return crypto.createHash('sha256').update(env().clientSecret).digest();}
@@ -82,4 +110,4 @@ async function exchangeCode(code){
   return data;
 }
 
-module.exports={SUPABASE_URL,REDIRECT_URI,env,serviceKey,serviceFetch,authUser,makeState,readState,encrypt,decrypt,exchangeCode};
+module.exports={SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,REDIRECT_URI,env,serviceKey,serviceFetch,userFetch,authUser,membershipForUser,makeState,readState,encrypt,decrypt,exchangeCode};
