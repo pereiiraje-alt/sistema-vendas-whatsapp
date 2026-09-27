@@ -5,7 +5,7 @@
   navButton.dataset.page='criarleilao';
   navButton.textContent='＋ Criar leilão';
 
-  const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
   const dateLabel=value=>value?new Date(value).toLocaleString('pt-BR'):'—';
   const statusLabel=value=>({draft:'Rascunho',scheduled:'Agendado',live:'Ao vivo',ended:'Encerrado',cancelled:'Cancelado'}[value]||value||'—');
 
@@ -23,6 +23,12 @@
     return data||[];
   }
 
+  function openLotForm(){
+    if(!currentAuction)return alert('Selecione ou crie um leilão antes de adicionar o lote.');
+    if(window.lotForm)lotForm.reset();
+    modal.showModal();
+  }
+
   async function renderAuctionManager(message=''){
     if(!currentCompany){
       app.innerHTML='<div class="panel"><h3>Criar leilão</h3><p>É necessário estar vinculado a uma empresa.</p></div>';
@@ -37,7 +43,7 @@
     app.innerHTML=`
       <div class="panel">
         <h2>Criar novo leilão</h2>
-        <p class="muted">Cadastre o leilão e depois adicione os lotes que serão vendidos.</p>
+        <p class="muted">Cadastre o leilão. Assim que criar, abriremos automaticamente o cadastro do primeiro lote.</p>
         ${message?`<div class="login-message" style="margin:12px 0">${safe(message)}</div>`:''}
         <form id="auctionCreateForm">
           <label>Nome do leilão<input id="auctionTitle" required placeholder="Ex.: Leilão de eletrônicos"></label>
@@ -53,7 +59,7 @@
               <option value="live">Ao vivo</option>
             </select>
           </label>
-          <div class="actions"><button class="primary" type="submit">Criar leilão</button></div>
+          <div class="actions"><button class="primary" type="submit">Criar leilão e adicionar lote</button></div>
         </form>
       </div>
 
@@ -96,11 +102,12 @@
         const {data,error}=await timeout(db.from('auctions').insert(payload).select().single(),7000,'criar leilão');
         if(error)throw error;
         currentAuction=data;
-        await renderAuctionManager('Leilão criado com sucesso. Agora você pode adicionar os lotes.');
+        await renderAuctionManager('Leilão criado com sucesso. Cadastre agora o primeiro lote.');
+        openLotForm();
       }catch(error){
         alert('Erro ao criar leilão: '+(error.message||error));
         button.disabled=false;
-        button.textContent='Criar leilão';
+        button.textContent='Criar leilão e adicionar lote';
       }
     };
 
@@ -115,11 +122,11 @@
       const auction=auctions.find(a=>a.id===button.dataset.auction);
       if(!auction)return;
       currentAuction=auction;
-      modal.showModal();
+      openLotForm();
     });
 
     const addSelected=document.querySelector('#addLotToSelected');
-    if(addSelected)addSelected.onclick=()=>modal.showModal();
+    if(addSelected)addSelected.onclick=openLotForm;
   }
 
   navButton.onclick=async()=>{
