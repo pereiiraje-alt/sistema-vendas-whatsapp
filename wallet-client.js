@@ -100,7 +100,7 @@
             ? '<a class="primary" href="https://www.mercadopago.com.br/" target="_blank" rel="noopener">Abrir Mercado Pago e sacar</a>'
             : '<button class="primary" type="button" onclick="document.querySelector(\'[data-page=config]\')?.click()">Conectar Mercado Pago</button>'}
         </div>
-        <div class="wallet-note"><b>* Importante:</b> o saldo exibido acima é calculado a partir dos pagamentos aprovados no sistema, descontando a comissão da plataforma. O Mercado Pago pode descontar tarifas próprias e aplicar prazo de liberação; por isso, o valor efetivamente disponível para saque deve ser confirmado na conta Mercado Pago. O LanceCerto não cobra taxa adicional pelo saque.</div>
+        <div class="wallet-note"><b>* Importante:</b> o saldo exibido acima é calculado a partir dos pagamentos aprovados no sistema, descontando a comissão da plataforma. O Mercado Pago pode descontar tarifas próprias e aplicar prazo de liberação; por isso, o valor efetivamente disponível para saque deve ser confirmado na conta Mercado Pago. A JP Leilões não cobra taxa adicional pelo saque.</div>
       </div>
 
       <div class="panel" style="margin-top:16px">
