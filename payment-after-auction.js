@@ -2,6 +2,9 @@
   if(typeof openLot!=='function'||typeof loadPublicLot!=='function')return;
   const baseOpenLot=openLot;
   let lastFinalization=null;
+  let endWatcher=null;
+  let paymentWatcher=null;
+  let syncingReturn=false;
 
   function styleOnce(){
     if(document.getElementById('winner-payment-style'))return;
@@ -19,6 +22,10 @@
       .pay-status{margin-top:12px;padding:10px 12px;border-radius:10px;background:#fff;border:1px solid #d1fae5;font-size:14px}
       .pay-success{color:#166534;font-weight:700}
       .pay-checkout{display:block;text-align:center;margin-top:12px;padding:12px;border-radius:10px;background:#16a34a;color:#fff;text-decoration:none;font-weight:800}
+      .payment-approved{padding:22px 16px;border-radius:14px;background:#dcfce7;text-align:center;border:1px solid #86efac}
+      .payment-approved .check{font-size:52px;line-height:1;margin-bottom:8px}
+      .payment-approved h2{margin:0;color:#166534;font-size:25px}
+      .payment-approved p{margin:8px 0 0;color:#166534}
       @media(max-width:520px){.pay-methods{grid-template-columns:1fr}.winner-pay .pay-total{font-size:24px}}
     `;
     document.head.appendChild(s);
@@ -33,6 +40,60 @@
 
   function methodLabel(m){return m==='pix'?'PIX':m==='card'?'Cartão':''}
 
+  function stopPaymentWatch(){
+    if(paymentWatcher){clearInterval(paymentWatcher);paymentWatcher=null}
+  }
+
+  function stopEndWatch(){
+    if(endWatcher){clearInterval(endWatcher);endWatcher=null}
+  }
+
+  function watchEnd(id,ends){
+    stopEndWatch();
+    if(!ends)return;
+    const endMs=new Date(ends).getTime();
+    if(!Number.isFinite(endMs))return;
+    endWatcher=setInterval(()=>{
+      if(Date.now()>=endMs){
+        stopEndWatch();
+        enhancedOpenLot(id);
+      }
+    },500);
+  }
+
+  async function syncReturnedPayment(id){
+    if(syncingReturn)return;
+    const params=new URLSearchParams(location.search);
+    const returned=params.get('payment');
+    const providerPaymentId=params.get('payment_id')||params.get('collection_id');
+    if(!returned||!providerPaymentId)return;
+    syncingReturn=true;
+    try{
+      const session=await db.auth.getSession();
+      const token=session?.data?.session?.access_token;
+      if(!token)return;
+      await fetch('/api/payment-status',{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+        body:JSON.stringify({lotId:id,providerPaymentId})
+      });
+    }catch(e){console.error('Sincronização do pagamento:',e)}
+    finally{syncingReturn=false}
+  }
+
+  function watchPaymentApproval(id){
+    stopPaymentWatch();
+    paymentWatcher=setInterval(async()=>{
+      try{
+        const data=await finalize(id);
+        if(data?.payment?.status==='paid'){
+          stopPaymentWatch();
+          await enhancedOpenLot(id,true);
+        }
+      }catch(e){console.error('Verificação do pagamento:',e)}
+    },3000);
+  }
+
   function renderWinnerPayment(box,id,data){
     const a=data.arremate;
     const payment=data.payment;
@@ -41,10 +102,17 @@
     const selected=['pix','card'].includes(payment?.method)?payment.method:'';
     box.insertAdjacentHTML('beforeend',`
       <div class="winner-pay" id="winnerPayment">
-        <h3>🏆 Parabéns, você arrematou!</h3>
-        <div>Valor do lote:</div>
-        <div class="pay-total">${money(amount)}</div>
-        ${paid?`<div class="pay-status pay-success">✓ Pagamento aprovado</div>`:`
+        ${paid?`
+          <div class="payment-approved">
+            <div class="check">✅</div>
+            <h2>Pagamento aprovado</h2>
+            <p>Recebemos a confirmação do Mercado Pago.</p>
+            <div class="pay-total">${money(amount)}</div>
+          </div>
+        `:`
+          <h3>🏆 Parabéns, você arrematou!</h3>
+          <div>Valor do lote:</div>
+          <div class="pay-total">${money(amount)}</div>
           <span class="pay-label">Escolha a forma de pagamento</span>
           <div class="pay-methods">
             <button class="pay-method ${selected==='pix'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','pix')">PIX</button>
@@ -52,17 +120,25 @@
           </div>
           <div id="paymentChoiceStatus" class="pay-status">${selected?`Forma selecionada: <b>${methodLabel(selected)}</b>`:'Selecione PIX ou cartão para continuar.'}</div>
           <div id="paymentCheckoutWrap">${payment?.checkout_url?`<a class="pay-checkout" href="${esc(payment.checkout_url)}" target="_blank" rel="noopener">Continuar para pagamento</a>`:''}</div>
-          <p class="pay-note">No plano por porcentagem, a comissão do LanceCerto é separada automaticamente pelo Mercado Pago e o restante segue para a conta do vendedor.</p>
+          <p class="pay-note">Após a aprovação pelo Mercado Pago, esta página muda automaticamente para “Pagamento aprovado”.</p>
         `}
       </div>`);
+    if(!paid)watchPaymentApproval(id);else stopPaymentWatch();
   }
 
-  async function enhancedOpenLot(id){
+  async function enhancedOpenLot(id,skipReturnSync=false){
     let l;
     try{l=await loadPublicLot(id)}catch{return baseOpenLot(id)}
     const ended=!!(l.ends&&Date.now()>=new Date(l.ends));
-    if(!ended)return baseOpenLot(id);
+    if(!ended){
+      stopPaymentWatch();
+      await baseOpenLot(id);
+      watchEnd(id,l.ends);
+      return;
+    }
 
+    stopEndWatch();
+    if(!skipReturnSync)await syncReturnedPayment(id);
     try{lastFinalization=await finalize(id)}catch(e){console.error('Finalização do lote:',e)}
     await baseOpenLot(id);
     styleOnce();
@@ -70,6 +146,7 @@
     if(!box||!lastFinalization)return;
 
     if(!lastFinalization.sold){
+      stopPaymentWatch();
       box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado sem arrematante.</div>');
       return;
     }
@@ -77,6 +154,7 @@
     if(typeof participant!=='undefined'&&participant?.id===lastFinalization.arremate?.participant_id){
       renderWinnerPayment(box,id,lastFinalization);
     }else{
+      stopPaymentWatch();
       box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado. A forma de pagamento aparece somente para o participante vencedor.</div>');
     }
   }
@@ -105,6 +183,7 @@
       const wrap=document.getElementById('paymentCheckoutWrap');
       if(wrap&&data.checkoutUrl){
         wrap.innerHTML=`<a class="pay-checkout" href="${esc(data.checkoutUrl)}" target="_blank" rel="noopener">Pagar com ${labels[method]}</a>`;
+        watchPaymentApproval(id);
       }
     }catch(e){if(status)status.textContent=e.message;else alert(e.message)}
   };
