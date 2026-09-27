@@ -2,10 +2,11 @@ const SUPABASE_URL='https://dsgnyfnddyxilakjwavu.supabase.co';
 const PUBLIC_KEY='sb_publishable_4-pk8-WndWKwy_8plTVTAA_KXUNf-Lr';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const dateLabel=value=>value?new Date(value).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
 
 async function loadLot(id){
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY||PUBLIC_KEY;
-  const url=`${SUPABASE_URL}/rest/v1/lots?id=eq.${encodeURIComponent(id)}&select=id,lot_number,title,image_url,current_bid,valuation,min_increment`;
+  const url=`${SUPABASE_URL}/rest/v1/lots?id=eq.${encodeURIComponent(id)}&select=id,title,image_url,starting_bid,valuation,min_increment,starts_at,ends_at`;
   const headers={apikey:key};
   if(String(key).split('.').length===3)headers.Authorization=`Bearer ${key}`;
   const response=await fetch(url,{headers});
@@ -22,16 +23,17 @@ module.exports=async(req,res)=>{
   let lot=null;
   try{lot=await loadLot(lotId)}catch(error){console.error('share lot',error)}
 
-  const lotNumber=esc(lot?.lot_number??q.number??'');
-  const name=esc(lot?.title||q.name||'Lote em leilão');
-  const current=esc(lot?money(lot.current_bid):(q.current||''));
+  const name=esc(lot?.title||'Leilão online');
   const valuation=esc(lot?money(lot.valuation):(q.valuation||''));
+  const startBid=esc(lot?money(lot.starting_bid):(q.start||''));
   const step=esc(lot?money(lot.min_increment):(q.step||''));
+  const starts=esc(lot?dateLabel(lot.starts_at):(q.starts||''));
+  const ends=esc(lot?dateLabel(lot.ends_at):(q.ends||''));
   const rawImage=String(lot?.image_url||q.image||'');
 
   const origin=`https://${req.headers.host}`;
   const target=`${origin}/?lote=${encodeURIComponent(lotId)}`;
-  const version=encodeURIComponent(String(q.v||'2'));
+  const version=encodeURIComponent(String(q.v||'3'));
   const canonical=`${origin}/api/share?l=${encodeURIComponent(lotId)}&v=${version}`;
 
   let image='https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80';
@@ -42,12 +44,14 @@ module.exports=async(req,res)=>{
     }
   }catch{}
 
-  const title=lotNumber?`Lote #${lotNumber} - ${name}`:`Leilão ao vivo: ${name}`;
+  const title=name;
   const details=[];
-  if(current)details.push(`Lance atual ${current}`);
   if(valuation)details.push(`Avaliação ${valuation}`);
-  if(step)details.push(`Incremento ${step}`);
-  const desc=details.length?details.join(' • '):'Veja a foto, acompanhe o lote e participe do leilão.';
+  if(startBid)details.push(`Lance inicial ${startBid}`);
+  if(step)details.push(`Acréscimo ${step}`);
+  if(starts)details.push(`Começa ${starts}`);
+  if(ends)details.push(`Termina ${ends}`);
+  const desc=details.join(' • ');
 
   const safeImage=esc(image);
   res.setHeader('Content-Type','text/html; charset=utf-8');
