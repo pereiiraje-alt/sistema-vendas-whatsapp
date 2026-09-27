@@ -30,6 +30,25 @@
     document.head.appendChild(style);
   }
 
+  async function reconcilePayments(){
+    try{
+      const session=await db.auth.getSession();
+      const token=session?.data?.session?.access_token;
+      if(!token||!currentCompany?.id)return;
+      const response=await fetch('/api/reconcile-company-payments',{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+        body:JSON.stringify({companyId:currentCompany.id})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.error||'Não foi possível sincronizar os pagamentos.');
+      return data;
+    }catch(error){
+      console.error('Sincronização dos pagamentos:',error);
+      return null;
+    }
+  }
+
   async function renderDetails(){
     if(rendering||!navButton.classList.contains('active'))return;
     rendering=true;
@@ -42,7 +61,8 @@
         return;
       }
 
-      app.innerHTML='<div class="panel"><h3>Arrematantes</h3><p class="muted">Carregando dados dos compradores...</p></div>';
+      app.innerHTML='<div class="panel"><h3>Arrematantes</h3><p class="muted">Sincronizando pagamentos e carregando compradores...</p></div>';
+      await reconcilePayments();
 
       const {data:wins,error:winsError}=await timeout(
         db.from('arremates')
