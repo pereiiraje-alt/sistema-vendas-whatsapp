@@ -1,0 +1,68 @@
+const {authUser,serviceFetch,decrypt}=require('./_mercadopago');
+
+function mapStatus(status){
+  if(status==='approved')return 'paid';
+  if(status==='in_process'||status==='in_mediation')return 'processing';
+  if(status==='pending'||status==='authorized')return 'pending';
+  if(status==='cancelled')return 'cancelled';
+  if(status==='refunded'||status==='charged_back')return 'refunded';
+  return 'failed';
+}
+
+module.exports=async(req,res)=>{
+  if(req.method!=='POST'){
+    res.setHeader('Allow','POST');
+    return res.status(405).json({error:'Método não permitido.'});
+  }
+  try{
+    const auth=String(req.headers.authorization||'');
+    const token=auth.startsWith('Bearer ')?auth.slice(7):'';
+    if(!token)return res.status(401).json({error:'Sessão do participante necessária.'});
+    const user=await authUser(token);
+    const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
+    const lotId=String(body.lotId||'').trim();
+    const providerPaymentId=String(body.providerPaymentId||'').trim();
+    if(!/^[0-9a-f-]{36}$/i.test(lotId))return res.status(400).json({error:'Lote inválido.'});
+
+    const arremates=await serviceFetch(`/rest/v1/arremates?lot_id=eq.${encodeURIComponent(lotId)}&select=id,company_id,participant_id&limit=1`);
+    const arremate=Array.isArray(arremates)?arremates[0]:null;
+    if(!arremate)return res.status(404).json({error:'Arremate não encontrado.'});
+
+    const participants=await serviceFetch(`/rest/v1/participants?auth_user_id=eq.${encodeURIComponent(user.id)}&company_id=eq.${encodeURIComponent(arremate.company_id)}&select=id&limit=1`);
+    const participant=Array.isArray(participants)?participants[0]:null;
+    if(!participant||participant.id!==arremate.participant_id)return res.status(403).json({error:'Somente o arrematante pode consultar este pagamento.'});
+
+    let rows=await serviceFetch(`/rest/v1/payments?arremate_id=eq.${encodeURIComponent(arremate.id)}&select=id,company_id,status,method,amount,checkout_url,provider_payment_id,paid_at&limit=1`);
+    let payment=Array.isArray(rows)?rows[0]:null;
+    if(!payment)return res.status(200).json({payment:null});
+
+    if(providerPaymentId){
+      const connections=await serviceFetch(`/rest/v1/mercado_pago_connections?company_id=eq.${encodeURIComponent(arremate.company_id)}&active=eq.true&select=access_token_encrypted&limit=1`);
+      const connection=Array.isArray(connections)?connections[0]:null;
+      if(connection?.access_token_encrypted){
+        const accessToken=decrypt(connection.access_token_encrypted);
+        const response=await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(providerPaymentId)}`,{
+          headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/json'}
+        });
+        const mp=await response.json().catch(()=>({}));
+        if(response.ok){
+          const internalId=String(mp.external_reference||mp.metadata?.payment_id||'');
+          if(internalId===payment.id){
+            const status=mapStatus(String(mp.status||''));
+            const update={status,provider_payment_id:String(mp.id||providerPaymentId),updated_at:new Date().toISOString()};
+            if(status==='paid')update.paid_at=mp.date_approved||new Date().toISOString();
+            const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{
+              method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(update)
+            });
+            payment=Array.isArray(updated)?updated[0]:payment;
+          }
+        }
+      }
+    }
+
+    return res.status(200).json({payment});
+  }catch(error){
+    console.error('payment-status',error);
+    return res.status(500).json({error:error.message||'Não foi possível verificar o pagamento.'});
+  }
+};
