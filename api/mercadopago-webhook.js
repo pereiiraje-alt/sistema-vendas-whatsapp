@@ -1,4 +1,4 @@
-const {serviceFetch,decrypt}=require('./_mercadopago');
+const {serviceFetch,decrypt}=require('../lib/mercadopago');
 
 function mapStatus(status){
   if(status==='approved')return 'paid';
