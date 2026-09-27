@@ -160,4 +160,8 @@
   }
 
   window.renderAuctionManager=renderAuctionManager;
+
+  const expiryScript=document.createElement('script');
+  expiryScript.src='auction-expiry-ui.js?v=20260927-1';
+  document.body.appendChild(expiryScript);
 })();
