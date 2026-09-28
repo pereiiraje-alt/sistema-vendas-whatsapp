@@ -10,8 +10,40 @@
   async function sessionUser(){const{data}=await db.auth.getSession();return data?.session?.user||null}
   async function listTickets(){
     if(!currentCompany?.id)throw new Error('Empresa não identificada.');
-    const{data,error}=await db.from('support_tickets').select('id,subject,category,priority,status,last_message_at,created_at,updated_at').eq('company_id',currentCompany.id).order('last_message_at',{ascending:false});
+    const{data,error}=await db.from('support_tickets').select('id,subject,category,priority,status,last_message_at,last_sender_role,client_last_read_at,created_at,updated_at').eq('company_id',currentCompany.id).order('last_message_at',{ascending:false});
     if(error)throw error;return data||[];
+  }
+
+  function isUnread(t){
+    if(t.last_sender_role!=='admin'||!t.last_message_at)return false;
+    const seen=t.client_last_read_at?new Date(t.client_last_read_at).getTime():0;
+    return new Date(t.last_message_at).getTime()>seen;
+  }
+
+  function supportButton(){return document.querySelector('#nav [data-page="suporte"]')}
+  function paintUnread(count){
+    const button=supportButton();if(!button)return;
+    let badge=button.querySelector('.support-unread-badge');
+    if(count>0){
+      if(!badge){badge=document.createElement('span');badge.className='support-unread-badge';badge.style.cssText='margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#ef4444;color:#fff;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1';button.appendChild(badge)}
+      badge.textContent=String(Math.min(count,99));badge.style.display='inline-flex';
+    }else if(badge){badge.style.display='none'}
+  }
+
+  async function refreshUnread(){
+    try{
+      if(!currentCompany?.id)return;
+      const{data,error}=await db.from('support_tickets').select('last_message_at,last_sender_role,client_last_read_at').eq('company_id',currentCompany.id);
+      if(error)throw error;
+      paintUnread((data||[]).filter(isUnread).length);
+    }catch(e){console.warn('Contador de suporte:',e?.message||e)}
+  }
+
+  async function markRead(id){
+    try{
+      await db.from('support_tickets').update({client_last_read_at:new Date().toISOString()}).eq('id',id);
+    }catch(_){ }
+    await refreshUnread();
   }
 
   function newTicketForm(){
@@ -29,9 +61,10 @@
     host.innerHTML='<div class="panel"><p>Carregando atendimentos...</p></div>';
     try{
       const tickets=await listTickets();
-      host.innerHTML=`${newTicketForm()}<div class="panel"><h3>Meus atendimentos</h3><p class="muted">Acompanhe as respostas do suporte sem sair do sistema.</p>${tickets.length?`<table><thead><tr><th>ASSUNTO</th><th>CATEGORIA</th><th>PRIORIDADE</th><th>STATUS</th><th>ÚLTIMA ATUALIZAÇÃO</th><th></th></tr></thead><tbody>${tickets.map(t=>`<tr><td><b>${safe(t.subject)}</b></td><td>${safe(labels[t.category]||t.category)}</td><td><span class="badge">${safe(labels[t.priority]||t.priority)}</span></td><td><span class="badge ${['urgente','aberto'].includes(t.status)?'warn':''}">${safe(labels[t.status]||t.status)}</span></td><td>${safe(fmtDate(t.last_message_at||t.updated_at))}</td><td><button class="ghost mini" data-ticket="${t.id}">Abrir</button></td></tr>`).join('')}</tbody></table>`:'<p class="muted">Você ainda não abriu nenhum atendimento.</p>'}</div>`;
+      host.innerHTML=`${newTicketForm()}<div class="panel"><h3>Meus atendimentos</h3><p class="muted">Acompanhe as respostas do suporte sem sair do sistema.</p>${tickets.length?`<table><thead><tr><th>ASSUNTO</th><th>CATEGORIA</th><th>PRIORIDADE</th><th>STATUS</th><th>ÚLTIMA ATUALIZAÇÃO</th><th></th></tr></thead><tbody>${tickets.map(t=>`<tr><td><b>${isUnread(t)?'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:7px"></span>':''}${safe(t.subject)}</b></td><td>${safe(labels[t.category]||t.category)}</td><td><span class="badge">${safe(labels[t.priority]||t.priority)}</span></td><td><span class="badge ${['urgente','aberto'].includes(t.status)?'warn':''}">${safe(labels[t.status]||t.status)}</span></td><td>${safe(fmtDate(t.last_message_at||t.updated_at))}</td><td><button class="ghost mini" data-ticket="${t.id}">${isUnread(t)?'Nova resposta':'Abrir'}</button></td></tr>`).join('')}</tbody></table>`:'<p class="muted">Você ainda não abriu nenhum atendimento.</p>'}</div>`;
       document.querySelector('#supportNewForm').onsubmit=createTicket;
       document.querySelectorAll('[data-ticket]').forEach(b=>b.onclick=()=>openTicket(b.dataset.ticket));
+      paintUnread(tickets.filter(isUnread).length);
     }catch(e){host.innerHTML=`<div class="panel"><h3>Central de Suporte</h3><p>${safe(e.message||e)}</p></div>`}
   }
 
@@ -54,6 +87,7 @@
   async function openTicket(id){
     const host=document.getElementById('app');host.innerHTML='<div class="panel"><p>Carregando conversa...</p></div>';
     try{
+      await markRead(id);
       const[{data:ticket,error:te},{data:messages,error:me}]=await Promise.all([
         db.from('support_tickets').select('*').eq('id',id).single(),
         db.from('support_messages').select('id,sender_role,message,created_at').eq('ticket_id',id).order('created_at',{ascending:true})
@@ -95,6 +129,7 @@
       const config=nav.querySelector('[data-page="config"]');
       nav.insertBefore(button,mensalidade||config||null);
     }
+    button.style.display='flex';button.style.alignItems='center';button.style.gap='8px';
     button.onclick=async()=>{
       nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===button));
       const title=document.getElementById('title'),subtitle=document.getElementById('subtitle');
@@ -103,4 +138,12 @@
       await renderSupport();
     };
   }
+
+  let attempts=0;
+  const wait=setInterval(()=>{
+    attempts++;
+    if(currentCompany?.id||attempts>20){clearInterval(wait);if(currentCompany?.id)refreshUnread()}
+  },500);
+  setInterval(()=>{if(document.visibilityState==='visible')refreshUnread()},20000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshUnread()});
 })();
