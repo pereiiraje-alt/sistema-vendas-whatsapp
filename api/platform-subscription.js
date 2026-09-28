@@ -1,6 +1,6 @@
 const {authUser,serviceFetch,membershipForUser}=require('../lib/mercadopago');
 
-const PUBLIC_ORIGIN='https://sistema-vendas-whatsapp.vercel.app';
+const PUBLIC_ORIGIN='https://jpleiloes.com.br';
 const TRIAL_DAYS=4;
 const MONTHLY_WARNING_DAYS=5;
 const MONTHLY_GRACE_DAYS=5;
