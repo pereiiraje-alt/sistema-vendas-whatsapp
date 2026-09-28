@@ -19,7 +19,21 @@ async function createCompany(){}
 async function toggleCompany(id,isActive){if(!confirm(isActive?'Suspender esta empresa?':'Ativar esta empresa?'))return;const{error}=await db.from('companies').update({active:!isActive,subscription_status:isActive?'suspended':'active',updated_at:new Date().toISOString()}).eq('id',id);if(error)return alert('Erro: '+error.message);companies()}
 async function editCompany(){}
 async function auctions(){const d=await rows('auctions');app.innerHTML=`<div class="panel"><h3>Leilões da plataforma</h3><table><thead><tr><th>TÍTULO</th><th>STATUS</th><th>EMPRESA</th><th>INÍCIO</th><th>FIM</th></tr></thead><tbody>${d.map(x=>`<tr><td><b>${esc(x.title)}</b></td><td><span class="badge">${esc(x.status)}</span></td><td>${esc(x.company_id)}</td><td>${date(x.starts_at)}</td><td>${date(x.ends_at)}</td></tr>`).join('')||'<tr><td colspan="5">Nenhum leilão.</td></tr>'}</tbody></table></div>`}
-async function users(){const d=await rows('company_members','company_id,user_id,role,created_at');app.innerHTML=`<div class="panel"><h3>Usuários e acessos</h3><table><thead><tr><th>USER ID</th><th>EMPRESA</th><th>PERFIL</th><th>CRIADO EM</th></tr></thead><tbody>${d.map(x=>`<tr><td>${esc(x.user_id)}</td><td>${esc(x.company_id)}</td><td><span class="badge">${esc(x.role)}</span></td><td>${date(x.created_at)}</td></tr>`).join('')}</tbody></table></div>`}
+async function users(){
+  const [members,companiesData]=await Promise.all([
+    rows('company_members','company_id,user_id,role,created_at'),
+    rows('companies','id,name,responsible_name,email',null)
+  ]);
+  const companyMap=new Map(companiesData.map(c=>[c.id,c]));
+  app.innerHTML=`<div class="panel"><h3>Usuários e acessos</h3><table><thead><tr><th>CLIENTE</th><th>EMPRESA</th><th>E-MAIL</th><th>PERFIL</th><th>CRIADO EM</th></tr></thead><tbody>${members.map(x=>{
+    const company=companyMap.get(x.company_id)||{};
+    const isAdmin=x.role==='platform_admin';
+    const clientName=isAdmin?(sessionUser?.user_metadata?.responsible_name||sessionUser?.user_metadata?.name||'Administrador'):(company.responsible_name||company.name||'Cliente');
+    const companyName=isAdmin?'JP Leilões':(company.name||'—');
+    const email=isAdmin?(sessionUser?.email||company.email||'—'):(company.email||'—');
+    return `<tr><td><b>${esc(clientName)}</b></td><td>${esc(companyName)}</td><td>${esc(email)}</td><td><span class="badge">${esc(x.role)}</span></td><td>${date(x.created_at)}</td></tr>`;
+  }).join('')||'<tr><td colspan="5">Nenhum usuário cadastrado.</td></tr>'}</tbody></table></div>`
+}
 async function finance(){const d=await rows('payments').catch(()=>[]),total=d.reduce((s,p)=>s+(+p.amount||0),0);app.innerHTML=`<div class="cards"><div class="card"><small>Pagamentos</small><h2>${d.length}</h2></div><div class="card"><small>Volume</small><h2>${money(total)}</h2></div></div><div class="panel"><h3>Movimentações financeiras</h3>${d.length?`<table><thead><tr><th>ID</th><th>VALOR</th><th>STATUS</th><th>DATA</th></tr></thead><tbody>${d.map(x=>`<tr><td>${esc(x.id)}</td><td><b>${money(x.amount)}</b></td><td><span class="badge">${esc(x.status)}</span></td><td>${date(x.created_at)}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">Nenhum pagamento registrado.</p>'}</div>`}
 async function system(){const ts=['companies','company_members','auctions','lots','bids','participants','payments'],stats=await Promise.all(ts.map(async t=>[t,await count(t).catch(()=>null)]));app.innerHTML=`<div class="panel"><h3>Sistema</h3><div class="row"><span>Supabase</span><b class="badge">Online</b></div><div class="row"><span>Administrador</span><b>${esc(sessionUser?.email)}</b></div></div><div class="panel"><h3>Banco de dados</h3>${stats.map(([t,n])=>`<div class="row"><span>${t}</span><b>${n===null?'Sem acesso':n+' registro(s)'}</b></div>`).join('')}</div>`}
 const pages={overview:[overview,'Visão geral','Administração global da plataforma'],companies:[companies,'Empresas','Clientes, planos, assinaturas e cobrança'],auctions:[auctions,'Leilões','Visão global dos leilões'],users:[users,'Usuários','Acessos e perfis da plataforma'],finance:[finance,'Financeiro','Movimentação financeira global'],system:[system,'Sistema','Saúde da plataforma']};
