@@ -1,5 +1,5 @@
 const {authUser,serviceFetch,decrypt}=require('../lib/mercadopago');
-const PUBLIC_ORIGIN='https://sistema-vendas-whatsapp.vercel.app';
+const PUBLIC_ORIGIN='https://jpleiloes.com.br';
 
 function paymentMethodRules(method){
   if(method==='pix'){
