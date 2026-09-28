@@ -2,7 +2,7 @@ const SUPABASE_URL='https://dsgnyfnddyxilakjwavu.supabase.co';
 const SUPABASE_KEY='sb_publishable_4-pk8-WndWKwy_8plTVTAA_KXUNf-Lr';
 const authDb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const form=document.querySelector('#loginForm'),emailEl=document.querySelector('#loginEmail'),passwordEl=document.querySelector('#loginPassword'),button=document.querySelector('#loginButton'),errorEl=document.querySelector('#loginError'),messageEl=document.querySelector('#loginMessage');
-const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
 const money=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const percent=value=>Number(value||0).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
 function showError(text){errorEl.textContent=text;errorEl.hidden=false;messageEl.hidden=true}
@@ -29,7 +29,7 @@ function ensureResendButton(){
     try{
       const{error}=await authDb.auth.resend({type:'signup',email,options:{emailRedirectTo:confirmationRedirect()}});
       if(error)throw error;
-      showMessage(`Enviamos um novo e-mail de confirmação para ${email}. Verifique também a caixa de spam.`);
+      showMessage(`Se este cadastro ainda estiver aguardando confirmação, um novo e-mail será enviado para ${email}. Verifique também a caixa de spam.`);
     }catch(e){
       showError(e.message||'Não foi possível reenviar o e-mail de confirmação.');
     }finally{
@@ -134,7 +134,7 @@ async function routeUser(user,session=null){
   if(data.session){if(params.get('subscription')==='return')showMessage('Verificando sua assinatura no Mercado Pago...');await routeUser(data.session.user,data.session)}
 }catch(e){showError(e.message||'Não foi possível verificar sua conta.')}})();
 
-form.addEventListener('submit',async e=>{e.preventDefault();errorEl.hidden=true;hideResend();button.disabled=true;button.textContent='Entrando...';try{const{data,error}=await authDb.auth.signInWithPassword({email:emailEl.value.trim().toLowerCase(),password:passwordEl.value});if(error)throw error;if(!data.session)throw new Error('Não foi possível iniciar a sessão.');await routeUser(data.session.user,data.session)}catch(e){let msg=e.message||'Não foi possível entrar.';if(/invalid login credentials/i.test(msg))msg='E-mail ou senha incorretos.';if(/email not confirmed/i.test(msg)){msg='Seu e-mail ainda não foi confirmado. Abra a mensagem enviada pela JP Leilões e clique em Confirmar cadastro.';showResend(emailEl.value)}showError(msg);button.disabled=false;button.textContent='Entrar'}});
+form.addEventListener('submit',async e=>{e.preventDefault();errorEl.hidden=true;hideResend();button.disabled=true;button.textContent='Entrando...';try{const{data,error}=await authDb.auth.signInWithPassword({email:emailEl.value.trim().toLowerCase(),password:passwordEl.value});if(error)throw error;if(!data.session)throw new Error('Não foi possível iniciar a sessão.');await routeUser(data.session.user,data.session)}catch(e){let msg=e.message||'Não foi possível entrar.';if(/invalid login credentials/i.test(msg))msg='E-mail ou senha incorretos. Se você já confirmou o cadastro e não lembra a senha, use “Esqueci minha senha”.';if(/email not confirmed/i.test(msg)){msg='Seu e-mail ainda não foi confirmado. Abra a mensagem enviada pela JP Leilões e clique em Confirmar cadastro.';showResend(emailEl.value)}showError(msg);button.disabled=false;button.textContent='Entrar'}});
 
 document.querySelector('#forgotButton').addEventListener('click',async()=>{const email=emailEl.value.trim().toLowerCase();if(!email)return showError('Digite seu e-mail acima para recuperar a senha.');try{const{error}=await authDb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/login.html'});if(error)throw error;showMessage('Enviamos as instruções de recuperação para o seu e-mail.')}catch(e){showError(e.message||'Não foi possível enviar a recuperação de senha.')}});
 
@@ -157,6 +157,9 @@ signupForm.addEventListener('submit',async e=>{
     const emailRedirectTo=confirmationRedirect();
     const{data,error}=await authDb.auth.signUp({email,password,options:{emailRedirectTo,data:{account_type:'company_owner',company_name:company,responsible_name:responsible,document:document.querySelector('#signupDocument').value.trim(),phone:document.querySelector('#signupPhone').value.trim(),plan:'teste'}}});
     if(error)throw error;
+    if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0){
+      throw new Error('Este e-mail já possui cadastro. Use Entrar ou “Esqueci minha senha”.');
+    }
     if(data.session){
       signupOk('Conta criada! Seus 4 dias de teste gratuito começaram agora.');
       await routeUser(data.user,data.session);
@@ -170,7 +173,7 @@ signupForm.addEventListener('submit',async e=>{
       showMessage(`Enviamos um e-mail de confirmação para ${email}. Confirme o cadastro e depois entre para usar seus 4 dias grátis.`);
     }
   }catch(e){
-    let msg=e.message||'Não foi possível criar sua conta.';if(/already registered|already been registered|user already/i.test(msg))msg='Este e-mail já possui cadastro. Use a opção Entrar.';
+    let msg=e.message||'Não foi possível criar sua conta.';if(/already registered|already been registered|user already/i.test(msg))msg='Este e-mail já possui cadastro. Use a opção Entrar ou “Esqueci minha senha”.';
     signupFail(msg);signupButton.disabled=false;signupButton.textContent='Começar teste grátis';
   }
 });
