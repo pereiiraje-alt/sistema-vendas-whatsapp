@@ -101,7 +101,7 @@
   }
   if(!document.querySelector('script[data-support-client]')){
     const support=document.createElement('script');
-    support.src='support-client.js?v=20260928-2';
+    support.src='support-client.js?v=20260928-3';
     support.dataset.supportClient='1';
     document.body.appendChild(support);
   }
