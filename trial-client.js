@@ -30,10 +30,7 @@
   pages.taxas=[renderTrial,'Meu plano','Teste gratuito, plano atual e condições de cobrança'];
 
   async function sessionToken(){
-    try{
-      const {data}=await db.auth.getSession();
-      return data?.session?.access_token||'';
-    }catch(_){return ''}
+    try{const {data}=await db.auth.getSession();return data?.session?.access_token||''}catch(_){return ''}
   }
 
   function createMpWelcomeModal(){
@@ -55,16 +52,12 @@
     modal.querySelector('#mpWelcomeClose').onclick=close;
     modal.querySelector('#mpWelcomeLater').onclick=close;
     modal.querySelector('#mpWelcomeConnect').onclick=async()=>{
-      const btn=modal.querySelector('#mpWelcomeConnect');
-      const msg=modal.querySelector('#mpWelcomeMessage');
+      const btn=modal.querySelector('#mpWelcomeConnect'),msg=modal.querySelector('#mpWelcomeMessage');
       btn.disabled=true;btn.textContent='Abrindo Mercado Pago...';msg.textContent='';
       try{
         if(typeof window.connectMercadoPago!=='function')throw new Error('Conexão do Mercado Pago ainda não está disponível. Atualize a página.');
         await window.connectMercadoPago();
-      }catch(e){
-        msg.textContent=e?.message||'Não foi possível abrir o Mercado Pago.';
-        btn.disabled=false;btn.textContent='Conectar Mercado Pago';
-      }
+      }catch(e){msg.textContent=e?.message||'Não foi possível abrir o Mercado Pago.';btn.disabled=false;btn.textContent='Conectar Mercado Pago'}
     };
     return modal;
   }
@@ -75,17 +68,12 @@
       if(typeof currentCompany==='undefined'||!currentCompany||currentCompany.plan!=='teste')return;
       const key=`jp_mp_welcome_${currentCompany.id||'company'}`;
       if(sessionStorage.getItem(key)==='shown')return;
-      const token=await sessionToken();
-      if(!token)return;
-      const r=await fetch('/api/mercadopago-status',{headers:{Authorization:`Bearer ${token}`}});
-      const data=await r.json().catch(()=>({}));
+      const token=await sessionToken();if(!token)return;
+      const r=await fetch('/api/mercadopago-status',{headers:{Authorization:`Bearer ${token}`}}),data=await r.json().catch(()=>({}));
       if(!r.ok||data.connected||!data.canConnect)return;
       sessionStorage.setItem(key,'shown');
-      const modal=createMpWelcomeModal();
-      if(!modal.open)modal.showModal();
-    }catch(e){
-      console.warn('Aviso inicial Mercado Pago:',e?.message||e);
-    }
+      const modal=createMpWelcomeModal();if(!modal.open)modal.showModal();
+    }catch(e){console.warn('Aviso inicial Mercado Pago:',e?.message||e)}
   }
 
   let attempts=0;
@@ -96,4 +84,11 @@
       if(typeof currentCompany!=='undefined'&&currentCompany)setTimeout(offerMercadoPagoConnection,700);
     }
   },500);
+
+  if(!document.querySelector('script[data-billing-client]')){
+    const billing=document.createElement('script');
+    billing.src='billing-client.js?v=20260928-1';
+    billing.dataset.billingClient='1';
+    document.body.appendChild(billing);
+  }
 })();
