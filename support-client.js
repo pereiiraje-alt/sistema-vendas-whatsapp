@@ -67,7 +67,7 @@
       document.querySelector('#supportReplyForm').onsubmit=e=>replyTicket(e,id);
       const close=document.querySelector('#closeTicket');if(close)close.onclick=()=>changeStatus(id,'resolvido');
       const reopen=document.querySelector('#reopenTicket');if(reopen)reopen.onclick=()=>changeStatus(id,'aberto');
-    }catch(e){host.innerHTML=`<div class="panel"><p>${safe(e.message||e)}</p><button class="ghost" onclick="go('suporte')">Voltar</button></div>`}
+    }catch(e){host.innerHTML=`<div class="panel"><p>${safe(e.message||e)}</p><button class="ghost" id="supportBackError">Voltar</button></div>`;const b=document.getElementById('supportBackError');if(b)b.onclick=renderSupport}
   }
 
   async function replyTicket(e,id){
@@ -84,4 +84,23 @@
   }
 
   pages.suporte=[renderSupport,'Central de Suporte','Fale diretamente com o suporte da JP Leilões'];
+
+  const nav=document.getElementById('nav');
+  if(nav){
+    let button=nav.querySelector('[data-page="suporte"]');
+    if(!button){
+      button=document.createElement('button');
+      button.type='button';button.dataset.page='suporte';button.textContent='💬 Suporte';
+      const mensalidade=nav.querySelector('[data-page="mensalidade"]');
+      const config=nav.querySelector('[data-page="config"]');
+      nav.insertBefore(button,mensalidade||config||null);
+    }
+    button.onclick=async()=>{
+      nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===button));
+      const title=document.getElementById('title'),subtitle=document.getElementById('subtitle');
+      if(title)title.textContent='Central de Suporte';
+      if(subtitle)subtitle.textContent='Fale diretamente com o suporte da JP Leilões';
+      await renderSupport();
+    };
+  }
 })();
