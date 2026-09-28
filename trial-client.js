@@ -97,11 +97,11 @@
     btn.type='button';btn.dataset.page='suporte';btn.textContent='💬 Suporte';
     const nav=document.querySelector('#nav');
     const config=nav?.querySelector('[data-page="config"]');
-    if(nav){config?nav.insertBefore(btn,config):nav.appendChild(btn);btn.onclick=()=>go('suporte')}
+    if(nav)config?nav.insertBefore(btn,config):nav.appendChild(btn);
   }
   if(!document.querySelector('script[data-support-client]')){
     const support=document.createElement('script');
-    support.src='support-client.js?v=20260928-1';
+    support.src='support-client.js?v=20260928-2';
     support.dataset.supportClient='1';
     document.body.appendChild(support);
   }
