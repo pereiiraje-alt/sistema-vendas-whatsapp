@@ -1,11 +1,12 @@
 const {readState,exchangeCode,encrypt,serviceFetch}=require('../lib/mercadopago');
+const PUBLIC_ORIGIN='https://jpleiloes.com.br';
 
 module.exports=async(req,res)=>{
   try{
     const code=String(req.query?.code||'');
     const state=String(req.query?.state||'');
     const errorParam=String(req.query?.error||'');
-    if(errorParam)return res.redirect(302,'/?client=1&mp=error');
+    if(errorParam)return res.redirect(302,`${PUBLIC_ORIGIN}/?client=1&mp=error`);
     if(!code||!state)throw new Error('Retorno do Mercado Pago incompleto.');
 
     const context=readState(state);
@@ -26,9 +27,9 @@ module.exports=async(req,res)=>{
       headers:{Prefer:'resolution=merge-duplicates,return=minimal'},
       body:JSON.stringify(payload)
     });
-    return res.redirect(302,'/?client=1&mp=connected');
+    return res.redirect(302,`${PUBLIC_ORIGIN}/?client=1&mp=connected`);
   }catch(error){
     console.error('mercadopago-callback',error);
-    return res.redirect(302,'/?client=1&mp=error');
+    return res.redirect(302,`${PUBLIC_ORIGIN}/?client=1&mp=error`);
   }
 };
