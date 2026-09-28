@@ -1,6 +1,14 @@
 (()=>{
   if(typeof db==='undefined'||typeof pages==='undefined')return;
 
+  const nav=document.getElementById('nav');
+  if(nav&&!nav.querySelector('[data-page="mensalidade"]')){
+    const button=document.createElement('button');
+    button.type='button';button.dataset.page='mensalidade';button.textContent='🧾 Mensalidade';
+    const config=nav.querySelector('[data-page="config"]');
+    nav.insertBefore(button,config||null);
+  }
+
   const safe=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const date=v=>v?new Date(v).toLocaleString('pt-BR'):'—';
@@ -34,6 +42,17 @@
   }
 
   pages.mensalidade=[renderBillingPage,'Mensalidade','Vencimento, pagamento e status da assinatura'];
+
+  if(nav){
+    const button=nav.querySelector('[data-page="mensalidade"]');
+    if(button)button.onclick=async()=>{
+      nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===button));
+      const title=document.getElementById('title'),subtitle=document.getElementById('subtitle');
+      if(title)title.textContent='Mensalidade';
+      if(subtitle)subtitle.textContent='Vencimento, pagamento e status da assinatura';
+      await renderBillingPage();
+    };
+  }
 
   async function automaticWarning(){
     try{
