@@ -89,3 +89,15 @@
   }
   pages.plans=[officialPlans,'Planos','Teste gratuito e planos oficiais da plataforma'];
 })();
+
+(()=>{
+  const nav=document.querySelector('#adminNav');
+  if(nav&&!nav.querySelector('[data-page="support"]')){
+    const btn=document.createElement('button');btn.type='button';btn.dataset.page='support';btn.textContent='💬 Suporte';
+    const system=nav.querySelector('[data-page="system"]');system?nav.insertBefore(btn,system):nav.appendChild(btn);
+    btn.onclick=()=>go('support');
+  }
+  if(!document.querySelector('script[data-support-admin]')){
+    const s=document.createElement('script');s.src='support-admin.js?v=20260928-1';s.dataset.supportAdmin='1';document.body.appendChild(s);
+  }
+})();
