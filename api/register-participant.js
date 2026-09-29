@@ -17,16 +17,19 @@ module.exports=async(req,res)=>{
   try{
     const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
     const {companyId,lotId,email,password,fullName,cpf,phone}=body;
-    if(!companyId||!lotId||!email||!password||!fullName||!cpf||!phone)return res.status(400).json({error:'Preencha todos os campos.'});
-    if(!/^[0-9a-f-]{36}$/i.test(String(companyId))||!/^[0-9a-f-]{36}$/i.test(String(lotId)))return res.status(400).json({error:'Leilão inválido.'});
+    if(!companyId||!email||!password||!fullName||!cpf||!phone)return res.status(400).json({error:'Preencha todos os campos.'});
+    if(!/^[0-9a-f-]{36}$/i.test(String(companyId)))return res.status(400).json({error:'Empresa inválida.'});
     if(String(password).length<6)return res.status(400).json({error:'A senha deve ter pelo menos 6 caracteres.'});
 
     const headers={apikey:serviceKey,Authorization:`Bearer ${serviceKey}`,'Content-Type':'application/json'};
-    const lotResp=await fetch(`${SUPABASE_URL}/rest/v1/lots?id=eq.${encodeURIComponent(lotId)}&company_id=eq.${encodeURIComponent(companyId)}&status=eq.live&select=id,company_id,ends_at&limit=1`,{headers});
+    let lotPath=`${SUPABASE_URL}/rest/v1/lots?company_id=eq.${encodeURIComponent(companyId)}&status=eq.live&select=id,company_id,ends_at&order=ends_at.asc&limit=10`;
+    if(lotId&&/^[0-9a-f-]{36}$/i.test(String(lotId))){
+      lotPath=`${SUPABASE_URL}/rest/v1/lots?id=eq.${encodeURIComponent(lotId)}&company_id=eq.${encodeURIComponent(companyId)}&status=eq.live&select=id,company_id,ends_at&limit=1`;
+    }
+    const lotResp=await fetch(lotPath,{headers});
     const lotResult=await parse(lotResp);
-    const lot=Array.isArray(lotResult.data)?lotResult.data[0]:null;
-    if(!lotResult.ok||!lot)return res.status(403).json({error:'Este lote não está disponível para novos participantes.'});
-    if(!lot.ends_at||Date.now()>=new Date(lot.ends_at).getTime())return res.status(403).json({error:'Este lote já foi encerrado.'});
+    const activeLots=(Array.isArray(lotResult.data)?lotResult.data:[]).filter(l=>l.ends_at&&Date.now()<new Date(l.ends_at).getTime());
+    if(!lotResult.ok||!activeLots.length)return res.status(403).json({error:'Não há lote ativo disponível para novos participantes nesta empresa.'});
 
     const authResp=await fetch(`${SUPABASE_URL}/auth/v1/admin/users`,{
       method:'POST',headers,
