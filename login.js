@@ -1,5 +1,6 @@
 const SUPABASE_URL='https://dsgnyfnddyxilakjwavu.supabase.co';
 const SUPABASE_KEY='sb_publishable_4-pk8-WndWKwy_8plTVTAA_KXUNf-Lr';
+const initialHash=location.hash||'';
 const authDb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const form=document.querySelector('#loginForm'),emailEl=document.querySelector('#loginEmail'),passwordEl=document.querySelector('#loginPassword'),button=document.querySelector('#loginButton'),errorEl=document.querySelector('#loginError'),messageEl=document.querySelector('#loginMessage');
 const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
@@ -9,7 +10,9 @@ function showError(text){errorEl.textContent=text;errorEl.hidden=false;messageEl
 function showMessage(text){messageEl.textContent=text;messageEl.hidden=false;errorEl.hidden=true}
 
 let pendingConfirmationEmail='';
+let recoveryMode=false;
 function confirmationRedirect(){return location.origin+'/login.html?email=confirmed'}
+function recoveryRedirect(){return location.origin+'/login.html?recovery=1'}
 function ensureResendButton(){
   let resend=document.querySelector('#resendConfirmationButton');
   if(resend)return resend;
@@ -41,6 +44,46 @@ function ensureResendButton(){
 function showResend(email){pendingConfirmationEmail=String(email||'').trim().toLowerCase();const b=ensureResendButton();if(b)b.hidden=false}
 function hideResend(){const b=ensureResendButton();if(b)b.hidden=true;pendingConfirmationEmail=''}
 ensureResendButton();
+
+function renderPasswordReset(){
+  if(recoveryMode)return;
+  recoveryMode=true;
+  const card=document.querySelector('.login-card');
+  if(!card)return;
+  card.innerHTML=`<div class="login-mobile-brand">JP <span>Leilões</span></div>
+    <h2>Crie sua nova senha</h2>
+    <p class="muted">Digite uma nova senha para sua conta. Depois você poderá entrar normalmente.</p>
+    <form id="passwordResetForm">
+      <label>Nova senha<input id="newPassword" type="password" autocomplete="new-password" minlength="6" required placeholder="Mínimo de 6 caracteres"></label>
+      <label>Confirmar nova senha<input id="newPassword2" type="password" autocomplete="new-password" minlength="6" required placeholder="Repita a nova senha"></label>
+      <div id="passwordResetError" class="login-error" hidden></div>
+      <div id="passwordResetMessage" class="login-message" hidden></div>
+      <button id="passwordResetButton" class="primary full" type="submit">Salvar nova senha</button>
+    </form>`;
+  const resetForm=document.querySelector('#passwordResetForm');
+  resetForm.onsubmit=async e=>{
+    e.preventDefault();
+    const p1=document.querySelector('#newPassword').value;
+    const p2=document.querySelector('#newPassword2').value;
+    const err=document.querySelector('#passwordResetError');
+    const msg=document.querySelector('#passwordResetMessage');
+    const btn=document.querySelector('#passwordResetButton');
+    err.hidden=true;msg.hidden=true;
+    if(p1.length<6){err.textContent='A senha deve ter pelo menos 6 caracteres.';err.hidden=false;return}
+    if(p1!==p2){err.textContent='As senhas não conferem.';err.hidden=false;return}
+    btn.disabled=true;btn.textContent='Salvando...';
+    try{
+      const{error}=await authDb.auth.updateUser({password:p1});
+      if(error)throw error;
+      msg.textContent='Senha alterada com sucesso. Redirecionando para o login...';msg.hidden=false;
+      await authDb.auth.signOut();
+      setTimeout(()=>location.replace('login.html?password=updated'),1000);
+    }catch(e){
+      err.textContent=e.message||'Não foi possível alterar sua senha.';err.hidden=false;
+      btn.disabled=false;btn.textContent='Salvar nova senha';
+    }
+  };
+}
 
 function planCardHtml(plan){
   const pct=plan.charge_type==='percentage';
@@ -118,7 +161,7 @@ async function billingGate(session){
 }
 
 async function routeUser(user,session=null){
-  if(!user)return;
+  if(!user||recoveryMode)return;
   const{data,error}=await authDb.from('company_members').select('role').eq('user_id',user.id).eq('role','platform_admin').limit(1).maybeSingle();
   if(error)throw error;
   if(data){location.replace('admin.html');return}
@@ -127,16 +170,23 @@ async function routeUser(user,session=null){
   if(allowed)location.replace('./');
 }
 
+authDb.auth.onAuthStateChange((event)=>{
+  if(event==='PASSWORD_RECOVERY')renderPasswordReset();
+});
+
 (async()=>{try{
   const params=new URLSearchParams(location.search);
+  const recoveryRequested=params.get('recovery')==='1'||/type=recovery/i.test(initialHash);
+  if(recoveryRequested){renderPasswordReset();return}
   if(params.get('email')==='confirmed')showMessage('E-mail confirmado com sucesso. Agora você já pode entrar e usar seus 4 dias grátis.');
+  if(params.get('password')==='updated')showMessage('Senha alterada com sucesso. Entre com sua nova senha.');
   const{data}=await authDb.auth.getSession();
   if(data.session){if(params.get('subscription')==='return')showMessage('Verificando sua assinatura no Mercado Pago...');await routeUser(data.session.user,data.session)}
 }catch(e){showError(e.message||'Não foi possível verificar sua conta.')}})();
 
 form.addEventListener('submit',async e=>{e.preventDefault();errorEl.hidden=true;hideResend();button.disabled=true;button.textContent='Entrando...';try{const{data,error}=await authDb.auth.signInWithPassword({email:emailEl.value.trim().toLowerCase(),password:passwordEl.value});if(error)throw error;if(!data.session)throw new Error('Não foi possível iniciar a sessão.');await routeUser(data.session.user,data.session)}catch(e){let msg=e.message||'Não foi possível entrar.';if(/invalid login credentials/i.test(msg))msg='E-mail ou senha incorretos. Se você já confirmou o cadastro e não lembra a senha, use “Esqueci minha senha”.';if(/email not confirmed/i.test(msg)){msg='Seu e-mail ainda não foi confirmado. Abra a mensagem enviada pela JP Leilões e clique em Confirmar cadastro.';showResend(emailEl.value)}showError(msg);button.disabled=false;button.textContent='Entrar'}});
 
-document.querySelector('#forgotButton').addEventListener('click',async()=>{const email=emailEl.value.trim().toLowerCase();if(!email)return showError('Digite seu e-mail acima para recuperar a senha.');try{const{error}=await authDb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/login.html'});if(error)throw error;showMessage('Enviamos as instruções de recuperação para o seu e-mail.')}catch(e){showError(e.message||'Não foi possível enviar a recuperação de senha.')}});
+document.querySelector('#forgotButton').addEventListener('click',async()=>{const email=emailEl.value.trim().toLowerCase();if(!email)return showError('Digite seu e-mail acima para recuperar a senha.');try{const{error}=await authDb.auth.resetPasswordForEmail(email,{redirectTo:recoveryRedirect()});if(error)throw error;showMessage('Enviamos as instruções de recuperação para o seu e-mail.')}catch(e){showError(e.message||'Não foi possível enviar a recuperação de senha.')}});
 
 const loginView=document.querySelector('#loginView'),signupView=document.querySelector('#signupView'),showLogin=document.querySelector('#showLogin'),showSignup=document.querySelector('#showSignup');
 function setAuthView(view){const signup=view==='signup';loginView.hidden=signup;signupView.hidden=!signup;showLogin.classList.toggle('active',!signup);showSignup.classList.toggle('active',signup)}
