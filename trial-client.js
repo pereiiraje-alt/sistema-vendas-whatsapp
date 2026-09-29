@@ -105,4 +105,12 @@
     support.dataset.supportClient='1';
     document.body.appendChild(support);
   }
+
+  const nav=document.querySelector('#nav');
+  if(nav&&!nav.dataset.mobileCloseBound){
+    nav.dataset.mobileCloseBound='1';
+    nav.addEventListener('click',event=>{
+      if(event.target.closest('button'))document.querySelector('.sidebar')?.classList.remove('open');
+    });
+  }
 })();
