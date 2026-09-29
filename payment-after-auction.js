@@ -32,7 +32,14 @@
   }
 
   async function finalize(id){
-    const response=await fetch('/api/finalize-lot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lotId:id})});
+    const session=await db.auth.getSession();
+    const token=session?.data?.session?.access_token;
+    if(!token)return null;
+    const response=await fetch('/api/finalize-lot',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+      body:JSON.stringify({lotId:id})
+    });
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.error||'Não foi possível finalizar o lote.');
     return data;
@@ -40,13 +47,8 @@
 
   function methodLabel(m){return m==='pix'?'PIX':m==='card'?'Cartão':''}
 
-  function stopPaymentWatch(){
-    if(paymentWatcher){clearInterval(paymentWatcher);paymentWatcher=null}
-  }
-
-  function stopEndWatch(){
-    if(endWatcher){clearInterval(endWatcher);endWatcher=null}
-  }
+  function stopPaymentWatch(){if(paymentWatcher){clearInterval(paymentWatcher);paymentWatcher=null}}
+  function stopEndWatch(){if(endWatcher){clearInterval(endWatcher);endWatcher=null}}
 
   function watchEnd(id,ends){
     stopEndWatch();
@@ -54,10 +56,7 @@
     const endMs=new Date(ends).getTime();
     if(!Number.isFinite(endMs))return;
     endWatcher=setInterval(()=>{
-      if(Date.now()>=endMs){
-        stopEndWatch();
-        enhancedOpenLot(id);
-      }
+      if(Date.now()>=endMs){stopEndWatch();enhancedOpenLot(id)}
     },500);
   }
 
@@ -159,7 +158,7 @@
 
     stopEndWatch();
     if(!skipReturnSync)await syncReturnedPayment(id);
-    try{lastFinalization=await finalize(id)}catch(e){console.error('Finalização do lote:',e)}
+    try{lastFinalization=await finalize(id)}catch(e){console.error('Finalização do lote:',e);lastFinalization=null}
     await baseOpenLot(id);
     styleOnce();
     const box=document.querySelector('.bidbox');
@@ -171,7 +170,7 @@
       return;
     }
 
-    if(typeof participant!=='undefined'&&participant?.id===lastFinalization.arremate?.participant_id){
+    if(lastFinalization.isWinner===true){
       renderWinnerPayment(box,id,lastFinalization);
     }else{
       stopPaymentWatch();
