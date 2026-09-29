@@ -50,6 +50,8 @@
       const title=document.getElementById('title'),subtitle=document.getElementById('subtitle');
       if(title)title.textContent='Mensalidade';
       if(subtitle)subtitle.textContent='Vencimento, pagamento e status da assinatura';
+      const sidebar=document.querySelector('.sidebar');
+      if(sidebar)sidebar.classList.remove('open');
       await renderBillingPage();
     };
   }
