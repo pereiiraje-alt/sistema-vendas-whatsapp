@@ -15,9 +15,12 @@
     if(!lot?.id||finalizedLots.has(lot.id))return;
     finalizedLots.add(lot.id);
     try{
+      const session=await db.auth.getSession();
+      const token=session?.data?.session?.access_token;
+      if(!token)throw new Error('Sessão expirada.');
       const response=await fetch('/api/finalize-lot',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
         body:JSON.stringify({lotId:lot.id})
       });
       const data=await response.json().catch(()=>({}));
@@ -100,8 +103,6 @@
     document.head.appendChild(style);
   }
 
-  // Atualização controlada. Evita MutationObserver recursivo, que travava a página
-  // ao alterar o próprio texto do cronômetro e disparar novas mutações sem parar.
   setInterval(paintEndedCards,1000);
   setTimeout(paintEndedCards,100);
   setTimeout(paintEndedCards,500);
