@@ -26,6 +26,11 @@ async function searchPayment(accessToken,externalReference){
   return results.find(item=>item?.status==='approved')||results[0]||null;
 }
 
+function pixData(mp){
+  const tx=mp?.point_of_interaction?.transaction_data||{};
+  return {qrCode:String(tx.qr_code||''),qrCodeBase64:String(tx.qr_code_base64||''),ticketUrl:String(tx.ticket_url||'')};
+}
+
 module.exports=async(req,res)=>{
   if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({error:'Método não permitido.'});}
   try{
@@ -54,19 +59,23 @@ module.exports=async(req,res)=>{
     let payment=Array.isArray(rows)?rows[0]:null;
     if(!payment)return res.status(200).json({payment:null,paymentDeadline:deadline,expired:Date.now()>=new Date(deadline).getTime()});
 
+    let pix={qrCode:'',qrCodeBase64:'',ticketUrl:''};
     if(payment.status!=='paid'&&payment.status!=='cancelled'){
       const connections=await serviceFetch(`/rest/v1/mercado_pago_connections?company_id=eq.${encodeURIComponent(arremate.company_id)}&active=eq.true&select=access_token_encrypted&limit=1`);
       const connection=Array.isArray(connections)?connections[0]:null;
       if(connection?.access_token_encrypted){
         const accessToken=decrypt(connection.access_token_encrypted);let mp=null;
-        if(providerPaymentId){try{mp=await getPaymentById(accessToken,providerPaymentId)}catch(error){console.error('payment-status direct lookup',error)}}
+        const directId=providerPaymentId||payment.provider_payment_id;
+        if(directId&&/^\d+$/.test(String(directId))){try{mp=await getPaymentById(accessToken,directId)}catch(error){console.error('payment-status direct lookup',error)}}
         if(!mp)mp=await searchPayment(accessToken,payment.id);
         if(mp){
           const internalId=String(mp.external_reference||mp.metadata?.payment_id||'');
           if(internalId===payment.id){
+            pix=pixData(mp);
             const status=mapStatus(String(mp.status||''));
             const update={status,provider_payment_id:String(mp.id||providerPaymentId||payment.provider_payment_id||''),updated_at:new Date().toISOString()};
             if(status==='paid')update.paid_at=mp.date_approved||new Date().toISOString();
+            if(pix.ticketUrl)update.checkout_url=pix.ticketUrl;
             const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(update)});
             payment=Array.isArray(updated)?updated[0]:payment;
           }
@@ -79,6 +88,6 @@ module.exports=async(req,res)=>{
       const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'cancelled',updated_at:new Date().toISOString()})});
       payment=Array.isArray(updated)?updated[0]:{...payment,status:'cancelled'};
     }
-    return res.status(200).json({payment,paymentDeadline:deadline,expired:payment.status!=='paid'&&Date.now()>=new Date(deadline).getTime()});
+    return res.status(200).json({payment,paymentDeadline:deadline,expired:payment.status!=='paid'&&Date.now()>=new Date(deadline).getTime(),qrCode:pix.qrCode,qrCodeBase64:pix.qrCodeBase64,ticketUrl:pix.ticketUrl});
   }catch(error){console.error('payment-status',error);return res.status(500).json({error:error.message||'Não foi possível verificar o pagamento.'});}
 };
