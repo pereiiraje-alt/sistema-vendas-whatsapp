@@ -48,8 +48,28 @@ function showResend(email){pendingConfirmationEmail=String(email||'').trim().toL
 function hideResend(){const b=ensureResendButton();if(b)b.hidden=true;pendingConfirmationEmail=''}
 ensureResendButton();
 
+function prioritizeRecoveryView(){
+  document.body.classList.add('recovery-view');
+  const auctions=document.querySelector('.public-home');
+  const plans=document.querySelector('.plans-section');
+  const brand=document.querySelector('.login-brand');
+  const shell=document.querySelector('.login-shell');
+  if(auctions)auctions.hidden=true;
+  if(plans)plans.hidden=true;
+  if(brand)brand.hidden=true;
+  if(shell){
+    shell.style.minHeight='100vh';
+    shell.style.display='flex';
+    shell.style.alignItems='flex-start';
+    shell.style.justifyContent='center';
+    shell.style.paddingTop='24px';
+  }
+  requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'auto'}));
+}
+
 function renderPasswordReset(){
   recoveryMode=true;
+  prioritizeRecoveryView();
   const card=document.querySelector('.login-card');
   if(!card)return;
   if(document.querySelector('#passwordResetForm'))return;
@@ -63,6 +83,8 @@ function renderPasswordReset(){
       <div id="passwordResetMessage" class="login-message" hidden></div>
       <button id="passwordResetButton" class="primary full" type="submit">Salvar nova senha</button>
     </form>`;
+  card.style.margin='0 auto';
+  card.style.maxWidth='620px';
   const resetForm=document.querySelector('#passwordResetForm');
   resetForm.onsubmit=async e=>{
     e.preventDefault();
