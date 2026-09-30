@@ -1,9 +1,11 @@
 (()=>{
   if(typeof openLot!=='function'||typeof loadPublicLot!=='function')return;
   const baseOpenLot=openLot;
+  const PAYMENT_LIMIT_MS=10*60*1000;
   let lastFinalization=null;
   let endWatcher=null;
   let paymentWatcher=null;
+  let deadlineWatcher=null;
   let syncingReturn=false;
 
   function styleOnce(){
@@ -26,6 +28,10 @@
       .payment-approved .check{font-size:52px;line-height:1;margin-bottom:8px}
       .payment-approved h2{margin:0;color:#166534;font-size:25px}
       .payment-approved p{margin:8px 0 0;color:#166534}
+      .payment-deadline{margin:12px 0;padding:12px;border-radius:12px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;text-align:center;font-weight:800}
+      .payment-deadline strong{display:block;font-size:26px;margin-top:4px}
+      .payment-expired{padding:20px 14px;border-radius:14px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;text-align:center}
+      .payment-expired h3{color:#991b1b;margin:0 0 8px}
       @media(max-width:520px){.pay-methods{grid-template-columns:1fr}.winner-pay .pay-total{font-size:24px}}
     `;
     document.head.appendChild(s);
@@ -35,29 +41,21 @@
     const session=await db.auth.getSession();
     const token=session?.data?.session?.access_token;
     if(!token)return null;
-    const response=await fetch('/api/finalize-lot',{
-      method:'POST',
-      headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-      body:JSON.stringify({lotId:id})
-    });
+    const response=await fetch('/api/finalize-lot',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id})});
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.error||'Não foi possível finalizar o lote.');
     return data;
   }
 
   function methodLabel(m){return m==='pix'?'PIX':m==='card'?'Cartão':''}
-
   function stopPaymentWatch(){if(paymentWatcher){clearInterval(paymentWatcher);paymentWatcher=null}}
+  function stopDeadlineWatch(){if(deadlineWatcher){clearInterval(deadlineWatcher);deadlineWatcher=null}}
   function stopEndWatch(){if(endWatcher){clearInterval(endWatcher);endWatcher=null}}
 
   function watchEnd(id,ends){
-    stopEndWatch();
-    if(!ends)return;
-    const endMs=new Date(ends).getTime();
-    if(!Number.isFinite(endMs))return;
-    endWatcher=setInterval(()=>{
-      if(Date.now()>=endMs){stopEndWatch();enhancedOpenLot(id)}
-    },500);
+    stopEndWatch();if(!ends)return;
+    const endMs=new Date(ends).getTime();if(!Number.isFinite(endMs))return;
+    endWatcher=setInterval(()=>{if(Date.now()>=endMs){stopEndWatch();enhancedOpenLot(id)}},500);
   }
 
   async function syncReturnedPayment(id){
@@ -68,113 +66,91 @@
     if(!returned||!providerPaymentId)return;
     syncingReturn=true;
     try{
-      const session=await db.auth.getSession();
-      const token=session?.data?.session?.access_token;
-      if(!token)return;
-      await fetch('/api/payment-status',{
-        method:'POST',
-        headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-        body:JSON.stringify({lotId:id,providerPaymentId})
-      });
-    }catch(e){console.error('Sincronização do pagamento:',e)}
-    finally{syncingReturn=false}
+      const session=await db.auth.getSession();const token=session?.data?.session?.access_token;if(!token)return;
+      await fetch('/api/payment-status',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id,providerPaymentId})});
+    }catch(e){console.error('Sincronização do pagamento:',e)}finally{syncingReturn=false}
   }
 
   async function checkPaymentStatus(id){
-    const session=await db.auth.getSession();
-    const token=session?.data?.session?.access_token;
-    if(!token)return null;
-    const response=await fetch('/api/payment-status',{
-      method:'POST',
-      headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-      body:JSON.stringify({lotId:id})
-    });
+    const session=await db.auth.getSession();const token=session?.data?.session?.access_token;if(!token)return null;
+    const response=await fetch('/api/payment-status',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id})});
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.error||'Não foi possível verificar o pagamento.');
-    return data?.payment||null;
+    return data;
   }
 
   function watchPaymentApproval(id){
-    stopPaymentWatch();
-    let checking=false;
+    stopPaymentWatch();let checking=false;
     const check=async()=>{
-      if(checking)return;
-      checking=true;
+      if(checking)return;checking=true;
       try{
-        const payment=await checkPaymentStatus(id);
-        if(payment?.status==='paid'){
-          stopPaymentWatch();
-          await enhancedOpenLot(id,true);
+        const result=await checkPaymentStatus(id);const payment=result?.payment;
+        if(payment?.status==='paid'||payment?.status==='cancelled'){
+          stopPaymentWatch();stopDeadlineWatch();await enhancedOpenLot(id,true);
         }
-      }catch(e){console.error('Verificação do pagamento:',e)}
-      finally{checking=false}
+      }catch(e){console.error('Verificação do pagamento:',e)}finally{checking=false}
     };
-    check();
-    paymentWatcher=setInterval(check,3000);
+    check();paymentWatcher=setInterval(check,3000);
+  }
+
+  function remainingDeadline(deadline){
+    const total=Math.max(0,Math.ceil((deadline-Date.now())/1000));
+    const m=Math.floor(total/60),s=total%60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function watchDeadline(id,deadline){
+    stopDeadlineWatch();
+    const el=document.getElementById('paymentDeadlineClock');
+    if(!el)return;
+    const render=async()=>{
+      const left=deadline-Date.now();el.textContent=remainingDeadline(deadline);
+      if(left<=0){
+        stopDeadlineWatch();
+        try{await checkPaymentStatus(id)}catch(e){console.error(e)}
+        await enhancedOpenLot(id,true);
+      }
+    };
+    render();deadlineWatcher=setInterval(render,1000);
   }
 
   function renderWinnerPayment(box,id,data){
-    const a=data.arremate;
-    const payment=data.payment;
-    const amount=Number(a.total_amount||a.winning_bid||0);
+    const a=data.arremate;const payment=data.payment;const amount=Number(a.total_amount||a.winning_bid||0);
     const paid=payment?.status==='paid';
+    const expired=payment?.status==='cancelled';
     const selected=['pix','card'].includes(payment?.method)?payment.method:'';
+    const deadline=new Date(a.created_at).getTime()+PAYMENT_LIMIT_MS;
     box.insertAdjacentHTML('beforeend',`
       <div class="winner-pay" id="winnerPayment">
-        ${paid?`
-          <div class="payment-approved">
-            <div class="check">✅</div>
-            <h2>Pagamento aprovado</h2>
-            <p>Recebemos a confirmação do Mercado Pago.</p>
-            <div class="pay-total">${money(amount)}</div>
-          </div>
-        `:`
-          <h3>🏆 Parabéns, você arrematou!</h3>
-          <div>Valor do lote:</div>
-          <div class="pay-total">${money(amount)}</div>
+        ${paid?`<div class="payment-approved"><div class="check">✅</div><h2>Pagamento aprovado</h2><p>Recebemos a confirmação do Mercado Pago.</p><div class="pay-total">${money(amount)}</div></div>`:
+        expired?`<div class="payment-expired"><h3>Prazo de pagamento encerrado</h3><p>O pagamento não foi confirmado em até 10 minutos. Este arremate foi cancelado e a empresa poderá entrar em contato com o segundo maior lance.</p></div>`:
+        `<h3>🏆 Parabéns, você arrematou!</h3><div>Valor do lote:</div><div class="pay-total">${money(amount)}</div>
+          <div class="payment-deadline">Você tem 10 minutos para confirmar o pagamento.<strong id="paymentDeadlineClock">${remainingDeadline(deadline)}</strong></div>
           <span class="pay-label">Escolha a forma de pagamento</span>
-          <div class="pay-methods">
-            <button class="pay-method ${selected==='pix'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','pix')">PIX</button>
-            <button class="pay-method ${selected==='card'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','card')">Cartão</button>
-          </div>
+          <div class="pay-methods"><button class="pay-method ${selected==='pix'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','pix')">PIX</button><button class="pay-method ${selected==='card'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','card')">Cartão</button></div>
           <div id="paymentChoiceStatus" class="pay-status">${selected?`Forma selecionada: <b>${methodLabel(selected)}</b>`:'Selecione PIX ou cartão para continuar.'}</div>
           <div id="paymentCheckoutWrap">${payment?.checkout_url?`<a class="pay-checkout" href="${esc(payment.checkout_url)}" target="_blank" rel="noopener">Continuar para pagamento</a>`:''}</div>
-          <p class="pay-note">Após a aprovação pelo Mercado Pago, esta página muda automaticamente para “Pagamento aprovado”.</p>
-        `}
+          <p class="pay-note">Se o pagamento não for confirmado dentro do prazo, o arremate será cancelado automaticamente.</p>`}
       </div>`);
-    if(!paid)watchPaymentApproval(id);else stopPaymentWatch();
+    if(!paid&&!expired){watchDeadline(id,deadline);watchPaymentApproval(id)}else{stopPaymentWatch();stopDeadlineWatch()}
   }
 
   async function enhancedOpenLot(id,skipReturnSync=false){
-    let l;
-    try{l=await loadPublicLot(id)}catch{return baseOpenLot(id)}
+    let l;try{l=await loadPublicLot(id)}catch{return baseOpenLot(id)}
     const ended=!!(l.ends&&Date.now()>=new Date(l.ends));
-    if(!ended){
-      stopPaymentWatch();
-      await baseOpenLot(id);
-      watchEnd(id,l.ends);
-      return;
-    }
-
-    stopEndWatch();
-    if(!skipReturnSync)await syncReturnedPayment(id);
+    if(!ended){stopPaymentWatch();stopDeadlineWatch();await baseOpenLot(id);watchEnd(id,l.ends);return}
+    stopEndWatch();if(!skipReturnSync)await syncReturnedPayment(id);
     try{lastFinalization=await finalize(id)}catch(e){console.error('Finalização do lote:',e);lastFinalization=null}
-    await baseOpenLot(id);
-    styleOnce();
-    const box=document.querySelector('.bidbox');
-    if(!box||!lastFinalization)return;
-
-    if(!lastFinalization.sold){
-      stopPaymentWatch();
-      box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado sem arrematante.</div>');
-      return;
-    }
-
+    await baseOpenLot(id);styleOnce();
+    const box=document.querySelector('.bidbox');if(!box||!lastFinalization)return;
+    if(!lastFinalization.sold){stopPaymentWatch();stopDeadlineWatch();box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado sem arrematante.</div>');return}
     if(lastFinalization.isWinner===true){
+      if(lastFinalization.payment?.status!=='paid'){
+        try{const checked=await checkPaymentStatus(id);if(checked?.payment)lastFinalization.payment=checked.payment}catch(e){console.error(e)}
+      }
       renderWinnerPayment(box,id,lastFinalization);
     }else{
-      stopPaymentWatch();
-      box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado. A forma de pagamento aparece somente para o participante vencedor.</div>');
+      stopPaymentWatch();stopDeadlineWatch();box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado. A forma de pagamento aparece somente para o participante vencedor.</div>');
     }
   }
 
@@ -182,34 +158,20 @@
     const status=document.getElementById('paymentChoiceStatus');
     try{
       if(!['pix','card'].includes(method))throw new Error('Escolha PIX ou cartão.');
+      const checked=await checkPaymentStatus(id);
+      if(checked?.payment?.status==='cancelled')throw new Error('O prazo de 10 minutos terminou. Este arremate foi cancelado.');
       if(status)status.textContent='Preparando pagamento no Mercado Pago...';
-      const session=await db.auth.getSession();
-      const token=session?.data?.session?.access_token;
+      const session=await db.auth.getSession();const token=session?.data?.session?.access_token;
       if(!token)throw new Error('Sua sessão expirou. Entre novamente com a conta usada para dar o lance.');
-      const response=await fetch('/api/select-payment-method',{
-        method:'POST',
-        headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-        body:JSON.stringify({lotId:id,method})
-      });
-      const data=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(data.error||'Não foi possível salvar a forma de pagamento.');
+      const response=await fetch('/api/select-payment-method',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id,method})});
+      const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Não foi possível salvar a forma de pagamento.');
       document.querySelectorAll('.pay-method').forEach(b=>b.classList.remove('active'));
-      const labels={pix:'PIX',card:'Cartão'};
-      const buttons=[...document.querySelectorAll('.pay-method')];
-      const active=buttons.find(b=>b.textContent.trim()===labels[method]);
-      if(active)active.classList.add('active');
+      const labels={pix:'PIX',card:'Cartão'};const buttons=[...document.querySelectorAll('.pay-method')];const active=buttons.find(b=>b.textContent.trim()===labels[method]);if(active)active.classList.add('active');
       if(status)status.innerHTML=`Forma selecionada: <b>${labels[method]}</b>. ${data.onlineReady?'Pagamento pronto. Clique abaixo para continuar.':'A empresa ainda precisa conectar o Mercado Pago.'}`;
-      const wrap=document.getElementById('paymentCheckoutWrap');
-      if(wrap&&data.checkoutUrl){
-        wrap.innerHTML=`<a class="pay-checkout" href="${esc(data.checkoutUrl)}" target="_blank" rel="noopener">Pagar com ${labels[method]}</a>`;
-        watchPaymentApproval(id);
-      }
+      const wrap=document.getElementById('paymentCheckoutWrap');if(wrap&&data.checkoutUrl){wrap.innerHTML=`<a class="pay-checkout" href="${esc(data.checkoutUrl)}" target="_blank" rel="noopener">Pagar com ${labels[method]}</a>`;watchPaymentApproval(id)}
     }catch(e){if(status)status.textContent=e.message;else alert(e.message)}
   };
 
-  openLot=enhancedOpenLot;
-  window.openLot=enhancedOpenLot;
-
-  const publicId=new URLSearchParams(location.search).get('lote');
-  if(publicId)setTimeout(()=>enhancedOpenLot(publicId),350);
+  openLot=enhancedOpenLot;window.openLot=enhancedOpenLot;
+  const publicId=new URLSearchParams(location.search).get('lote');if(publicId)setTimeout(()=>enhancedOpenLot(publicId),350);
 })();
