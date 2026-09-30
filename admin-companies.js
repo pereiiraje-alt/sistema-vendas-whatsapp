@@ -1,4 +1,4 @@
-// Gestão adicional de empresas: exclusão segura por arquivamento.
+// Gestão adicional de empresas: dados do cliente e exclusão segura por arquivamento.
 (function(){
   const baseCompanies=companies;
   const baseOverview=overview;
@@ -34,7 +34,7 @@
   companies=async function(showForm=false){
     await baseCompanies(showForm);
 
-    const {data:allCompanies,error}=await db.from('companies').select('id,name,deleted_at');
+    const {data:allCompanies,error}=await db.from('companies').select('id,name,responsible_name,email,phone,document,deleted_at');
     if(error)return;
     const map=new Map((allCompanies||[]).map(x=>[String(x.id),x]));
     let visible=0;
@@ -46,8 +46,24 @@
       if(!row)return;
       if(company?.deleted_at){row.remove();return;}
       visible++;
-      if(row.querySelector('.archiveCompany'))return;
 
+      // Deixa claro que este botão abre todos os dados editáveis do cliente.
+      edit.textContent='Dados do cliente';
+      edit.title='Editar nome, responsável, telefone, e-mail, documento, plano, cobrança e vencimento';
+
+      // Mostra telefone logo abaixo do responsável para facilitar a administração.
+      const responsibleCell=row.children?.[1];
+      if(responsibleCell&&company?.phone&&!responsibleCell.querySelector('.company-phone')){
+        const phone=document.createElement('small');
+        phone.className='company-phone';
+        phone.style.display='block';
+        phone.style.marginTop='3px';
+        phone.style.color='#6b7280';
+        phone.textContent=company.phone;
+        responsibleCell.appendChild(phone);
+      }
+
+      if(row.querySelector('.archiveCompany'))return;
       const btn=document.createElement('button');
       btn.type='button';
       btn.className='ghost mini archiveCompany';
@@ -61,7 +77,7 @@
     });
 
     const countText=app.querySelector('.panel .toolbar .muted');
-    if(countText)countText.textContent=`${visible} empresa(s) cadastrada(s).`;
+    if(countText)countText.textContent=`${visible} empresa(s) cadastrada(s). Clique em “Dados do cliente” para editar nome, responsável, telefone e demais informações.`;
   };
 
   overview=async function(){
@@ -72,7 +88,7 @@
     const active=cs.filter(x=>x.active&&x.subscription_status!=='blocked'&&x.subscription_status!=='suspended').length;
     const suspended=cs.length-active;
     const revenue=ps.reduce((s,p)=>s+(+p.amount||0),0);
-    app.innerHTML=`<div class="cards"><div class="card"><small>Empresas ativas</small><h2>${active}</h2><span class="up">de ${cs.length} cadastradas</span></div><div class="card"><small>Empresas suspensas</small><h2>${suspended}</h2><span class="up">Bloqueadas ou inativas</span></div><div class="card"><small>Leilões</small><h2>${as}</h2><span class="up">Total registrado</span></div><div class="card"><small>Usuários vinculados</small><h2>${us}</h2><span class="up">Membros de empresas</span></div></div><div class="panels"><div class="panel"><h3>Administração global</h3><p>Gerencie clientes, planos, vencimentos, acessos e cobrança da plataforma.</p><button class="primary" onclick="go('companies')">Gerenciar empresas</button></div><div class="panel"><h3>Financeiro</h3><div class="row"><span>Volume registrado</span><b>${money(revenue)}</b></div><div class="row"><span>Lances</span><b>${bs}</b></div><div class="row"><span>Status do banco</span><b class="badge">Conectado</b></div></div></div>`;
+    app.innerHTML=`<div class="cards"><div class="card"><small>Empresas ativas</small><h2>${active}</h2><span class="up">de ${cs.length} cadastradas</span></div><div class="card"><small>Empresas suspensas</small><h2>${suspended}</h2><span class="up">Bloqueadas ou inativas</span></div><div class="card"><small>Leilões</small><h2>${as}</h2><span class="up">Total registrado</span></div><div class="card"><small>Usuários vinculados</small><h2>${us}</h2><span class="up">Membros de empresas</span></div></div><div class="panels"><div class="panel"><h3>Administração global</h3><p>Gerencie clientes, dados cadastrais, planos, vencimentos, acessos e cobrança da plataforma.</p><button class="primary" onclick="go('companies')">Gerenciar empresas</button></div><div class="panel"><h3>Financeiro</h3><div class="row"><span>Volume registrado</span><b>${money(revenue)}</b></div><div class="row"><span>Lances</span><b>${bs}</b></div><div class="row"><span>Status do banco</span><b class="badge">Conectado</b></div></div></div>`;
   };
 
   if(pages?.companies)pages.companies[0]=companies;
