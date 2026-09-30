@@ -25,11 +25,20 @@ async function mpRequest(path,opts={}){
 async function contextFor(token){
   const user=await authUser(token);
   const membership=await membershipForUser(user.id,token);
-  if(!membership?.company_id) throw new Error('Sua conta ainda não está vinculada a uma empresa.');
+
+  // Participantes que apenas dão lances não contratam plano da plataforma.
+  // Se o usuário não é membro de empresa, verificamos se ele possui cadastro como participante.
+  if(!membership?.company_id){
+    const participants=await serviceFetch(`/rest/v1/participants?auth_user_id=eq.${encodeURIComponent(user.id)}&select=id,auth_user_id,company_id,full_name,email&limit=1`);
+    const participant=Array.isArray(participants)?participants[0]:null;
+    if(participant)return {user,membership:null,company:null,participantOnly:true,participant};
+    throw new Error('Sua conta ainda não está vinculada a uma empresa.');
+  }
+
   const companies=await serviceFetch(`/rest/v1/companies?id=eq.${encodeURIComponent(membership.company_id)}&select=id,name,email,plan,subscription_status,subscription_expires_at,created_at,active,platform_fee_type,platform_fee_value&limit=1`);
   const company=Array.isArray(companies)?companies[0]:null;
   if(!company) throw new Error('Empresa não encontrada.');
-  return {user,membership,company};
+  return {user,membership,company,participantOnly:false};
 }
 
 async function planByCode(code){
@@ -161,7 +170,15 @@ module.exports=async(req,res)=>{
   try{
     const auth=String(req.headers.authorization||''),token=auth.startsWith('Bearer ')?auth.slice(7):'';
     if(!token)return res.status(401).json({error:'Sessão necessária.'});
-    const {user,company}=await contextFor(token);
+    const context=await contextFor(token);
+    const {user,company,participantOnly}=context;
+
+    // Conta de participante: acesso gratuito somente para dar lances e consultar seus próprios lances.
+    if(participantOnly){
+      if(req.method==='POST')return res.status(400).json({error:'Participantes não precisam contratar plano da plataforma.'});
+      return res.status(200).json({allowed:true,participantOnly:true,status:'participant',requiresSubscription:false,monthly:false});
+    }
+
     const body=req.method==='POST'?(typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{})):{};
     if(req.method==='POST'&&body.planCode){const result=await choosePlan(company,user,String(body.planCode));return res.status(200).json(result)}
     if(isTrialCompany(company)){const result=await trialState(company);return res.status(200).json(result)}
