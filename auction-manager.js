@@ -8,6 +8,31 @@
   let quickAuctionId=null;
   let savingQuickLot=false;
 
+  async function renumberCompanyLots(){
+    if(!currentCompany?.id)return;
+    const {data,error}=await timeout(
+      db.from('lots')
+        .select('id,lot_number,created_at')
+        .eq('company_id',currentCompany.id)
+        .order('created_at',{ascending:true})
+        .order('id',{ascending:true}),
+      7000,
+      'organizar numeração dos lotes'
+    );
+    if(error)throw error;
+    const changes=(data||[])
+      .map((lot,index)=>({id:lot.id,current:Number(lot.lot_number)||0,next:index+1}))
+      .filter(x=>x.current!==x.next);
+    for(const lot of changes){
+      const {error:updateError}=await timeout(
+        db.from('lots').update({lot_number:lot.next}).eq('id',lot.id),
+        7000,
+        'atualizar número do lote'
+      );
+      if(updateError)throw updateError;
+    }
+  }
+
   async function restoreLatestAuction(){
     if(!currentCompany){currentAuction=null;return null;}
     const {data,error}=await timeout(
@@ -134,6 +159,7 @@
       }
 
       try{
+        await renumberCompanyLots();
         const {data:lastLot,error:lastLotError}=await timeout(
           db.from('lots')
             .select('ends_at,title')
@@ -179,6 +205,17 @@
       }
     };
   }
+
+  // Corrige também os lotes já existentes que ficaram repetidos como LOTE #1.
+  setTimeout(async()=>{
+    try{
+      await renumberCompanyLots();
+      const activePage=document.querySelector('#nav button.active')?.dataset.page;
+      if(activePage==='leiloes')await leiloes();
+    }catch(error){
+      console.warn('Não foi possível ajustar a numeração dos lotes:',error?.message||error);
+    }
+  },1600);
 
   const expiryScript=document.createElement('script');
   expiryScript.src='auction-expiry-ui.js?v=20260927-2';
