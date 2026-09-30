@@ -30,7 +30,7 @@ module.exports=async(req,res)=>{
     const activeLots=(Array.isArray(lotResult.data)?lotResult.data:[]).filter(l=>l.ends_at&&Date.now()<new Date(l.ends_at).getTime());
     if(!lotResult.ok||!activeLots.length)return res.status(403).json({error:'Não há lote ativo disponível para novos participantes nesta empresa.'});
 
-    // Conta já autenticada na plataforma: cria/reutiliza o participante sem pedir novo cadastro.
+    // Conta já autenticada na plataforma: reutiliza ou cria o participante sem pedir novo cadastro.
     const authHeader=String(req.headers.authorization||'');
     const token=authHeader.startsWith('Bearer ')?authHeader.slice(7):'';
     if(token){
@@ -48,19 +48,65 @@ module.exports=async(req,res)=>{
       const previousResult=await parse(previousResp);
       const previous=previousResult.ok&&Array.isArray(previousResult.data)?previousResult.data[0]:null;
       const meta=user.user_metadata||{};
+      const normalizedEmail=String(user.email||previous?.email||'').trim().toLowerCase();
+
+      // Se já houver cadastro nesta empresa com o mesmo e-mail, apenas liga esse cadastro à conta atual.
+      if(normalizedEmail){
+        const byEmailResp=await fetch(`${SUPABASE_URL}/rest/v1/participants?company_id=eq.${encodeURIComponent(companyId)}&email=eq.${encodeURIComponent(normalizedEmail)}&select=*&limit=1`,{headers});
+        const byEmail=await parse(byEmailResp);
+        const row=byEmail.ok&&Array.isArray(byEmail.data)?byEmail.data[0]:null;
+        if(row){
+          if(row.auth_user_id!==user.id){
+            const patchResp=await fetch(`${SUPABASE_URL}/rest/v1/participants?id=eq.${encodeURIComponent(row.id)}`,{
+              method:'PATCH',headers:{...headers,Prefer:'return=representation'},body:JSON.stringify({auth_user_id:user.id,status:'approved'})
+            });
+            const patched=await parse(patchResp);
+            if(patched.ok&&Array.isArray(patched.data)&&patched.data[0])return res.status(200).json({participant:patched.data[0],existing:true});
+          }else return res.status(200).json({participant:row,existing:true});
+        }
+      }
+
+      const rawCpf=String(previous?.cpf||meta.cpf||meta.document||'').trim();
+      let safeCpf=rawCpf;
+
+      // Evita colisão da chave única company_id + cpf. Se o CPF já existir para outro e-mail,
+      // usa um identificador interno exclusivo para esta conta da plataforma.
+      if(rawCpf){
+        const byCpfResp=await fetch(`${SUPABASE_URL}/rest/v1/participants?company_id=eq.${encodeURIComponent(companyId)}&cpf=eq.${encodeURIComponent(rawCpf)}&select=*&limit=1`,{headers});
+        const byCpf=await parse(byCpfResp);
+        const row=byCpf.ok&&Array.isArray(byCpf.data)?byCpf.data[0]:null;
+        if(row){
+          const rowEmail=String(row.email||'').trim().toLowerCase();
+          if(normalizedEmail&&rowEmail===normalizedEmail){
+            const patchResp=await fetch(`${SUPABASE_URL}/rest/v1/participants?id=eq.${encodeURIComponent(row.id)}`,{
+              method:'PATCH',headers:{...headers,Prefer:'return=representation'},body:JSON.stringify({auth_user_id:user.id,status:'approved'})
+            });
+            const patched=await parse(patchResp);
+            if(patched.ok&&Array.isArray(patched.data)&&patched.data[0])return res.status(200).json({participant:patched.data[0],existing:true});
+          }
+          safeCpf=`PLAT-${user.id}`;
+        }
+      }else safeCpf=`PLAT-${user.id}`;
+
       const participantData={
         company_id:companyId,
         auth_user_id:user.id,
         full_name:String(previous?.full_name||meta.full_name||meta.responsible_name||meta.name||String(user.email||'Participante').split('@')[0]).trim()||'Participante',
-        cpf:String(previous?.cpf||meta.cpf||meta.document||'Não informado').trim()||'Não informado',
+        cpf:safeCpf,
         phone:String(previous?.phone||meta.phone||meta.whatsapp||'Não informado').trim()||'Não informado',
-        email:String(previous?.email||user.email||'').trim().toLowerCase(),
+        email:normalizedEmail,
         status:'approved'
       };
 
       const createResp=await fetch(`${SUPABASE_URL}/rest/v1/participants`,{method:'POST',headers:{...headers,Prefer:'return=representation'},body:JSON.stringify(participantData)});
       const created=await parse(createResp);
-      if(!created.ok)return res.status(400).json({error:created.data?.message||created.data?.details||'Não foi possível liberar esta conta para o leilão.'});
+      if(!created.ok){
+        // Proteção contra corrida/registro pré-existente criado ao mesmo tempo.
+        const retryResp=await fetch(`${SUPABASE_URL}/rest/v1/participants?company_id=eq.${encodeURIComponent(companyId)}&auth_user_id=eq.${encodeURIComponent(user.id)}&select=*&limit=1`,{headers});
+        const retry=await parse(retryResp);
+        if(retry.ok&&Array.isArray(retry.data)&&retry.data[0])return res.status(200).json({participant:retry.data[0],existing:true});
+        return res.status(400).json({error:'Não foi possível liberar esta conta para o leilão. Tente novamente.'});
+      }
       return res.status(201).json({participant:Array.isArray(created.data)?created.data[0]:created.data,existing:true});
     }
 
