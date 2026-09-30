@@ -37,6 +37,9 @@
       .pix-qr{display:block;width:min(240px,80vw);height:auto;margin:0 auto 12px;border-radius:10px;background:#fff}
       .pix-code{width:100%;min-height:82px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:10px;font-size:12px;resize:none;background:#f9fafb;color:#111827}
       .pix-copy{width:100%;margin-top:8px;border:0;border-radius:10px;padding:11px;background:#065f46;color:#fff;font-weight:800;cursor:pointer}
+      .seller-contact{margin-top:12px;padding:14px;border:1px solid #86efac;border-radius:14px;background:#fff;text-align:left}
+      .seller-contact strong{display:block;color:#065f46;font-size:16px;margin-bottom:5px}.seller-contact p{margin:0 0 10px;color:#4b5563;font-size:13px;line-height:1.45}
+      .seller-whatsapp{display:block;text-align:center;padding:12px;border-radius:10px;background:#25d366;color:#fff;text-decoration:none;font-weight:800}
       @media(max-width:520px){.pay-methods{grid-template-columns:1fr}.winner-pay .pay-total{font-size:24px}}
     `;
     document.head.appendChild(s);
@@ -124,6 +127,23 @@
     return `<div class="pix-box"><h4>PIX pronto para pagamento</h4><p>Abra o aplicativo de qualquer banco, escolha pagar com PIX e escaneie o QR Code.</p>${qrCodeBase64?`<img class="pix-qr" src="data:image/png;base64,${qrCodeBase64}" alt="QR Code PIX">`:''}${qrCode?`<textarea class="pix-code" id="pixCopyCode" readonly>${esc(qrCode)}</textarea><button class="pix-copy" type="button" onclick="copyPixCode()">Copiar código PIX</button>`:''}</div>`;
   }
 
+  function sellerWhatsHtml(data,amount){
+    const seller=data?.sellerContact;const sale=data?.saleInfo||{};
+    if(!seller?.phone)return '';
+    const message=[
+      `Olá, ${seller.name||'vendedor'}!`,
+      `Meu pagamento foi aprovado na JP Leilões.`,
+      sale.auctionTitle?`Leilão: ${sale.auctionTitle}`:'',
+      sale.lotNumber!=null?`Lote: #${sale.lotNumber}`:'',
+      sale.lotTitle?`Produto: ${sale.lotTitle}`:'',
+      `Valor pago: ${money(amount)}`,
+      sale.arremateId?`Arremate: ${sale.arremateId}`:'',
+      `Gostaria de combinar os próximos passos para retirada/entrega.`
+    ].filter(Boolean).join('\n');
+    const href=`https://wa.me/${String(seller.phone).replace(/\D/g,'')}?text=${encodeURIComponent(message)}`;
+    return `<div class="seller-contact"><strong>📱 Fale com o vendedor</strong><p>${esc(seller.companyName||'Empresa vendedora')} · ${esc(seller.name||'Responsável')}</p><a class="seller-whatsapp" href="${href}" target="_blank" rel="noopener">Chamar vendedor no WhatsApp</a></div>`;
+  }
+
   window.copyPixCode=async function(){
     const el=document.getElementById('pixCopyCode');if(!el)return;
     try{await navigator.clipboard.writeText(el.value)}catch(_){el.select();document.execCommand('copy')}
@@ -140,7 +160,7 @@
     const currentPix=selected==='pix'?pixHtml(data.qrCode||'',data.qrCodeBase64||''):'';
     box.insertAdjacentHTML('beforeend',`
       <div class="winner-pay" id="winnerPayment">
-        ${paid?`<div class="payment-approved"><div class="check">✅</div><h2>Pagamento aprovado</h2><p>Recebemos a confirmação do Mercado Pago.</p><div class="pay-total">${money(amount)}</div></div>`:
+        ${paid?`<div class="payment-approved"><div class="check">✅</div><h2>Pagamento aprovado</h2><p>Recebemos a confirmação do Mercado Pago.</p><div class="pay-total">${money(amount)}</div></div>${sellerWhatsHtml(data,amount)}`:
         expired?`<div class="payment-expired"><h3>Prazo de pagamento encerrado</h3><p>O pagamento não foi confirmado em até 10 minutos após o encerramento do leilão. Este arremate foi cancelado e a empresa poderá entrar em contato com o segundo maior lance.</p></div>`:
         `<h3>🏆 Parabéns, você arrematou!</h3><div>Valor do lote:</div><div class="pay-total">${money(amount)}</div>
           <div class="payment-deadline">O prazo começou quando o leilão encerrou. Você tem 10 minutos para confirmar o pagamento.<strong id="paymentDeadlineClock">${remainingDeadline(deadline)}</strong></div>
@@ -172,6 +192,9 @@
           lastFinalization.qrCodeBase64=checked?.qrCodeBase64||'';
           lastFinalization.ticketUrl=checked?.ticketUrl||'';
         }catch(e){console.error(e)}
+      }
+      if(lastFinalization.payment?.status==='paid'&&!lastFinalization.sellerContact){
+        try{lastFinalization=await finalize(id)||lastFinalization}catch(e){console.error('Contato do vendedor:',e)}
       }
       renderWinnerPayment(box,id,lastFinalization,l.ends);
     }else{
