@@ -99,4 +99,11 @@
 
   btn.onclick=renderHistory;
   window.renderParticipantHistory=renderHistory;
+
+  if(!document.getElementById('myPlatformBidsScript')){
+    const s=document.createElement('script');
+    s.id='myPlatformBidsScript';
+    s.src='my-platform-bids.js?v=20260930-1';
+    document.body.appendChild(s);
+  }
 })();
