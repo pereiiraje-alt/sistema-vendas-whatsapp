@@ -14,4 +14,12 @@
 
     window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
   };
+
+  // Mostra e atualiza automaticamente quem já deu lance no lote público.
+  if(new URLSearchParams(location.search).has('lote')&&!document.querySelector('script[data-bid-history-live]')){
+    const script=document.createElement('script');
+    script.src='/bid-history-live.js?v=20260930-1';
+    script.dataset.bidHistoryLive='1';
+    document.body.appendChild(script);
+  }
 })();
