@@ -3,7 +3,23 @@
   const standalone=()=>window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
   const isiOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
   const nav=document.getElementById('nav');
-  if(!nav||standalone())return;
+  if(!nav)return;
+
+  if(!document.getElementById('platformAuctionsButton')){
+    const platformButton=document.createElement('button');
+    platformButton.type='button';
+    platformButton.id='platformAuctionsButton';
+    platformButton.textContent='🌐 Leilões da plataforma';
+    platformButton.onclick=()=>{location.href='/explorar.html'};
+    const leiloesButton=nav.querySelector('[data-page="leiloes"]');
+    if(leiloesButton)leiloesButton.insertAdjacentElement('afterend',platformButton);
+    else nav.prepend(platformButton);
+  }
+
+  if(standalone()){
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(e=>console.warn('Service Worker:',e));}
+    return;
+  }
 
   const button=document.createElement('button');
   button.type='button';button.id='installAppButton';button.textContent='📱 Instalar aplicativo';
