@@ -24,6 +24,68 @@
     },true);
   }
 
+  // Campos de dinheiro no padrão brasileiro: 0,00.
+  // Visualmente usa vírgula, mas app.js continua recebendo número com ponto.
+  (function setupBrazilianMoneyInputs(){
+    const nativeValue=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+    const fields=[['lvalue',0],['lstart',0],['lstep',1]];
+    const parseBR=raw=>{
+      let s=String(raw??'').trim().replace(/\s/g,'');
+      if(!s)return NaN;
+      if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');
+      return Number(s);
+    };
+    const formatBR=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    for(const [id,min] of fields){
+      const el=document.getElementById(id);
+      if(!el)continue;
+      el.type='text';
+      el.inputMode='decimal';
+      el.placeholder='0,00';
+      el.removeAttribute('step');
+      el.removeAttribute('min');
+      const nativeGet=()=>nativeValue.get.call(el);
+      const nativeSet=v=>nativeValue.set.call(el,v);
+      Object.defineProperty(el,'value',{
+        configurable:true,
+        get(){
+          const n=parseBR(nativeGet());
+          return Number.isFinite(n)?String(n):nativeGet();
+        },
+        set(v){
+          if(v===''||v==null){nativeSet('');return}
+          const n=parseBR(v);
+          nativeSet(Number.isFinite(n)?formatBR(n):String(v));
+        }
+      });
+      const validate=()=>{
+        const shown=nativeGet();
+        const n=parseBR(shown);
+        if(!shown){el.setCustomValidity('Informe o valor.');return}
+        if(!Number.isFinite(n)){el.setCustomValidity('Digite um valor válido, por exemplo 10,00.');return}
+        if(n<min){el.setCustomValidity(`O valor mínimo é ${formatBR(min)}.`);return}
+        el.setCustomValidity('');
+      };
+      el.addEventListener('input',()=>{
+        let shown=nativeGet().replace(/[^0-9,.]/g,'');
+        const comma=shown.indexOf(',');
+        if(comma>=0)shown=shown.slice(0,comma+1)+shown.slice(comma+1).replace(/,/g,'').slice(0,2);
+        nativeSet(shown);
+        validate();
+      });
+      el.addEventListener('blur',()=>{
+        const n=parseBR(nativeGet());
+        if(Number.isFinite(n))nativeSet(formatBR(n));
+        validate();
+      });
+      el.addEventListener('focus',()=>{
+        const n=parseBR(nativeGet());
+        if(Number.isFinite(n))nativeSet(formatBR(n));
+        el.select();
+      });
+    }
+  })();
+
   function ensureDialog(){
     let d=document.getElementById('firstAuctionModal');
     if(d)return d;
