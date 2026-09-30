@@ -114,23 +114,24 @@
     render();deadlineWatcher=setInterval(render,1000);
   }
 
-  function renderWinnerPayment(box,id,data){
+  function renderWinnerPayment(box,id,data,lotEnds){
     const a=data.arremate;const payment=data.payment;const amount=Number(a.total_amount||a.winning_bid||0);
     const paid=payment?.status==='paid';
     const expired=payment?.status==='cancelled';
     const selected=['pix','card'].includes(payment?.method)?payment.method:'';
-    const deadline=new Date(a.created_at).getTime()+PAYMENT_LIMIT_MS;
+    const startMs=data.paymentDeadline?new Date(data.paymentDeadline).getTime()-PAYMENT_LIMIT_MS:(lotEnds?new Date(lotEnds).getTime():new Date(a.created_at).getTime());
+    const deadline=startMs+PAYMENT_LIMIT_MS;
     box.insertAdjacentHTML('beforeend',`
       <div class="winner-pay" id="winnerPayment">
         ${paid?`<div class="payment-approved"><div class="check">✅</div><h2>Pagamento aprovado</h2><p>Recebemos a confirmação do Mercado Pago.</p><div class="pay-total">${money(amount)}</div></div>`:
-        expired?`<div class="payment-expired"><h3>Prazo de pagamento encerrado</h3><p>O pagamento não foi confirmado em até 10 minutos. Este arremate foi cancelado e a empresa poderá entrar em contato com o segundo maior lance.</p></div>`:
+        expired?`<div class="payment-expired"><h3>Prazo de pagamento encerrado</h3><p>O pagamento não foi confirmado em até 10 minutos após o encerramento do leilão. Este arremate foi cancelado e a empresa poderá entrar em contato com o segundo maior lance.</p></div>`:
         `<h3>🏆 Parabéns, você arrematou!</h3><div>Valor do lote:</div><div class="pay-total">${money(amount)}</div>
-          <div class="payment-deadline">Você tem 10 minutos para confirmar o pagamento.<strong id="paymentDeadlineClock">${remainingDeadline(deadline)}</strong></div>
+          <div class="payment-deadline">O prazo começou quando o leilão encerrou. Você tem 10 minutos para confirmar o pagamento.<strong id="paymentDeadlineClock">${remainingDeadline(deadline)}</strong></div>
           <span class="pay-label">Escolha a forma de pagamento</span>
           <div class="pay-methods"><button class="pay-method ${selected==='pix'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','pix')">PIX</button><button class="pay-method ${selected==='card'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','card')">Cartão</button></div>
           <div id="paymentChoiceStatus" class="pay-status">${selected?`Forma selecionada: <b>${methodLabel(selected)}</b>`:'Selecione PIX ou cartão para continuar.'}</div>
           <div id="paymentCheckoutWrap">${payment?.checkout_url?`<a class="pay-checkout" href="${esc(payment.checkout_url)}" target="_blank" rel="noopener">Continuar para pagamento</a>`:''}</div>
-          <p class="pay-note">Se o pagamento não for confirmado dentro do prazo, o arremate será cancelado automaticamente.</p>`}
+          <p class="pay-note">Sair da página não reinicia o prazo. O contador continua a partir do horário em que o leilão terminou.</p>`}
       </div>`);
     if(!paid&&!expired){watchDeadline(id,deadline);watchPaymentApproval(id)}else{stopPaymentWatch();stopDeadlineWatch()}
   }
@@ -146,9 +147,13 @@
     if(!lastFinalization.sold){stopPaymentWatch();stopDeadlineWatch();box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado sem arrematante.</div>');return}
     if(lastFinalization.isWinner===true){
       if(lastFinalization.payment?.status!=='paid'){
-        try{const checked=await checkPaymentStatus(id);if(checked?.payment)lastFinalization.payment=checked.payment}catch(e){console.error(e)}
+        try{
+          const checked=await checkPaymentStatus(id);
+          if(checked?.payment)lastFinalization.payment=checked.payment;
+          if(checked?.paymentDeadline)lastFinalization.paymentDeadline=checked.paymentDeadline;
+        }catch(e){console.error(e)}
       }
-      renderWinnerPayment(box,id,lastFinalization);
+      renderWinnerPayment(box,id,lastFinalization,l.ends);
     }else{
       stopPaymentWatch();stopDeadlineWatch();box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado. A forma de pagamento aparece somente para o participante vencedor.</div>');
     }
@@ -159,7 +164,7 @@
     try{
       if(!['pix','card'].includes(method))throw new Error('Escolha PIX ou cartão.');
       const checked=await checkPaymentStatus(id);
-      if(checked?.payment?.status==='cancelled')throw new Error('O prazo de 10 minutos terminou. Este arremate foi cancelado.');
+      if(checked?.payment?.status==='cancelled'||checked?.expired)throw new Error('O prazo de 10 minutos contado desde o encerramento do leilão terminou. Este arremate foi cancelado.');
       if(status)status.textContent='Preparando pagamento no Mercado Pago...';
       const session=await db.auth.getSession();const token=session?.data?.session?.access_token;
       if(!token)throw new Error('Sua sessão expirou. Entre novamente com a conta usada para dar o lance.');
