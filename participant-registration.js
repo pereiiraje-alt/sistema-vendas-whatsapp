@@ -3,7 +3,6 @@
     const form=document.querySelector('#registerForm');
     if(!form||typeof loadPublicLot!=='function'||typeof openLot!=='function')return false;
 
-    // Cabeçalho com as duas opções: entrar ou cadastrar.
     const head=form.querySelector('.modal-head');
     if(head&&!form.querySelector('#participantAuthTabs')){
       const tabs=document.createElement('div');
@@ -17,18 +16,15 @@
       if(el.id==='participantAuthTabs'||el.classList?.contains('modal-head'))return false;
       return true;
     });
-    originalFields.forEach(el=>{
-      if(!el.dataset.participantSignupField)el.dataset.participantSignupField='1';
-      if(!el.dataset.participantOriginalDisplay)el.dataset.participantOriginalDisplay=el.style.display||'';
-    });
+    originalFields.forEach(el=>{if(!el.dataset.participantSignupField)el.dataset.participantSignupField='1'});
 
     let loginBox=form.querySelector('#participantLoginBox');
     if(!loginBox){
       loginBox=document.createElement('div');
       loginBox.id='participantLoginBox';
-      loginBox.style.display='none';
+      loginBox.hidden=true;
       loginBox.innerHTML=`
-        <p class="muted">Se você já se cadastrou para dar lances, entre com seu e-mail e senha.</p>
+        <p class="muted">Se você já se cadastrou para dar lances, entre com seu e-mail e senha. O mesmo cadastro vale para leilões de todas as empresas da plataforma.</p>
         <label>E-mail<input id="participantLoginEmail" type="email" autocomplete="email" placeholder="seu@email.com"></label>
         <label>Senha<input id="participantLoginPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Sua senha"></label>
         <div id="participantLoginError" class="login-error" hidden></div>
@@ -47,18 +43,12 @@
 
     function setMode(mode){
       const login=mode==='login';
-      form.querySelectorAll('[data-participant-signup-field="1"]').forEach(el=>{
-        el.hidden=login;
-        el.style.display=login?'none':(el.dataset.participantOriginalDisplay||'');
-      });
+      form.querySelectorAll('[data-participant-signup-field="1"]').forEach(el=>el.hidden=login);
       loginBox.hidden=!login;
-      loginBox.style.display=login?'block':'none';
       if(loginTab){loginTab.className=login?'primary':'ghost'}
       if(signupTab){signupTab.className=login?'ghost':'primary'}
       if(loginError)loginError.hidden=true;
       hideRecovery();
-      if(login){setTimeout(()=>loginEmail?.focus(),0)}
-      else{setTimeout(()=>document.querySelector('#rname')?.focus(),0)}
     }
     if(loginTab)loginTab.onclick=()=>setMode('login');
     if(signupTab)signupTab.onclick=()=>setMode('signup');
@@ -68,7 +58,7 @@
       recoveryBox=document.createElement('div');
       recoveryBox.id='participantRecoveryBox';
       recoveryBox.hidden=true;
-      recoveryBox.style.cssText='display:none;margin:10px 0;padding:12px;border:1px solid #f0c36d;border-radius:10px;background:#fff8e8;color:#5f4a16;font-size:14px';
+      recoveryBox.style.cssText='margin:10px 0;padding:12px;border:1px solid #f0c36d;border-radius:10px;background:#fff8e8;color:#5f4a16;font-size:14px';
       recoveryBox.innerHTML='<div id="participantRecoveryMessage" style="margin-bottom:10px"></div><button id="participantRecoveryButton" type="button" class="ghost" style="width:100%">Redefinir minha senha</button>';
       loginBox.appendChild(recoveryBox);
     }
@@ -80,7 +70,6 @@
     function hideRecovery(){
       if(!recoveryBox)return;
       recoveryBox.hidden=true;
-      recoveryBox.style.display='none';
       recoveryEmail='';
       if(recoveryMessage)recoveryMessage.textContent='';
       if(recoveryButton){recoveryButton.disabled=false;recoveryButton.textContent='Redefinir minha senha'}
@@ -89,7 +78,6 @@
     function showRecovery(email,message){
       recoveryEmail=String(email||'').trim().toLowerCase();
       recoveryBox.hidden=false;
-      recoveryBox.style.display='block';
       if(recoveryMessage)recoveryMessage.textContent=message||'Não foi possível entrar. Você pode redefinir sua senha.';
     }
 
@@ -130,14 +118,36 @@
       if(error)throw error;
       if(p)return p;
 
-      const {data:previous,error:previousError}=await db.from('participants').select('*').eq('auth_user_id',user.id).order('created_at',{ascending:true}).limit(1).maybeSingle();
-      if(previousError)throw previousError;
-      if(!previous)throw new Error('Esta conta existe, mas ainda não possui cadastro de participante. Use a opção “Quero me cadastrar”.');
+      let previous=null;
+      const byUser=await db.from('participants').select('*').eq('auth_user_id',user.id).order('created_at',{ascending:true}).limit(1).maybeSingle();
+      if(byUser.error)throw byUser.error;
+      previous=byUser.data||null;
+
+      if(!previous&&user.email){
+        const byEmail=await db.from('participants').select('*').ilike('email',String(user.email).trim()).order('created_at',{ascending:true}).limit(1).maybeSingle();
+        if(byEmail.error)throw byEmail.error;
+        previous=byEmail.data||null;
+      }
+
+      if(!previous){
+        throw new Error('Este usuário ainda não possui cadastro de participante. Use a opção “Quero me cadastrar” uma única vez. Depois, o mesmo acesso poderá ser usado em leilões de qualquer empresa.');
+      }
 
       const {data:created,error:createError}=await db.from('participants').insert({
-        company_id:l.companyId,auth_user_id:user.id,full_name:previous.full_name,cpf:previous.cpf,phone:previous.phone,email:previous.email||user.email,status:'approved'
+        company_id:l.companyId,
+        auth_user_id:user.id,
+        full_name:previous.full_name,
+        cpf:previous.cpf,
+        phone:previous.phone,
+        email:previous.email||user.email,
+        status:'approved'
       }).select().single();
-      if(createError)throw createError;
+      if(createError){
+        const {data:existing,error:existingError}=await db.from('participants').select('*').eq('company_id',l.companyId).eq('auth_user_id',user.id).limit(1).maybeSingle();
+        if(existingError)throw existingError;
+        if(existing)return existing;
+        throw createError;
+      }
       return created;
     }
 
