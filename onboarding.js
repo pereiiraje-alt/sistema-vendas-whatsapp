@@ -24,65 +24,66 @@
     },true);
   }
 
-  // Campos de dinheiro no padrão brasileiro: 0,00.
-  // Visualmente usa vírgula, mas app.js continua recebendo número com ponto.
+  // Campos de dinheiro no padrão brasileiro. O campo visível fica em 21,90,
+  // enquanto um campo oculto conserva 21.90 para o app.js salvar corretamente.
   (function setupBrazilianMoneyInputs(){
-    const nativeValue=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
     const fields=[['lvalue',0],['lstart',0],['lstep',1]];
     const parseBR=raw=>{
       let s=String(raw??'').trim().replace(/\s/g,'');
       if(!s)return NaN;
       if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');
+      else if((s.match(/\./g)||[]).length>1)s=s.replace(/\./g,'');
       return Number(s);
     };
     const formatBR=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
     for(const [id,min] of fields){
-      const el=document.getElementById(id);
-      if(!el)continue;
-      el.type='text';
-      el.inputMode='decimal';
-      el.placeholder='0,00';
-      el.removeAttribute('step');
-      el.removeAttribute('min');
-      const nativeGet=()=>nativeValue.get.call(el);
-      const nativeSet=v=>nativeValue.set.call(el,v);
-      Object.defineProperty(el,'value',{
-        configurable:true,
-        get(){
-          const n=parseBR(nativeGet());
-          return Number.isFinite(n)?String(n):nativeGet();
-        },
-        set(v){
-          if(v===''||v==null){nativeSet('');return}
-          const n=parseBR(v);
-          nativeSet(Number.isFinite(n)?formatBR(n):String(v));
+      const original=document.getElementById(id);
+      if(!original||document.getElementById(id+'Display'))continue;
+
+      const hidden=document.createElement('input');
+      hidden.type='hidden';
+      hidden.id=id;
+      hidden.value='';
+      original.id=id+'Display';
+      original.type='text';
+      original.inputMode='decimal';
+      original.placeholder='0,00';
+      original.removeAttribute('step');
+      original.removeAttribute('min');
+      original.parentNode.insertBefore(hidden,original.nextSibling);
+
+      const sync=()=>{
+        let shown=String(original.value||'').replace(/[^0-9,.]/g,'');
+        const firstComma=shown.indexOf(',');
+        if(firstComma>=0){
+          shown=shown.slice(0,firstComma+1)+shown.slice(firstComma+1).replace(/[,.]/g,'').slice(0,2);
+        }else{
+          const firstDot=shown.indexOf('.');
+          if(firstDot>=0)shown=shown.slice(0,firstDot+1)+shown.slice(firstDot+1).replace(/[,.]/g,'').slice(0,2);
         }
-      });
-      const validate=()=>{
-        const shown=nativeGet();
+        original.value=shown;
         const n=parseBR(shown);
-        if(!shown){el.setCustomValidity('Informe o valor.');return}
-        if(!Number.isFinite(n)){el.setCustomValidity('Digite um valor válido, por exemplo 10,00.');return}
-        if(n<min){el.setCustomValidity(`O valor mínimo é ${formatBR(min)}.`);return}
-        el.setCustomValidity('');
+        hidden.value=Number.isFinite(n)?String(n):'';
+        if(!shown){original.setCustomValidity('Informe o valor.');return}
+        if(!Number.isFinite(n)){original.setCustomValidity('Digite um valor válido, por exemplo 21,90.');return}
+        if(n<min){original.setCustomValidity(`O valor mínimo é ${formatBR(min)}.`);return}
+        original.setCustomValidity('');
       };
-      el.addEventListener('input',()=>{
-        let shown=nativeGet().replace(/[^0-9,.]/g,'');
-        const comma=shown.indexOf(',');
-        if(comma>=0)shown=shown.slice(0,comma+1)+shown.slice(comma+1).replace(/,/g,'').slice(0,2);
-        nativeSet(shown);
-        validate();
+
+      original.addEventListener('input',sync);
+      original.addEventListener('focus',()=>original.select());
+      original.addEventListener('blur',()=>{
+        sync();
+        const n=Number(hidden.value);
+        if(Number.isFinite(n))original.value=formatBR(n);
       });
-      el.addEventListener('blur',()=>{
-        const n=parseBR(nativeGet());
-        if(Number.isFinite(n))nativeSet(formatBR(n));
-        validate();
-      });
-      el.addEventListener('focus',()=>{
-        const n=parseBR(nativeGet());
-        if(Number.isFinite(n))nativeSet(formatBR(n));
-        el.select();
-      });
+
+      original.form?.addEventListener('reset',()=>setTimeout(()=>{
+        original.value='';
+        hidden.value='';
+        original.setCustomValidity('');
+      },0));
     }
   })();
 
