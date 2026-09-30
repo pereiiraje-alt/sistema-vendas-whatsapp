@@ -3,9 +3,7 @@ const PUBLIC_ORIGIN='https://jpleiloes.com.br';
 const PAYMENT_LIMIT_MS=10*60*1000;
 
 function paymentMethodRules(method){
-  if(method==='pix'){
-    return {excluded_payment_types:[{id:'ticket'},{id:'credit_card'},{id:'debit_card'},{id:'prepaid_card'},{id:'digital_currency'},{id:'atm'}]};
-  }
+  if(method==='pix')return {excluded_payment_types:[{id:'ticket'},{id:'credit_card'},{id:'debit_card'},{id:'prepaid_card'},{id:'digital_currency'},{id:'atm'}]};
   return {excluded_payment_types:[{id:'ticket'},{id:'bank_transfer'},{id:'digital_currency'},{id:'atm'}]};
 }
 
@@ -20,16 +18,12 @@ async function createPreference(accessToken,{lot,arremate,payment,payerEmail,mar
 }
 
 module.exports=async(req,res)=>{
-  if(req.method!=='POST'){
-    res.setHeader('Allow','POST');
-    return res.status(405).json({error:'Método não permitido.'});
-  }
+  if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({error:'Método não permitido.'});}
   try{
     const auth=String(req.headers.authorization||'');
     const token=auth.startsWith('Bearer ')?auth.slice(7):'';
     if(!token)return res.status(401).json({error:'Faça login como participante para escolher a forma de pagamento.'});
     const user=await authUser(token);
-
     const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
     const lotId=String(body.lotId||'').trim();
     const method=String(body.method||'').toLowerCase();
@@ -37,7 +31,7 @@ module.exports=async(req,res)=>{
     if(!['pix','card'].includes(method))return res.status(400).json({error:'Escolha PIX ou cartão.'});
 
     await serviceFetch('/rest/v1/rpc/finalize_lot',{method:'POST',body:JSON.stringify({p_lot_id:lotId})});
-    const lots=await serviceFetch(`/rest/v1/lots?id=eq.${encodeURIComponent(lotId)}&select=id,lot_number,title,company_id&limit=1`);
+    const lots=await serviceFetch(`/rest/v1/lots?id=eq.${encodeURIComponent(lotId)}&select=id,lot_number,title,company_id,ends_at&limit=1`);
     const lot=Array.isArray(lots)?lots[0]:null;
     if(!lot)return res.status(404).json({error:'Lote não encontrado.'});
 
@@ -45,13 +39,12 @@ module.exports=async(req,res)=>{
     const arremate=Array.isArray(arremates)?arremates[0]:null;
     if(!arremate)return res.status(409).json({error:'Este lote não possui arrematante.'});
 
-    const deadline=new Date(arremate.created_at).getTime()+PAYMENT_LIMIT_MS;
+    const startMs=lot.ends_at?new Date(lot.ends_at).getTime():new Date(arremate.created_at).getTime();
+    const deadline=startMs+PAYMENT_LIMIT_MS;
     if(Date.now()>=deadline){
       const existing=await serviceFetch(`/rest/v1/payments?arremate_id=eq.${encodeURIComponent(arremate.id)}&select=id,status&limit=1`);
       const payment=Array.isArray(existing)?existing[0]:null;
-      if(payment?.status!=='paid'&&payment?.id){
-        await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'cancelled',updated_at:new Date().toISOString()})});
-      }
+      if(payment?.status!=='paid'&&payment?.id){await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'cancelled',updated_at:new Date().toISOString()})});}
       return res.status(409).json({error:'O prazo de 10 minutos para pagamento terminou. O arremate foi cancelado.'});
     }
 
@@ -78,8 +71,5 @@ module.exports=async(req,res)=>{
     const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({checkout_url:preference.init_point,provider_payment_id:String(preference.id||''),updated_at:new Date().toISOString()})});
     payment=Array.isArray(updated)?updated[0]:payment;
     return res.status(200).json({payment,onlineReady:true,checkoutUrl:preference.init_point,marketplaceFee,feePercent,method,paymentDeadline:new Date(deadline).toISOString(),message:marketplaceFee>0?`Checkout gerado com comissão JP Leilões de ${feePercent}%.`:'Checkout Mercado Pago gerado com sucesso.'});
-  }catch(error){
-    console.error('select-payment-method',error);
-    return res.status(500).json({error:error.message||'Não foi possível preparar o pagamento.'});
-  }
+  }catch(error){console.error('select-payment-method',error);return res.status(500).json({error:error.message||'Não foi possível preparar o pagamento.'});}
 };
