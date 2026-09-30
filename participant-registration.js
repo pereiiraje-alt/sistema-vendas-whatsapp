@@ -3,6 +3,31 @@
     const form=document.querySelector('#registerForm');
     if(!form||typeof loadPublicLot!=='function'||typeof openLot!=='function')return false;
 
+    function addPasswordToggle(input){
+      if(!input||input.dataset.eyeReady==='1')return;
+      input.dataset.eyeReady='1';
+      const wrap=document.createElement('div');
+      wrap.style.cssText='position:relative;width:100%';
+      input.parentNode.insertBefore(wrap,input);
+      wrap.appendChild(input);
+      input.style.paddingRight='46px';
+      const eye=document.createElement('button');
+      eye.type='button';
+      eye.setAttribute('aria-label','Mostrar senha');
+      eye.title='Mostrar senha';
+      eye.textContent='👁';
+      eye.style.cssText='position:absolute;right:10px;top:50%;transform:translateY(-50%);border:0;background:transparent;cursor:pointer;font-size:19px;padding:6px;line-height:1;z-index:2';
+      eye.onclick=()=>{
+        const showing=input.type==='text';
+        input.type=showing?'password':'text';
+        eye.textContent=showing?'👁':'🙈';
+        eye.setAttribute('aria-label',showing?'Mostrar senha':'Ocultar senha');
+        eye.title=showing?'Mostrar senha':'Ocultar senha';
+        input.focus();
+      };
+      wrap.appendChild(eye);
+    }
+
     const head=form.querySelector('.modal-head');
     if(head&&!form.querySelector('#participantAuthTabs')){
       const tabs=document.createElement('div');
@@ -16,16 +41,13 @@
       if(el.id==='participantAuthTabs'||el.classList?.contains('modal-head'))return false;
       return true;
     });
-    originalFields.forEach(el=>{
-      if(!el.dataset.participantSignupField)el.dataset.participantSignupField='1';
-      if(!el.dataset.originalDisplay)el.dataset.originalDisplay=el.style.display||'';
-    });
+    originalFields.forEach(el=>{if(!el.dataset.participantSignupField)el.dataset.participantSignupField='1'});
 
     let loginBox=form.querySelector('#participantLoginBox');
     if(!loginBox){
       loginBox=document.createElement('div');
       loginBox.id='participantLoginBox';
-      loginBox.style.display='none';
+      loginBox.hidden=true;
       loginBox.innerHTML=`
         <p class="muted">Se você já se cadastrou para dar lances, entre com seu e-mail e senha. O mesmo cadastro vale para leilões de todas as empresas da plataforma.</p>
         <label>E-mail<input id="participantLoginEmail" type="email" autocomplete="email" placeholder="seu@email.com"></label>
@@ -44,14 +66,13 @@
     const loginError=form.querySelector('#participantLoginError');
     const forgotButton=form.querySelector('#participantForgotButton');
 
+    addPasswordToggle(loginPassword);
+    addPasswordToggle(form.querySelector('#rpassword'));
+
     function setMode(mode){
       const login=mode==='login';
-      form.querySelectorAll('[data-participant-signup-field="1"]').forEach(el=>{
-        el.hidden=login;
-        el.style.display=login?'none':(el.dataset.originalDisplay||'');
-      });
+      form.querySelectorAll('[data-participant-signup-field="1"]').forEach(el=>el.hidden=login);
       loginBox.hidden=!login;
-      loginBox.style.display=login?'block':'none';
       if(loginTab){loginTab.className=login?'primary':'ghost'}
       if(signupTab){signupTab.className=login?'ghost':'primary'}
       if(loginError)loginError.hidden=true;
@@ -65,7 +86,7 @@
       recoveryBox=document.createElement('div');
       recoveryBox.id='participantRecoveryBox';
       recoveryBox.hidden=true;
-      recoveryBox.style.cssText='display:none;margin:10px 0;padding:12px;border:1px solid #f0c36d;border-radius:10px;background:#fff8e8;color:#5f4a16;font-size:14px';
+      recoveryBox.style.cssText='margin:10px 0;padding:12px;border:1px solid #f0c36d;border-radius:10px;background:#fff8e8;color:#5f4a16;font-size:14px';
       recoveryBox.innerHTML='<div id="participantRecoveryMessage" style="margin-bottom:10px"></div><button id="participantRecoveryButton" type="button" class="ghost" style="width:100%">Redefinir minha senha</button>';
       loginBox.appendChild(recoveryBox);
     }
@@ -77,7 +98,6 @@
     function hideRecovery(){
       if(!recoveryBox)return;
       recoveryBox.hidden=true;
-      recoveryBox.style.display='none';
       recoveryEmail='';
       if(recoveryMessage)recoveryMessage.textContent='';
       if(recoveryButton){recoveryButton.disabled=false;recoveryButton.textContent='Redefinir minha senha'}
@@ -86,7 +106,6 @@
     function showRecovery(email,message){
       recoveryEmail=String(email||'').trim().toLowerCase();
       recoveryBox.hidden=false;
-      recoveryBox.style.display='block';
       if(recoveryMessage)recoveryMessage.textContent=message||'Não foi possível entrar. Você pode redefinir sua senha.';
     }
 
