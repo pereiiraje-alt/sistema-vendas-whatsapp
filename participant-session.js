@@ -90,9 +90,18 @@ async function reuseParticipantForCompany(companyId,lotId=null){
   return participant;
 }
 
+let lastTrustedBidClick=0;
+document.addEventListener('click',event=>{
+  if(event.isTrusted&&event.target?.closest?.('.bidbtn'))lastTrustedBidClick=Date.now();
+},true);
+
 const originalBid=window.bid;
 if(typeof originalBid==='function'){
   window.bid=async function(id){
+    // Lance só pode ser registrado depois de um clique real do usuário no botão.
+    // Isso impede qualquer lance automático durante a preparação da conta ao abrir o lote.
+    if(Date.now()-lastTrustedBidClick>1500)return;
+    lastTrustedBidClick=0;
     try{
       const l=await loadPublicLot(id);
       if(!participant||participant.companyId!==l.companyId){
@@ -108,6 +117,7 @@ if(typeof originalBid==='function'){
 }
 
 // Ao abrir um lote da plataforma já logado, prepara a conta antes mesmo do primeiro clique em lance.
+// Esta etapa apenas habilita o participante; não registra lance.
 async function autoPrepareLoggedUserForPublicLot(){
   const lotId=new URLSearchParams(location.search).get('lote');
   if(!lotId)return;
