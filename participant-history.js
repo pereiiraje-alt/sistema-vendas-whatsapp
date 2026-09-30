@@ -15,16 +15,27 @@
     btn.textContent='◷ Histórico';
   }
 
-  // Dentro de Leilões, mantém exatamente esta ordem:
-  // Criar leilão, Meus leilões, Participantes, Histórico, Leilões da plataforma.
-  if(submenu){
-    const ordered=[createBtn,myAuctionsBtn,participantsBtn,btn,platformBtn].filter(Boolean);
+  function organizeAuctionMenu(){
+    if(!submenu)return;
+
+    // Remove cópias extras de "Leilões da plataforma" criadas por versões antigas do menu.
+    const platformButtons=[...submenu.querySelectorAll('button')].filter(el=>/leilões da plataforma/i.test(el.textContent||'')||String(el.getAttribute('onclick')||'').includes('explorar'));
+    const keep=platformBtn&&platformButtons.includes(platformBtn)?platformBtn:platformButtons[platformButtons.length-1];
+    platformButtons.forEach(el=>{if(el!==keep)el.remove()});
+
+    const ordered=[createBtn,myAuctionsBtn,participantsBtn,btn,keep].filter(Boolean);
     ordered.forEach(el=>submenu.appendChild(el));
     if(createBtn)createBtn.textContent='＋ Criar leilão';
     if(myAuctionsBtn)myAuctionsBtn.textContent='• Meus leilões';
     if(participantsBtn)participantsBtn.textContent='♙ Participantes';
-    if(platformBtn)platformBtn.textContent='🌐 Leilões da plataforma';
+    btn.textContent='◷ Histórico';
+    if(keep)keep.textContent='🌐 Leilões da plataforma';
   }
+
+  organizeAuctionMenu();
+  // Alguns scripts antigos acrescentavam o atalho depois do carregamento. Faz uma limpeza final.
+  setTimeout(organizeAuctionMenu,400);
+  setTimeout(organizeAuctionMenu,1200);
 
   const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const currency=value=>(Number(value)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
