@@ -49,7 +49,7 @@
       loginBox.id='participantLoginBox';
       loginBox.hidden=true;
       loginBox.innerHTML=`
-        <p class="muted">Se você já se cadastrou para dar lances, entre com seu e-mail e senha. O mesmo cadastro vale para leilões de todas as empresas da plataforma.</p>
+        <p class="muted">Já possui uma conta no JP Leilões? Entre com seu e-mail e senha. O mesmo acesso vale para leilões de todas as empresas da plataforma.</p>
         <label>E-mail<input id="participantLoginEmail" type="email" autocomplete="email" placeholder="seu@email.com"></label>
         <label>Senha<input id="participantLoginPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Sua senha"></label>
         <div id="participantLoginError" class="login-error" hidden></div>
@@ -157,24 +157,27 @@
         previous=byEmail.data||null;
       }
 
-      if(!previous){
-        throw new Error('Este usuário ainda não possui cadastro de participante. Use a opção “Quero me cadastrar” uma única vez. Depois, o mesmo acesso poderá ser usado em leilões de qualquer empresa.');
-      }
+      const meta=user.user_metadata||{};
+      const fullName=previous?.full_name||meta.full_name||meta.responsible_name||meta.name||String(user.email||'Participante').split('@')[0];
+      const cpf=previous?.cpf||meta.cpf||meta.document||'';
+      const phone=previous?.phone||meta.phone||meta.whatsapp||'';
+      const email=previous?.email||user.email||'';
 
       const {data:created,error:createError}=await db.from('participants').insert({
         company_id:l.companyId,
         auth_user_id:user.id,
-        full_name:previous.full_name,
-        cpf:previous.cpf,
-        phone:previous.phone,
-        email:previous.email||user.email,
+        full_name:String(fullName||'Participante').trim(),
+        cpf:String(cpf||'').trim(),
+        phone:String(phone||'').trim(),
+        email:String(email||'').trim().toLowerCase(),
         status:'approved'
       }).select().single();
+
       if(createError){
         const {data:existing,error:existingError}=await db.from('participants').select('*').eq('company_id',l.companyId).eq('auth_user_id',user.id).limit(1).maybeSingle();
         if(existingError)throw existingError;
         if(existing)return existing;
-        throw createError;
+        throw new Error(createError.message||'Não foi possível liberar esta conta para participar deste leilão.');
       }
       return created;
     }
