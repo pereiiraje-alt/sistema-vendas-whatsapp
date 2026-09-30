@@ -3,10 +3,10 @@
   if(!nav)return;
 
   const submenu=document.querySelector('#auctionsSubmenu');
+  const dashboardBtn=nav.querySelector('[data-page="dashboard"]');
   const createBtn=nav.querySelector('[data-page="lotes"]');
   const myAuctionsBtn=nav.querySelector('[data-page="leiloes"]');
   const participantsBtn=nav.querySelector('[data-page="participantes"]');
-  const platformBtn=document.querySelector('#auctionsSubmenu button[onclick*="explorar"], #platformAuctionsButtonStatic');
 
   let btn=nav.querySelector('[data-page="historico"]');
   if(!btn){
@@ -18,26 +18,32 @@
   function organizeAuctionMenu(){
     if(!submenu)return;
 
-    const platformButtons=[...submenu.querySelectorAll('button')].filter(el=>/leilões da plataforma/i.test(el.textContent||'')||String(el.getAttribute('onclick')||'').includes('explorar'));
-    const keep=platformBtn&&platformButtons.includes(platformBtn)?platformBtn:platformButtons[platformButtons.length-1];
-    platformButtons.forEach(el=>{if(el!==keep)el.remove()});
+    // Mantém "Leilões da plataforma" fora do submenu e acima do Dashboard.
+    const allPlatformButtons=[...nav.querySelectorAll('button')].filter(el=>/leilões da plataforma/i.test(el.textContent||'')||String(el.getAttribute('onclick')||'').includes('explorar'));
+    let platformBtn=allPlatformButtons[0];
+    allPlatformButtons.slice(1).forEach(el=>el.remove());
+    if(!platformBtn){
+      platformBtn=document.createElement('button');
+    }
+    platformBtn.type='button';
+    platformBtn.id='platformAuctionsButtonStatic';
+    platformBtn.textContent='🌐 Leilões da plataforma';
+    platformBtn.removeAttribute('data-page');
+    platformBtn.removeAttribute('onclick');
+    platformBtn.onclick=e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href='/explorar.html';
+    };
+    nav.insertBefore(platformBtn,dashboardBtn||nav.firstChild);
 
-    const ordered=[createBtn,myAuctionsBtn,participantsBtn,btn,keep].filter(Boolean);
+    // Dentro de Leilões ficam apenas as opções da própria empresa.
+    const ordered=[createBtn,myAuctionsBtn,participantsBtn,btn].filter(Boolean);
     ordered.forEach(el=>submenu.appendChild(el));
     if(createBtn)createBtn.textContent='＋ Criar leilão';
     if(myAuctionsBtn)myAuctionsBtn.textContent='• Meus leilões';
     if(participantsBtn)participantsBtn.textContent='♙ Participantes';
     btn.textContent='◷ Histórico';
-    if(keep){
-      keep.textContent='🌐 Leilões da plataforma';
-      keep.type='button';
-      keep.removeAttribute('onclick');
-      keep.onclick=e=>{
-        e.preventDefault();
-        e.stopPropagation();
-        window.location.href='/explorar.html';
-      };
-    }
   }
 
   organizeAuctionMenu();
