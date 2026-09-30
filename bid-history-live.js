@@ -13,21 +13,10 @@
     if(!panel)return;
     busy=true;
     try{
-      const {data:bids,error}=await db.from('bids')
-        .select('id,amount,created_at,participant_id')
-        .eq('lot_id',lotId)
-        .order('created_at',{ascending:false})
-        .limit(20);
+      const {data:bids,error}=await db.rpc('public_bid_history',{p_lot_id:lotId});
       if(error)throw error;
 
-      const ids=[...new Set((bids||[]).map(x=>x.participant_id).filter(Boolean))];
-      const names={};
-      if(ids.length){
-        const {data:people}=await db.from('participants').select('id,full_name').in('id',ids);
-        (people||[]).forEach(p=>{names[p.id]=p.full_name||'Participante'});
-      }
-
-      const rows=(bids||[]).map((b,i)=>`<div class="row"><span><b>${i===0?'🥇 ':''}${safe(names[b.participant_id]||'Participante')}</b><br><small>${clock(b.created_at)}</small></span><b>${brl(b.amount)}</b></div>`).join('');
+      const rows=(bids||[]).map((b,i)=>`<div class="row"><span><b>${i===0?'🥇 ':''}${safe(b.participant_name||'Participante')}</b><br><small>${clock(b.created_at)}</small></span><b>${brl(b.amount)}</b></div>`).join('');
       panel.innerHTML=`<h3>Quem já deu lance</h3>${rows||'<p class="muted">Nenhum lance ainda — seja o primeiro!</p>'}`;
 
       if(bids?.length){
