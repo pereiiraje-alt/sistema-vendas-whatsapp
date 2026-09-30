@@ -15,7 +15,8 @@ function openLogin(){document.getElementById('showLogin')?.click();scrollTopAuth
   try{
     if(!window.supabase)throw new Error('Conexão indisponível.');
     const db=window.supabase.createClient('https://dsgnyfnddyxilakjwavu.supabase.co','sb_publishable_4-pk8-WndWKwy_8plTVTAA_KXUNf-Lr');
-    const {data:auctions,error}=await db.from('auctions').select('id,title,status,company_id,starts_at,ends_at,created_at').eq('status','live').order('created_at',{ascending:false});
+    const nowIso=new Date().toISOString();
+    const {data:auctions,error}=await db.from('auctions').select('id,title,status,company_id,starts_at,ends_at,created_at').eq('status','live').or(`ends_at.is.null,ends_at.gt.${nowIso}`).order('created_at',{ascending:false});
     if(error)throw error;
     if(!auctions?.length){box.innerHTML='<div class="empty-auctions" style="grid-column:1/-1"><b>Nenhum leilão ao vivo neste momento.</b><br><span>Volte em breve para acompanhar novos leilões.</span></div>';return;}
     const companyIds=[...new Set(auctions.map(x=>x.company_id).filter(Boolean))];
