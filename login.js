@@ -1,6 +1,9 @@
 const SUPABASE_URL='https://dsgnyfnddyxilakjwavu.supabase.co';
 const SUPABASE_KEY='sb_publishable_4-pk8-WndWKwy_8plTVTAA_KXUNf-Lr';
 const initialHash=location.hash||'';
+const initialSearch=location.search||'';
+const initialParams=new URLSearchParams(initialSearch);
+const recoveryIntent=initialParams.get('recovery')==='1'||/type=recovery/i.test(initialHash)||/type=recovery/i.test(initialSearch);
 const authDb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const form=document.querySelector('#loginForm'),emailEl=document.querySelector('#loginEmail'),passwordEl=document.querySelector('#loginPassword'),button=document.querySelector('#loginButton'),errorEl=document.querySelector('#loginError'),messageEl=document.querySelector('#loginMessage');
 const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
@@ -10,7 +13,7 @@ function showError(text){errorEl.textContent=text;errorEl.hidden=false;messageEl
 function showMessage(text){messageEl.textContent=text;messageEl.hidden=false;errorEl.hidden=true}
 
 let pendingConfirmationEmail='';
-let recoveryMode=false;
+let recoveryMode=recoveryIntent;
 function confirmationRedirect(){return location.origin+'/login.html?email=confirmed'}
 function recoveryRedirect(){return location.origin+'/login.html?recovery=1'}
 function ensureResendButton(){
@@ -46,10 +49,10 @@ function hideResend(){const b=ensureResendButton();if(b)b.hidden=true;pendingCon
 ensureResendButton();
 
 function renderPasswordReset(){
-  if(recoveryMode)return;
   recoveryMode=true;
   const card=document.querySelector('.login-card');
   if(!card)return;
+  if(document.querySelector('#passwordResetForm'))return;
   card.innerHTML=`<div class="login-mobile-brand">JP <span>Leilões</span></div>
     <h2>Crie sua nova senha</h2>
     <p class="muted">Digite uma nova senha para sua conta. Depois você poderá entrar normalmente.</p>
@@ -73,11 +76,13 @@ function renderPasswordReset(){
     if(p1!==p2){err.textContent='As senhas não conferem.';err.hidden=false;return}
     btn.disabled=true;btn.textContent='Salvando...';
     try{
+      const {data:{session}}=await authDb.auth.getSession();
+      if(!session)throw new Error('O link de recuperação expirou ou ainda não foi validado. Solicite um novo link de redefinição.');
       const{error}=await authDb.auth.updateUser({password:p1});
       if(error)throw error;
-      msg.textContent='Senha alterada com sucesso. Redirecionando para o login...';msg.hidden=false;
+      msg.textContent='Senha alterada com sucesso. Você já pode entrar com a nova senha.';msg.hidden=false;
       await authDb.auth.signOut();
-      setTimeout(()=>location.replace('login.html?password=updated'),1000);
+      setTimeout(()=>location.replace('login.html?password=updated'),1400);
     }catch(e){
       err.textContent=e.message||'Não foi possível alterar sua senha.';err.hidden=false;
       btn.disabled=false;btn.textContent='Salvar nova senha';
@@ -161,7 +166,7 @@ async function billingGate(session){
 }
 
 async function routeUser(user,session=null){
-  if(!user||recoveryMode)return;
+  if(!user||recoveryMode||recoveryIntent)return;
   const{data,error}=await authDb.from('company_members').select('role').eq('user_id',user.id).eq('role','platform_admin').limit(1).maybeSingle();
   if(error)throw error;
   if(data){location.replace('admin.html');return}
@@ -171,13 +176,15 @@ async function routeUser(user,session=null){
 }
 
 authDb.auth.onAuthStateChange((event)=>{
-  if(event==='PASSWORD_RECOVERY')renderPasswordReset();
+  if(event==='PASSWORD_RECOVERY'||recoveryIntent)renderPasswordReset();
 });
 
 (async()=>{try{
   const params=new URLSearchParams(location.search);
-  const recoveryRequested=params.get('recovery')==='1'||/type=recovery/i.test(initialHash);
-  if(recoveryRequested){renderPasswordReset();return}
+  if(recoveryIntent){
+    renderPasswordReset();
+    return;
+  }
   if(params.get('email')==='confirmed')showMessage('E-mail confirmado com sucesso. Agora você já pode entrar e usar seus 4 dias grátis.');
   if(params.get('password')==='updated')showMessage('Senha alterada com sucesso. Entre com sua nova senha.');
   const{data}=await authDb.auth.getSession();
