@@ -32,6 +32,11 @@
       .payment-deadline strong{display:block;font-size:26px;margin-top:4px}
       .payment-expired{padding:20px 14px;border-radius:14px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;text-align:center}
       .payment-expired h3{color:#991b1b;margin:0 0 8px}
+      .pix-box{margin-top:12px;padding:14px;border:1px solid #86efac;border-radius:14px;background:#fff;text-align:center}
+      .pix-box h4{margin:0 0 8px;color:#166534;font-size:17px}.pix-box p{margin:6px 0 12px;color:#4b5563;font-size:13px}
+      .pix-qr{display:block;width:min(240px,80vw);height:auto;margin:0 auto 12px;border-radius:10px;background:#fff}
+      .pix-code{width:100%;min-height:82px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:10px;font-size:12px;resize:none;background:#f9fafb;color:#111827}
+      .pix-copy{width:100%;margin-top:8px;border:0;border-radius:10px;padding:11px;background:#065f46;color:#fff;font-weight:800;cursor:pointer}
       @media(max-width:520px){.pay-methods{grid-template-columns:1fr}.winner-pay .pay-total{font-size:24px}}
     `;
     document.head.appendChild(s);
@@ -114,6 +119,17 @@
     render();deadlineWatcher=setInterval(render,1000);
   }
 
+  function pixHtml(qrCode,qrCodeBase64){
+    if(!qrCode&&!qrCodeBase64)return '';
+    return `<div class="pix-box"><h4>PIX pronto para pagamento</h4><p>Abra o aplicativo de qualquer banco, escolha pagar com PIX e escaneie o QR Code.</p>${qrCodeBase64?`<img class="pix-qr" src="data:image/png;base64,${qrCodeBase64}" alt="QR Code PIX">`:''}${qrCode?`<textarea class="pix-code" id="pixCopyCode" readonly>${esc(qrCode)}</textarea><button class="pix-copy" type="button" onclick="copyPixCode()">Copiar código PIX</button>`:''}</div>`;
+  }
+
+  window.copyPixCode=async function(){
+    const el=document.getElementById('pixCopyCode');if(!el)return;
+    try{await navigator.clipboard.writeText(el.value)}catch(_){el.select();document.execCommand('copy')}
+    const btn=document.querySelector('.pix-copy');if(btn){const old=btn.textContent;btn.textContent='Código PIX copiado ✓';setTimeout(()=>btn.textContent=old,1800)}
+  };
+
   function renderWinnerPayment(box,id,data,lotEnds){
     const a=data.arremate;const payment=data.payment;const amount=Number(a.total_amount||a.winning_bid||0);
     const paid=payment?.status==='paid';
@@ -121,6 +137,7 @@
     const selected=['pix','card'].includes(payment?.method)?payment.method:'';
     const startMs=data.paymentDeadline?new Date(data.paymentDeadline).getTime()-PAYMENT_LIMIT_MS:(lotEnds?new Date(lotEnds).getTime():new Date(a.created_at).getTime());
     const deadline=startMs+PAYMENT_LIMIT_MS;
+    const currentPix=selected==='pix'?pixHtml(data.qrCode||'',data.qrCodeBase64||''):'';
     box.insertAdjacentHTML('beforeend',`
       <div class="winner-pay" id="winnerPayment">
         ${paid?`<div class="payment-approved"><div class="check">✅</div><h2>Pagamento aprovado</h2><p>Recebemos a confirmação do Mercado Pago.</p><div class="pay-total">${money(amount)}</div></div>`:
@@ -130,7 +147,7 @@
           <span class="pay-label">Escolha a forma de pagamento</span>
           <div class="pay-methods"><button class="pay-method ${selected==='pix'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','pix')">PIX</button><button class="pay-method ${selected==='card'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','card')">Cartão</button></div>
           <div id="paymentChoiceStatus" class="pay-status">${selected?`Forma selecionada: <b>${methodLabel(selected)}</b>`:'Selecione PIX ou cartão para continuar.'}</div>
-          <div id="paymentCheckoutWrap">${payment?.checkout_url?`<a class="pay-checkout" href="${esc(payment.checkout_url)}" target="_blank" rel="noopener">Continuar para pagamento</a>`:''}</div>
+          <div id="paymentCheckoutWrap">${currentPix||(payment?.checkout_url&&selected!=='pix'?`<a class="pay-checkout" href="${esc(payment.checkout_url)}" target="_blank" rel="noopener">Continuar para pagamento</a>`:'')}</div>
           <p class="pay-note">Sair da página não reinicia o prazo. O contador continua a partir do horário em que o leilão terminou.</p>`}
       </div>`);
     if(!paid&&!expired){watchDeadline(id,deadline);watchPaymentApproval(id)}else{stopPaymentWatch();stopDeadlineWatch()}
@@ -151,6 +168,9 @@
           const checked=await checkPaymentStatus(id);
           if(checked?.payment)lastFinalization.payment=checked.payment;
           if(checked?.paymentDeadline)lastFinalization.paymentDeadline=checked.paymentDeadline;
+          lastFinalization.qrCode=checked?.qrCode||'';
+          lastFinalization.qrCodeBase64=checked?.qrCodeBase64||'';
+          lastFinalization.ticketUrl=checked?.ticketUrl||'';
         }catch(e){console.error(e)}
       }
       renderWinnerPayment(box,id,lastFinalization,l.ends);
@@ -165,15 +185,23 @@
       if(!['pix','card'].includes(method))throw new Error('Escolha PIX ou cartão.');
       const checked=await checkPaymentStatus(id);
       if(checked?.payment?.status==='cancelled'||checked?.expired)throw new Error('O prazo de 10 minutos contado desde o encerramento do leilão terminou. Este arremate foi cancelado.');
-      if(status)status.textContent='Preparando pagamento no Mercado Pago...';
+      if(status)status.textContent=method==='pix'?'Gerando QR Code PIX...':'Preparando pagamento no Mercado Pago...';
       const session=await db.auth.getSession();const token=session?.data?.session?.access_token;
       if(!token)throw new Error('Sua sessão expirou. Entre novamente com a conta usada para dar o lance.');
       const response=await fetch('/api/select-payment-method',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id,method})});
       const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Não foi possível salvar a forma de pagamento.');
       document.querySelectorAll('.pay-method').forEach(b=>b.classList.remove('active'));
       const labels={pix:'PIX',card:'Cartão'};const buttons=[...document.querySelectorAll('.pay-method')];const active=buttons.find(b=>b.textContent.trim()===labels[method]);if(active)active.classList.add('active');
-      if(status)status.innerHTML=`Forma selecionada: <b>${labels[method]}</b>. ${data.onlineReady?'Pagamento pronto. Clique abaixo para continuar.':'A empresa ainda precisa conectar o Mercado Pago.'}`;
-      const wrap=document.getElementById('paymentCheckoutWrap');if(wrap&&data.checkoutUrl){wrap.innerHTML=`<a class="pay-checkout" href="${esc(data.checkoutUrl)}" target="_blank" rel="noopener">Pagar com ${labels[method]}</a>`;watchPaymentApproval(id)}
+      const wrap=document.getElementById('paymentCheckoutWrap');
+      if(method==='pix'){
+        if(status)status.innerHTML=data.onlineReady?'PIX gerado. <b>Escaneie com qualquer banco ou use o código copia e cola.</b>':'A empresa ainda precisa conectar o Mercado Pago.';
+        if(wrap)wrap.innerHTML=data.onlineReady?pixHtml(data.qrCode||'',data.qrCodeBase64||''):'';
+        if(data.onlineReady)watchPaymentApproval(id);
+      }else{
+        if(status)status.innerHTML=`Forma selecionada: <b>Cartão</b>. ${data.onlineReady?'Pagamento pronto. Clique abaixo para continuar.':'A empresa ainda precisa conectar o Mercado Pago.'}`;
+        if(wrap)wrap.innerHTML=data.checkoutUrl?`<a class="pay-checkout" href="${esc(data.checkoutUrl)}" target="_blank" rel="noopener">Pagar com Cartão</a>`:'';
+        if(data.checkoutUrl)watchPaymentApproval(id);
+      }
     }catch(e){if(status)status.textContent=e.message;else alert(e.message)}
   };
 
