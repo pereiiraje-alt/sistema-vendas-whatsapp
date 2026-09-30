@@ -24,18 +24,24 @@
     },true);
   }
 
-  // Campos de dinheiro no padrão brasileiro. O campo visível fica em 21,90,
-  // enquanto um campo oculto conserva 21.90 para o app.js salvar corretamente.
+  // Máscara monetária brasileira automática.
+  // O usuário digita somente os números e o campo monta sozinho:
+  // 2 -> 0,02 | 2190 -> 21,90 | 217000 -> 2.170,00.
+  // Um campo oculto mantém o valor numérico (ex.: 21.90) para o app.js.
   (function setupBrazilianMoneyInputs(){
     const fields=[['lvalue',0],['lstart',0],['lstep',1]];
-    const parseBR=raw=>{
-      let s=String(raw??'').trim().replace(/\s/g,'');
-      if(!s)return NaN;
-      if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');
-      else if((s.match(/\./g)||[]).length>1)s=s.replace(/\./g,'');
-      return Number(s);
+    const formatCents=digits=>{
+      digits=String(digits||'').replace(/\D/g,'').replace(/^0+(?=\d)/,'');
+      if(!digits)return '';
+      const cents=digits.padStart(3,'0');
+      const integer=cents.slice(0,-2).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+      return `${integer},${cents.slice(-2)}`;
     };
-    const formatBR=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const numericFromDigits=digits=>{
+      const clean=String(digits||'').replace(/\D/g,'');
+      return clean?Number(clean)/100:NaN;
+    };
+    const formatNumber=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 
     for(const [id,min] of fields){
       const original=document.getElementById(id);
@@ -47,37 +53,45 @@
       hidden.value='';
       original.id=id+'Display';
       original.type='text';
-      original.inputMode='decimal';
+      original.inputMode='numeric';
+      original.autocomplete='off';
       original.placeholder='0,00';
       original.removeAttribute('step');
       original.removeAttribute('min');
       original.parentNode.insertBefore(hidden,original.nextSibling);
 
-      const sync=()=>{
-        let shown=String(original.value||'').replace(/[^0-9,.]/g,'');
-        const firstComma=shown.indexOf(',');
-        if(firstComma>=0){
-          shown=shown.slice(0,firstComma+1)+shown.slice(firstComma+1).replace(/[,.]/g,'').slice(0,2);
-        }else{
-          const firstDot=shown.indexOf('.');
-          if(firstDot>=0)shown=shown.slice(0,firstDot+1)+shown.slice(firstDot+1).replace(/[,.]/g,'').slice(0,2);
-        }
-        original.value=shown;
-        const n=parseBR(shown);
-        hidden.value=Number.isFinite(n)?String(n):'';
-        if(!shown){original.setCustomValidity('Informe o valor.');return}
-        if(!Number.isFinite(n)){original.setCustomValidity('Digite um valor válido, por exemplo 21,90.');return}
-        if(n<min){original.setCustomValidity(`O valor mínimo é ${formatBR(min)}.`);return}
+      const validate=n=>{
+        if(!original.value){original.setCustomValidity('Informe o valor.');return}
+        if(!Number.isFinite(n)){original.setCustomValidity('Digite um valor válido.');return}
+        if(n<min){original.setCustomValidity(`O valor mínimo é ${formatNumber(min)}.`);return}
         original.setCustomValidity('');
       };
 
-      original.addEventListener('input',sync);
-      original.addEventListener('focus',()=>original.select());
-      original.addEventListener('blur',()=>{
-        sync();
-        const n=Number(hidden.value);
-        if(Number.isFinite(n))original.value=formatBR(n);
+      const syncFromDisplay=()=>{
+        const digits=original.value.replace(/\D/g,'');
+        if(!digits){
+          original.value='';
+          hidden.value='';
+          validate(NaN);
+          return;
+        }
+        const n=numericFromDigits(digits);
+        original.value=formatCents(digits);
+        hidden.value=Number.isFinite(n)?n.toFixed(2):'';
+        validate(n);
+        requestAnimationFrame(()=>original.setSelectionRange(original.value.length,original.value.length));
+      };
+
+      original.addEventListener('input',syncFromDisplay);
+      original.addEventListener('focus',()=>{
+        if(original.value)requestAnimationFrame(()=>original.setSelectionRange(original.value.length,original.value.length));
       });
+      original.addEventListener('keydown',e=>{
+        if(e.key==='Backspace'&&original.selectionStart===0&&original.selectionEnd===original.value.length){
+          original.value='';hidden.value='';original.setCustomValidity('');
+        }
+      });
+      original.addEventListener('paste',()=>setTimeout(syncFromDisplay,0));
 
       original.form?.addEventListener('reset',()=>setTimeout(()=>{
         original.value='';
