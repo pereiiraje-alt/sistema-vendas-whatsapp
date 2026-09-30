@@ -17,18 +17,11 @@ function openLogin(){document.getElementById('showLogin')?.click();scrollTopAuth
   try{
     if(!window.supabase)throw new Error('Conexão indisponível.');
     const db=window.supabase.createClient('https://dsgnyfnddyxilakjwavu.supabase.co','sb_publishable_4-pk8-WndWKwy_8plTVTAA_KXUNf-Lr');
-    const cutoffIso=new Date(Date.now()-graceMs).toISOString();
-    const {data:rawAuctions,error}=await db.from('auctions').select('id,title,status,company_id,starts_at,ends_at,created_at').eq('status','live').or(`ends_at.is.null,ends_at.gt.${cutoffIso}`).order('created_at',{ascending:false});
+    const {data:auctions,error}=await db.rpc('public_live_auctions');
     if(error)throw error;
-    const auctions=rawAuctions||[];
-    if(!auctions.length){box.innerHTML='<div class="empty-auctions" style="grid-column:1/-1"><b>Nenhum leilão ao vivo neste momento.</b><br><span>Volte em breve para acompanhar novos leilões.</span></div>';return;}
-    const companyIds=[...new Set(auctions.map(x=>x.company_id).filter(Boolean))];
+    if(!auctions?.length){box.innerHTML='<div class="empty-auctions" style="grid-column:1/-1"><b>Nenhum leilão ao vivo neste momento.</b><br><span>Volte em breve para acompanhar novos leilões.</span></div>';return;}
     const auctionIds=auctions.map(x=>x.id);
-    const [{data:companies},{data:lots}]=await Promise.all([
-      db.from('companies').select('id,name,responsible_name').in('id',companyIds),
-      db.from('lots').select('id,auction_id,title,image_url,current_bid,starting_bid,ends_at,status').in('auction_id',auctionIds).order('lot_number',{ascending:true})
-    ]);
-    const companyMap=new Map((companies||[]).map(x=>[String(x.id),x]));
+    const {data:lots}=await db.from('lots').select('id,auction_id,title,image_url,current_bid,starting_bid,ends_at,status').in('auction_id',auctionIds).order('lot_number',{ascending:true});
     const firstLot=new Map();
     (lots||[]).forEach(l=>{if(!firstLot.has(String(l.auction_id)))firstLot.set(String(l.auction_id),l)});
     function renderAuctions(){
@@ -41,9 +34,8 @@ function openLogin(){document.getElementById('showLogin')?.click();scrollTopAuth
       });
       if(!visible.length){box.innerHTML='<div class="empty-auctions" style="grid-column:1/-1"><b>Nenhum leilão ao vivo neste momento.</b><br><span>Volte em breve para acompanhar novos leilões.</span></div>';return;}
       box.innerHTML=visible.map(a=>{
-        const company=companyMap.get(String(a.company_id))||{};
         const lot=firstLot.get(String(a.id));
-        const companyName=company.name||'Empresa parceira';
+        const companyName=a.company_name||'Empresa parceira';
         const cover=lot?.image_url?`<img src="${esc(lot.image_url)}" alt="${esc(lot.title||a.title)}">`:'🔨';
         const href=lot?.id?`/?lote=${encodeURIComponent(lot.id)}`:'#';
         const bid=lot?money(lot.current_bid||lot.starting_bid):'Lotes disponíveis';
