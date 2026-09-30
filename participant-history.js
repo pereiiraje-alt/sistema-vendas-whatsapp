@@ -18,7 +18,6 @@
   function organizeAuctionMenu(){
     if(!submenu)return;
 
-    // Remove cópias extras de "Leilões da plataforma" criadas por versões antigas do menu.
     const platformButtons=[...submenu.querySelectorAll('button')].filter(el=>/leilões da plataforma/i.test(el.textContent||'')||String(el.getAttribute('onclick')||'').includes('explorar'));
     const keep=platformBtn&&platformButtons.includes(platformBtn)?platformBtn:platformButtons[platformButtons.length-1];
     platformButtons.forEach(el=>{if(el!==keep)el.remove()});
@@ -29,11 +28,19 @@
     if(myAuctionsBtn)myAuctionsBtn.textContent='• Meus leilões';
     if(participantsBtn)participantsBtn.textContent='♙ Participantes';
     btn.textContent='◷ Histórico';
-    if(keep)keep.textContent='🌐 Leilões da plataforma';
+    if(keep){
+      keep.textContent='🌐 Leilões da plataforma';
+      keep.type='button';
+      keep.removeAttribute('onclick');
+      keep.onclick=e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href='/explorar.html';
+      };
+    }
   }
 
   organizeAuctionMenu();
-  // Alguns scripts antigos acrescentavam o atalho depois do carregamento. Faz uma limpeza final.
   setTimeout(organizeAuctionMenu,400);
   setTimeout(organizeAuctionMenu,1200);
 
