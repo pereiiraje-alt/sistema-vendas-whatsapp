@@ -17,13 +17,16 @@
       if(el.id==='participantAuthTabs'||el.classList?.contains('modal-head'))return false;
       return true;
     });
-    originalFields.forEach(el=>{if(!el.dataset.participantSignupField)el.dataset.participantSignupField='1'});
+    originalFields.forEach(el=>{
+      if(!el.dataset.participantSignupField)el.dataset.participantSignupField='1';
+      if(!el.dataset.participantOriginalDisplay)el.dataset.participantOriginalDisplay=el.style.display||'';
+    });
 
     let loginBox=form.querySelector('#participantLoginBox');
     if(!loginBox){
       loginBox=document.createElement('div');
       loginBox.id='participantLoginBox';
-      loginBox.hidden=true;
+      loginBox.style.display='none';
       loginBox.innerHTML=`
         <p class="muted">Se você já se cadastrou para dar lances, entre com seu e-mail e senha.</p>
         <label>E-mail<input id="participantLoginEmail" type="email" autocomplete="email" placeholder="seu@email.com"></label>
@@ -44,12 +47,18 @@
 
     function setMode(mode){
       const login=mode==='login';
-      form.querySelectorAll('[data-participant-signup-field="1"]').forEach(el=>el.hidden=login);
+      form.querySelectorAll('[data-participant-signup-field="1"]').forEach(el=>{
+        el.hidden=login;
+        el.style.display=login?'none':(el.dataset.participantOriginalDisplay||'');
+      });
       loginBox.hidden=!login;
+      loginBox.style.display=login?'block':'none';
       if(loginTab){loginTab.className=login?'primary':'ghost'}
       if(signupTab){signupTab.className=login?'ghost':'primary'}
       if(loginError)loginError.hidden=true;
       hideRecovery();
+      if(login){setTimeout(()=>loginEmail?.focus(),0)}
+      else{setTimeout(()=>document.querySelector('#rname')?.focus(),0)}
     }
     if(loginTab)loginTab.onclick=()=>setMode('login');
     if(signupTab)signupTab.onclick=()=>setMode('signup');
@@ -59,7 +68,7 @@
       recoveryBox=document.createElement('div');
       recoveryBox.id='participantRecoveryBox';
       recoveryBox.hidden=true;
-      recoveryBox.style.cssText='margin:10px 0;padding:12px;border:1px solid #f0c36d;border-radius:10px;background:#fff8e8;color:#5f4a16;font-size:14px';
+      recoveryBox.style.cssText='display:none;margin:10px 0;padding:12px;border:1px solid #f0c36d;border-radius:10px;background:#fff8e8;color:#5f4a16;font-size:14px';
       recoveryBox.innerHTML='<div id="participantRecoveryMessage" style="margin-bottom:10px"></div><button id="participantRecoveryButton" type="button" class="ghost" style="width:100%">Redefinir minha senha</button>';
       loginBox.appendChild(recoveryBox);
     }
@@ -71,6 +80,7 @@
     function hideRecovery(){
       if(!recoveryBox)return;
       recoveryBox.hidden=true;
+      recoveryBox.style.display='none';
       recoveryEmail='';
       if(recoveryMessage)recoveryMessage.textContent='';
       if(recoveryButton){recoveryButton.disabled=false;recoveryButton.textContent='Redefinir minha senha'}
@@ -79,6 +89,7 @@
     function showRecovery(email,message){
       recoveryEmail=String(email||'').trim().toLowerCase();
       recoveryBox.hidden=false;
+      recoveryBox.style.display='block';
       if(recoveryMessage)recoveryMessage.textContent=message||'Não foi possível entrar. Você pode redefinir sua senha.';
     }
 
