@@ -17,6 +17,35 @@ async function createPreference(accessToken,{lot,arremate,payment,payerEmail,mar
   return data;
 }
 
+async function createPixPayment(accessToken,{lot,arremate,payment,payerEmail,marketplaceFee=0}){
+  const payload={
+    transaction_amount:Number(payment.amount),
+    description:`Lote #${lot.lot_number} - ${lot.title}`,
+    payment_method_id:'pix',
+    payer:{email:payerEmail},
+    external_reference:String(payment.id),
+    notification_url:`${PUBLIC_ORIGIN}/api/mercadopago-webhook?company_id=${encodeURIComponent(arremate.company_id)}`,
+    metadata:{payment_id:String(payment.id),arremate_id:String(arremate.id),lot_id:String(lot.id),company_id:String(arremate.company_id),platform_fee_amount:Number(marketplaceFee||0),selected_method:'pix'}
+  };
+  if(Number(marketplaceFee)>0)payload.application_fee=Number(marketplaceFee);
+  const r=await fetch('https://api.mercadopago.com/v1/payments',{
+    method:'POST',
+    headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json','X-Idempotency-Key':`jp-pix-${payment.id}`},
+    body:JSON.stringify(payload)
+  });
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(data.message||data.error||'Não foi possível gerar o PIX.');
+  const transaction=data?.point_of_interaction?.transaction_data||{};
+  if(!transaction.qr_code&&!transaction.qr_code_base64)throw new Error('O Mercado Pago não retornou o QR Code do PIX.');
+  return {
+    id:String(data.id||''),
+    status:String(data.status||'pending'),
+    qrCode:String(transaction.qr_code||''),
+    qrCodeBase64:String(transaction.qr_code_base64||''),
+    ticketUrl:String(transaction.ticket_url||'')
+  };
+}
+
 module.exports=async(req,res)=>{
   if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({error:'Método não permitido.'});}
   try{
@@ -67,6 +96,13 @@ module.exports=async(req,res)=>{
     if(!connection?.access_token_encrypted)return res.status(200).json({payment,onlineReady:false,message:'Forma de pagamento registrada. A empresa ainda precisa conectar o Mercado Pago.'});
 
     const accessToken=decrypt(connection.access_token_encrypted);
+    if(method==='pix'){
+      const pix=await createPixPayment(accessToken,{lot,arremate,payment,payerEmail:participant.email||user.email,marketplaceFee});
+      const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({checkout_url:pix.ticketUrl||null,provider_payment_id:pix.id,updated_at:new Date().toISOString()})});
+      payment=Array.isArray(updated)?updated[0]:payment;
+      return res.status(200).json({payment,onlineReady:true,method:'pix',qrCode:pix.qrCode,qrCodeBase64:pix.qrCodeBase64,checkoutUrl:pix.ticketUrl||'',marketplaceFee,feePercent,paymentDeadline:new Date(deadline).toISOString(),message:'PIX gerado. Escaneie o QR Code com qualquer banco ou use o código PIX copia e cola.'});
+    }
+
     const preference=await createPreference(accessToken,{lot,arremate,payment,payerEmail:participant.email||user.email,marketplaceFee,method});
     const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({checkout_url:preference.init_point,provider_payment_id:String(preference.id||''),updated_at:new Date().toISOString()})});
     payment=Array.isArray(updated)?updated[0]:payment;
