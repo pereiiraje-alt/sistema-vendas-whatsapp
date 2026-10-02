@@ -5,12 +5,23 @@
   let rendering=false;
   let armed=false;
 
-  const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
+  const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const currency=value=>(Number(value)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const dateLabel=value=>value?new Date(value).toLocaleString('pt-BR'):'—';
   const digits=value=>String(value||'').replace(/\D/g,'');
-  const whatsappNumber=value=>{const d=digits(value);if(!d)return'';return d.startsWith('55')?d:`55${d}`};
-  const whatsappUrl=(phone,message='')=>{const number=whatsappNumber(phone);if(!number)return'';return `https://wa.me/${number}${message?`?text=${encodeURIComponent(message)}`:''}`};
+  const whatsappNumber=value=>{
+    let d=digits(value).replace(/^00/,'').replace(/^0+/,'');
+    if(!d)return'';
+    if(d.startsWith('55')&&(d.length===12||d.length===13))return d;
+    if(d.length===10||d.length===11)return `55${d}`;
+    return d.startsWith('55')?d:`55${d}`;
+  };
+  const whatsappUrl=(phone,message='')=>{
+    const number=whatsappNumber(phone);
+    if(!number)return'';
+    const text=message?`&text=${encodeURIComponent(message)}`:'';
+    return `https://api.whatsapp.com/send?phone=${number}${text}`;
+  };
 
   function winnerMessage(row){
     const empresa=currentCompany?.name||'JP Leilões';
@@ -69,7 +80,6 @@
       const participantIds=[...new Set(wins.map(row=>row.participant_id).filter(Boolean))];
       const arremateIds=wins.map(row=>row.id).filter(Boolean);
       const lotIds=[...new Set(wins.map(row=>row.lot_id).filter(Boolean))];
-
       const [{data:payments,error:paymentsError},{data:bids,error:bidsError},{data:lots,error:lotsError}]=await Promise.all([
         arremateIds.length?timeout(db.from('payments').select('arremate_id,status,amount,paid_at').in('arremate_id',arremateIds),7000,'carregar pagamentos'):Promise.resolve({data:[],error:null}),
         lotIds.length?timeout(db.from('bids').select('lot_id,participant_id,amount,created_at').in('lot_id',lotIds).order('amount',{ascending:false}),7000,'carregar lances anteriores'):Promise.resolve({data:[],error:null}),
@@ -115,16 +125,17 @@
       const totalArrematado=rows.reduce((sum,row)=>sum+row.totalArrematado,0),totalPago=rows.reduce((sum,row)=>sum+row.totalPago,0),totalLotes=rows.reduce((sum,row)=>sum+row.count,0);
 
       const bodyRows=rows.map(row=>{
-        const waNumber=whatsappUrl(row.phone);
-        const phone=waNumber?`<a class="winner-phone" href="${waNumber}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';
+        const directUrl=whatsappUrl(row.phone);
+        const phone=directUrl?`<a class="winner-phone" href="${directUrl}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';
         const message=winnerMessage(row);
-        const wa=whatsappUrl(row.phone,message)?`<a class="winner-notify whatsapp" href="${whatsappUrl(row.phone,message)}" target="_blank" rel="noopener">WhatsApp</a>`:`<span class="winner-notify whatsapp disabled">WhatsApp</span>`;
+        const notifyUrl=whatsappUrl(row.phone,message);
+        const wa=notifyUrl?`<a class="winner-notify whatsapp" href="${notifyUrl}" target="_blank" rel="noopener">WhatsApp</a>`:`<span class="winner-notify whatsapp disabled">WhatsApp</span>`;
         const subject=encodeURIComponent('Parabéns! Você arrematou no JP Leilões');
         const email=row.email?`<a class="winner-notify email" href="mailto:${encodeURIComponent(row.email)}?subject=${subject}&body=${encodeURIComponent(message)}">E-mail</a>`:`<span class="winner-notify email disabled">E-mail</span>`;
         return `<tr><td><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td><td><strong>${currency(row.totalArrematado)}</strong></td><td class="winner-paid">${currency(row.totalPago)}</td><td>${dateLabel(row.latest)}</td><td><div class="winner-actions">${wa}${email}</div></td></tr>`;
       }).join('');
 
-      app.innerHTML=`${expiredHtml}<div class="winner-summary"><div class="card"><small>Arrematantes</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Lotes arrematados</small><h2>${totalLotes}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos arrematantes</h3><p class="muted">O botão WhatsApp abre diretamente o número cadastrado no sistema para este arrematante.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
+      app.innerHTML=`${expiredHtml}<div class="winner-summary"><div class="card"><small>Arrematantes</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Lotes arrematados</small><h2>${totalLotes}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos arrematantes</h3><p class="muted">O botão WhatsApp usa exatamente o número cadastrado no sistema, acrescentando apenas o código do Brasil (55) quando necessário.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
     }catch(error){app.innerHTML=`<div class="panel"><h3>Arrematantes</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
     finally{rendering=false}
   }
