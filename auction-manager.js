@@ -206,7 +206,6 @@
     };
   }
 
-  // Corrige também os lotes já existentes que ficaram repetidos como LOTE #1.
   setTimeout(async()=>{
     try{
       await renumberCompanyLots();
@@ -217,7 +216,6 @@
     }
   },1600);
 
-  // Enriquece o histórico da empresa com o nome de quem deu cada lance.
   lances=async function(){
     if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';
     try{
@@ -262,4 +260,8 @@
   const expiryScript=document.createElement('script');
   expiryScript.src='auction-expiry-ui.js?v=20260927-2';
   document.body.appendChild(expiryScript);
+
+  const adminActionsScript=document.createElement('script');
+  adminActionsScript.src='auction-admin-actions.js?v=20261002-1';
+  document.body.appendChild(adminActionsScript);
 })();
