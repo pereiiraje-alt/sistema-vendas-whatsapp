@@ -14,58 +14,31 @@
 
   async function editLotValuesInternal(lotId,{silent=false}={}){
     try{
-      const {data:lot,error}=await timeout(
-        db.from('lots').select('id,title,valuation,starting_bid,current_bid,min_increment,auction_id').eq('id',lotId).single(),
-        7000,
-        'carregar lote para edição'
-      );
+      const {data:lot,error}=await timeout(db.from('lots').select('id,title,valuation,starting_bid,current_bid,min_increment,auction_id').eq('id',lotId).single(),7000,'carregar lote para edição');
       if(error)throw error;
-
-      const {count:bidsCount,error:bidsError}=await timeout(
-        db.from('bids').select('*',{count:'exact',head:true}).eq('lot_id',lotId),
-        7000,
-        'verificar lances do lote'
-      );
+      const {count:bidsCount,error:bidsError}=await timeout(db.from('bids').select('*',{count:'exact',head:true}).eq('lot_id',lotId),7000,'verificar lances do lote');
       if(bidsError)throw bidsError;
       const hasBids=(bidsCount||0)>0;
-
       if(hasBids){
         if(!silent)alert('Este lote já possui lances. O lance inicial e o acréscimo não podem ser alterados porque o histórico precisa ser preservado.');
         return false;
       }
-
       const startRaw=prompt(`Novo lance inicial\n${lot.title||''}`,moneyInput(lot.starting_bid));
       if(startRaw===null)return false;
       const starting=parseMoney(startRaw);
       if(starting===null||starting<0)throw new Error('Lance inicial inválido.');
-
       const incrementRaw=prompt(`Novo acréscimo do lance\n${lot.title||''}`,moneyInput(lot.min_increment));
       if(incrementRaw===null)return false;
       const increment=parseMoney(incrementRaw);
       if(increment===null||increment<=0)throw new Error('Acréscimo do lance inválido.');
-
-      const {error:updateError}=await timeout(
-        db.from('lots').update({
-          starting_bid:starting,
-          current_bid:starting,
-          min_increment:increment
-        }).eq('id',lotId).eq('company_id',currentCompany.id),
-        7000,
-        'salvar lance inicial e acréscimo do lote'
-      );
+      const {error:updateError}=await timeout(db.from('lots').update({starting_bid:starting,current_bid:starting,min_increment:increment}).eq('id',lotId).eq('company_id',currentCompany.id),7000,'salvar lance inicial e acréscimo do lote');
       if(updateError)throw updateError;
       if(!silent)alert('Lance inicial e acréscimo atualizados com sucesso.');
       return true;
-    }catch(e){
-      alert('Não foi possível editar os valores do lote: '+(e.message||e));
-      return false;
-    }
+    }catch(e){alert('Não foi possível editar os valores do lote: '+(e.message||e));return false;}
   }
 
-  window.editLotValues=async function(lotId){
-    const ok=await editLotValuesInternal(lotId);
-    if(ok)await leiloes();
-  };
+  window.editLotValues=async function(lotId){const ok=await editLotValuesInternal(lotId);if(ok)await leiloes();};
 
   window.reopenAuction=async function(id){
     const minutesRaw=prompt('Por quantos minutos deseja reabrir este leilão?','60');
@@ -78,38 +51,77 @@
       if(error)throw error;
       const newAuctionId=typeof data==='string'?data:(data?.id||data);
       await restoreAuctionAfterAction(newAuctionId);
-
       if(editValues&&newAuctionId){
-        const {data:newLots,error:newLotsError}=await timeout(
-          db.from('lots').select('id,lot_number,title,starting_bid,min_increment').eq('auction_id',newAuctionId).order('lot_number',{ascending:true}),
-          7000,
-          'carregar lotes reabertos'
-        );
+        const {data:newLots,error:newLotsError}=await timeout(db.from('lots').select('id,lot_number,title,starting_bid,min_increment').eq('auction_id',newAuctionId).order('lot_number',{ascending:true}),7000,'carregar lotes reabertos');
         if(newLotsError)throw newLotsError;
         for(const lot of (newLots||[])){
           const proceed=confirm(`Editar valores do Lote #${lot.lot_number} - ${lot.title}?\n\nLance inicial atual: R$ ${moneyInput(lot.starting_bid)}\nAcréscimo atual: R$ ${moneyInput(lot.min_increment)}`);
           if(proceed)await editLotValuesInternal(lot.id,{silent:true});
         }
       }
-
       alert('Leilão reaberto com sucesso.');
       await leiloes();
-    }catch(e){
-      alert('Não foi possível reabrir o leilão: '+(e.message||e));
-    }
+    }catch(e){alert('Não foi possível reabrir o leilão: '+(e.message||e));}
   };
 
   window.deleteAuction=async function(id,title){
-    if(!confirm(`Excluir o leilão “${title||'selecionado'}”?\n\nEsta ação remove o leilão, os lotes e os lances vinculados. Leilões com arremate registrado não podem ser excluídos.`))return;
-    if(!confirm('Tem certeza? Esta ação não pode ser desfeita.'))return;
     try{
-      const {error}=await timeout(db.rpc('delete_company_auction',{p_auction_id:id}),10000,'excluir leilão');
-      if(error)throw error;
+      if(!currentCompany?.id)throw new Error('Empresa não identificada. Atualize a página e entre novamente.');
+      if(!confirm(`Excluir o leilão “${title||'selecionado'}”?\n\nSerão excluídos os lotes e lances deste leilão. Esta ação não pode ser desfeita.`))return;
+
+      const {data:auction,error:auctionError}=await timeout(
+        db.from('auctions').select('id,title').eq('id',id).eq('company_id',currentCompany.id).maybeSingle(),
+        7000,
+        'verificar leilão'
+      );
+      if(auctionError)throw auctionError;
+      if(!auction)throw new Error('Este leilão não foi encontrado ou não pertence a esta empresa.');
+
+      const {data:lotRows,error:lotsError}=await timeout(
+        db.from('lots').select('id').eq('auction_id',id).eq('company_id',currentCompany.id),
+        7000,
+        'verificar lotes do leilão'
+      );
+      if(lotsError)throw lotsError;
+      const lotIds=(lotRows||[]).map(x=>x.id);
+      if(lotIds.length){
+        const {count:arrematesCount,error:arrematesError}=await timeout(
+          db.from('arremates').select('*',{count:'exact',head:true}).in('lot_id',lotIds),
+          7000,
+          'verificar arremates do leilão'
+        );
+        if(arrematesError)throw arrematesError;
+        if((arrematesCount||0)>0){
+          alert('Este leilão possui arremate registrado e não pode ser excluído. Ele precisa permanecer no histórico.');
+          return;
+        }
+      }
+
+      if(!confirm('Confirmar exclusão definitiva deste leilão?'))return;
+
+      let rpcError=null;
+      try{
+        const result=await timeout(db.rpc('delete_company_auction',{p_auction_id:id}),10000,'excluir leilão');
+        rpcError=result?.error||null;
+      }catch(err){rpcError=err;}
+
+      if(rpcError){
+        console.warn('Exclusão via RPC falhou; tentando exclusão direta:',rpcError);
+        const {data:deleted,error:directError}=await timeout(
+          db.from('auctions').delete().eq('id',id).eq('company_id',currentCompany.id).select('id'),
+          10000,
+          'excluir leilão diretamente'
+        );
+        if(directError)throw directError;
+        if(!deleted?.length)throw rpcError;
+      }
+
       await restoreAuctionAfterAction(null);
       alert('Leilão excluído com sucesso.');
       await leiloes();
     }catch(e){
-      alert('Não foi possível excluir o leilão: '+(e.message||e));
+      console.error('Erro ao excluir leilão:',e);
+      alert('Não foi possível excluir o leilão: '+(e?.message||e));
     }
   };
 
@@ -124,47 +136,26 @@
   leiloes=async function(){
     if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';
     try{
-      const {data:auctions,error}=await timeout(
-        db.from('auctions').select('*').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),
-        8000,
-        'carregar leilões'
-      );
+      const {data:auctions,error}=await timeout(db.from('auctions').select('*').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),8000,'carregar leilões');
       if(error)throw error;
-      const {data:lotRows,error:lotError}=await timeout(
-        db.from('lots').select('*').eq('company_id',currentCompany.id).order('lot_number',{ascending:true}),
-        8000,
-        'carregar lotes dos leilões'
-      );
+      const {data:lotRows,error:lotError}=await timeout(db.from('lots').select('*').eq('company_id',currentCompany.id).order('lot_number',{ascending:true}),8000,'carregar lotes dos leilões');
       if(lotError)throw lotError;
-
       const lotsByAuction={};
-      (lotRows||[]).forEach(row=>{
-        const key=String(row.auction_id||'');
-        if(!lotsByAuction[key])lotsByAuction[key]=[];
-        lotsByAuction[key].push(normalize(row));
-      });
-
+      (lotRows||[]).forEach(row=>{const key=String(row.auction_id||'');if(!lotsByAuction[key])lotsByAuction[key]=[];lotsByAuction[key].push(normalize(row));});
       const cards=[];
       (auctions||[]).forEach(a=>{
         const group=lotsByAuction[String(a.id)]||[];
         const ended=a.status==='ended'||a.status==='cancelled'||(a.ends_at&&Date.now()>=new Date(a.ends_at).getTime());
         group.forEach(l=>{
-          const reopen=ended
-            ? `<button class="primary auction-action-btn" type="button" onclick="reopenAuction('${a.id}')">↻ Abrir novamente</button>`
-            : `<button class="primary auction-action-btn auction-action-placeholder" type="button" tabindex="-1" aria-hidden="true">↻ Abrir novamente</button>`;
+          const reopen=ended?`<button class="primary auction-action-btn" type="button" onclick="reopenAuction('${a.id}')">↻ Abrir novamente</button>`:`<button class="primary auction-action-btn auction-action-placeholder" type="button" tabindex="-1" aria-hidden="true">↻ Abrir novamente</button>`;
           const edit=`<button class="ghost auction-edit auction-action-btn" type="button" onclick="editLotValues('${l.id}')">✏ Editar lance inicial e acréscimo</button>`;
           const del=`<button class="ghost auction-delete auction-action-btn" type="button" onclick="deleteAuction('${a.id}',${JSON.stringify(a.title||'Leilão').replace(/</g,'\\u003c')})">🗑 Excluir leilão</button>`;
-          cards.push(`<div class="auction-lot-wrap"><div class="auction-mini-status ${ended?'is-ended':'is-live'}">${ended?'● '+statusLabel(a.status):'● '+statusLabel(a.status)}</div>${lotCard(l)}<div class="auction-card-actions">${reopen}${edit}${del}</div></div>`);
+          cards.push(`<div class="auction-lot-wrap"><div class="auction-mini-status ${ended?'is-ended':'is-live'}">● ${statusLabel(a.status)}</div>${lotCard(l)}<div class="auction-card-actions">${reopen}${edit}${del}</div></div>`);
         });
       });
-
-      app.innerHTML=cards.length
-        ? `<div class="catalog auction-flat-catalog">${cards.join('')}</div>`
-        : '<div class="panel"><h3>Leilões</h3><p class="muted">Nenhum leilão criado ainda.</p></div>';
+      app.innerHTML=cards.length?`<div class="catalog auction-flat-catalog">${cards.join('')}</div>`:'<div class="panel"><h3>Leilões</h3><p class="muted">Nenhum leilão criado ainda.</p></div>';
       tick();
-    }catch(e){
-      app.innerHTML=`<div class="panel"><h3>Leilões</h3><p>Não foi possível carregar os leilões.</p><p class="muted">${esc(e.message||e)}</p></div>`;
-    }
+    }catch(e){app.innerHTML=`<div class="panel"><h3>Leilões</h3><p>Não foi possível carregar os leilões.</p><p class="muted">${esc(e.message||e)}</p></div>`;}
   };
 
   if(typeof pages!=='undefined'&&pages.leiloes)pages.leiloes[0]=leiloes;
