@@ -63,16 +63,22 @@
         lotsByAuction[key].push(normalize(row));
       });
 
-      const html=(auctions||[]).map(a=>{
+      const cards=[];
+      (auctions||[]).forEach(a=>{
         const group=lotsByAuction[String(a.id)]||[];
         const ended=a.status==='ended'||a.status==='cancelled'||(a.ends_at&&Date.now()>=new Date(a.ends_at).getTime());
-        const reopen=ended?`<button class="primary" type="button" onclick="reopenAuction('${a.id}')">↻ Abrir novamente</button>`:'';
-        const del=`<button class="ghost auction-delete" type="button" onclick="deleteAuction('${a.id}',${JSON.stringify(a.title||'Leilão').replace(/</g,'\\u003c')})">🗑 Excluir leilão</button>`;
-        const cards=group.length?group.map(l=>lotCard(l)).join(''):'<div class="panel"><p class="muted">Nenhum lote neste leilão.</p></div>';
-        return `<section class="auction-management-block"><div class="auction-head auction-manage-head"><div><span class="${ended?'ended-pill':'live'}">${ended?'● '+statusLabel(a.status):'● '+statusLabel(a.status)}</span><h2>${esc(a.title||'Leilão')}</h2><p>${a.ends_at?'Término: '+fmtDate(a.ends_at):'Sem horário de término definido'} · ${group.length} lote(s)</p></div><div class="auction-manage-actions">${reopen}${del}</div></div><div class="catalog">${cards}</div></section>`;
-      }).join('');
+        group.forEach(l=>{
+          const reopen=ended
+            ? `<button class="primary auction-action-btn" type="button" onclick="reopenAuction('${a.id}')">↻ Abrir novamente</button>`
+            : `<button class="primary auction-action-btn auction-action-placeholder" type="button" tabindex="-1" aria-hidden="true">↻ Abrir novamente</button>`;
+          const del=`<button class="ghost auction-delete auction-action-btn" type="button" onclick="deleteAuction('${a.id}',${JSON.stringify(a.title||'Leilão').replace(/</g,'\\u003c')})">🗑 Excluir leilão</button>`;
+          cards.push(`<div class="auction-lot-wrap"><div class="auction-mini-status ${ended?'is-ended':'is-live'}">${ended?'● '+statusLabel(a.status):'● '+statusLabel(a.status)}</div>${lotCard(l)}<div class="auction-card-actions">${reopen}${del}</div></div>`);
+        });
+      });
 
-      app.innerHTML=html||'<div class="panel"><h3>Leilões</h3><p class="muted">Nenhum leilão criado ainda.</p></div>';
+      app.innerHTML=cards.length
+        ? `<div class="catalog auction-flat-catalog">${cards.join('')}</div>`
+        : '<div class="panel"><h3>Leilões</h3><p class="muted">Nenhum leilão criado ainda.</p></div>';
       tick();
     }catch(e){
       app.innerHTML=`<div class="panel"><h3>Leilões</h3><p>Não foi possível carregar os leilões.</p><p class="muted">${esc(e.message||e)}</p></div>`;
@@ -83,7 +89,23 @@
 
   const style=document.createElement('style');
   style.textContent=`
-    .auction-management-block{margin-bottom:30px}.auction-manage-head{display:flex;justify-content:space-between;align-items:center;gap:18px}.auction-manage-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.auction-delete{color:#b42318;border-color:#f1c5c1;background:#fff7f6}.auction-delete:hover{background:#fff0ee}.ended-pill{font-size:11px;font-weight:800;color:#6b7280}@media(max-width:760px){.auction-manage-head{align-items:flex-start;flex-direction:column}.auction-manage-actions{width:100%;justify-content:stretch}.auction-manage-actions button{flex:1}}
+    .auction-flat-catalog{grid-template-columns:repeat(6,minmax(0,1fr))!important;align-items:stretch!important}
+    .auction-lot-wrap{min-width:0;display:flex;flex-direction:column;gap:8px;height:100%}
+    .auction-lot-wrap>.product{height:100%;display:flex;flex-direction:column}
+    .auction-lot-wrap>.product>div:last-child{display:flex;flex-direction:column;flex:1}
+    .auction-lot-wrap>.product h3{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:35px}
+    .auction-lot-wrap>.product .price{margin-top:auto}
+    .auction-mini-status{font-size:11px;font-weight:800;padding:0 2px}
+    .auction-mini-status.is-live{color:#118044}.auction-mini-status.is-ended{color:#6b7280}
+    .auction-card-actions{display:grid;gap:7px}
+    .auction-action-btn{width:100%;padding:9px 7px!important;font-size:11px!important;border-radius:9px!important}
+    .auction-action-placeholder{visibility:hidden;pointer-events:none}
+    .auction-delete{color:#b42318;border-color:#f1c5c1;background:#fff7f6}.auction-delete:hover{background:#fff0ee}
+    @media(max-width:1450px){.auction-flat-catalog{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
+    @media(max-width:1220px){.auction-flat-catalog{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+    @media(max-width:1050px){.auction-flat-catalog{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+    @media(max-width:900px){.auction-flat-catalog{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+    @media(max-width:430px){.auction-flat-catalog{grid-template-columns:1fr!important}}
   `;
   document.head.appendChild(style);
 })();
