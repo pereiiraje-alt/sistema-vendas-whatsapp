@@ -25,8 +25,14 @@
 
   function winnerMessage(row){
     const empresa=currentCompany?.name||'JP Leilões';
-    const pendente=row.pending>0?`\n\nSeu pagamento ainda está pendente. Acesse a plataforma para concluir o pagamento dentro do prazo.`:'';
-    return `Olá ${row.name}! 🎉\n\nParabéns, você arrematou ${row.count} lote(s) no leilão da ${empresa}.\nValor total arrematado: ${currency(row.totalArrematado)}.${pendente}\n\nJP Leilões`;
+    const pendente=row.pending>0?`\n\nSeu pagamento ainda está pendente. Conclua o pagamento dentro do prazo.`:'';
+    const links=[...new Set((row.paymentLinks||[]).filter(Boolean))];
+    const paymentBlock=links.length===1
+      ?`\n\n💳 Link para pagamento:\n${links[0]}`
+      :links.length>1
+        ?`\n\n💳 Links para pagamento:\n${links.map((url,i)=>`${i+1}. ${url}`).join('\n')}`
+        :'';
+    return `Olá ${row.name}! 🎉\n\nParabéns, você arrematou ${row.count} lote(s) no leilão da ${empresa}.\nValor total arrematado: ${currency(row.totalArrematado)}.${pendente}${paymentBlock}\n\nJP Leilões`;
   }
 
   function ensureStyles(){
@@ -81,7 +87,7 @@
       const arremateIds=wins.map(row=>row.id).filter(Boolean);
       const lotIds=[...new Set(wins.map(row=>row.lot_id).filter(Boolean))];
       const [{data:payments,error:paymentsError},{data:bids,error:bidsError},{data:lots,error:lotsError}]=await Promise.all([
-        arremateIds.length?timeout(db.from('payments').select('arremate_id,status,amount,paid_at').in('arremate_id',arremateIds),7000,'carregar pagamentos'):Promise.resolve({data:[],error:null}),
+        arremateIds.length?timeout(db.from('payments').select('arremate_id,status,amount,paid_at,checkout_url').in('arremate_id',arremateIds),7000,'carregar pagamentos'):Promise.resolve({data:[],error:null}),
         lotIds.length?timeout(db.from('bids').select('lot_id,participant_id,amount,created_at').in('lot_id',lotIds).order('amount',{ascending:false}),7000,'carregar lances anteriores'):Promise.resolve({data:[],error:null}),
         lotIds.length?timeout(db.from('lots').select('id,title').in('id',lotIds),7000,'carregar lotes'):Promise.resolve({data:[],error:null})
       ]);
@@ -105,12 +111,16 @@
       for(const win of wins){
         const person=participantMap.get(String(win.participant_id))||{};
         const key=win.participant_id||win.id;
-        if(!grouped.has(key))grouped.set(key,{id:key,name:person.full_name||'Arrematante',phone:person.phone||'',email:person.email||'',count:0,totalArrematado:0,totalPago:0,latest:null,pending:0});
+        if(!grouped.has(key))grouped.set(key,{id:key,name:person.full_name||'Arrematante',phone:person.phone||'',email:person.email||'',count:0,totalArrematado:0,totalPago:0,latest:null,pending:0,paymentLinks:[]});
         const item=grouped.get(key);item.count+=1;
         const amount=Number(win.total_amount||win.winning_bid||0);item.totalArrematado+=amount;
         if(!item.latest||new Date(win.created_at)>new Date(item.latest))item.latest=win.created_at;
         const payment=paymentMap.get(String(win.id));
-        if(payment?.status==='paid')item.totalPago+=Number(payment.amount||amount||0);else if(payment?.status!=='cancelled')item.pending+=1;
+        if(payment?.status==='paid')item.totalPago+=Number(payment.amount||amount||0);
+        else if(payment?.status!=='cancelled'){
+          item.pending+=1;
+          if(payment?.checkout_url&&!item.paymentLinks.includes(payment.checkout_url))item.paymentLinks.push(payment.checkout_url);
+        }
       }
 
       const expiredRows=wins.filter(win=>paymentMap.get(String(win.id))?.status==='cancelled').map(win=>{
@@ -135,7 +145,7 @@
         return `<tr><td><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td><td><strong>${currency(row.totalArrematado)}</strong></td><td class="winner-paid">${currency(row.totalPago)}</td><td>${dateLabel(row.latest)}</td><td><div class="winner-actions">${wa}${email}</div></td></tr>`;
       }).join('');
 
-      app.innerHTML=`${expiredHtml}<div class="winner-summary"><div class="card"><small>Arrematantes</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Lotes arrematados</small><h2>${totalLotes}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos arrematantes</h3><p class="muted">O botão WhatsApp usa exatamente o número cadastrado no sistema, acrescentando apenas o código do Brasil (55) quando necessário.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
+      app.innerHTML=`${expiredHtml}<div class="winner-summary"><div class="card"><small>Arrematantes</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Lotes arrematados</small><h2>${totalLotes}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos arrematantes</h3><p class="muted">As notificações por WhatsApp e e-mail incluem automaticamente o link de pagamento quando houver pagamento pendente.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
     }catch(error){app.innerHTML=`<div class="panel"><h3>Arrematantes</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
     finally{rendering=false}
   }
