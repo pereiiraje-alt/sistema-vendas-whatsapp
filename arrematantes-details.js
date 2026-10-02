@@ -10,26 +10,32 @@
   const dateLabel=value=>value?new Date(value).toLocaleString('pt-BR'):'—';
   const digits=value=>String(value||'').replace(/\D/g,'');
 
+  function winnerMessage(row){
+    const empresa=currentCompany?.name||'JP Leilões';
+    const pendente=row.pending>0?`\n\nSeu pagamento ainda está pendente. Acesse a plataforma para concluir o pagamento dentro do prazo.`:'';
+    return `Olá ${row.name}! 🎉\n\nParabéns, você arrematou ${row.count} lote(s) no leilão da ${empresa}.\nValor total arrematado: ${currency(row.totalArrematado)}.${pendente}\n\nJP Leilões`;
+  }
+
   function ensureStyles(){
     if(document.getElementById('winner-details-style'))return;
     const style=document.createElement('style');
     style.id='winner-details-style';
     style.textContent=`
       .winner-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
-      .winner-summary .card{min-height:110px}
-      .winner-table-wrap{overflow:auto}
-      .winner-name{display:flex;flex-direction:column;gap:3px}
-      .winner-name strong{font-size:15px}
-      .winner-contact{color:#64748b;font-size:13px}
-      .winner-phone{color:#15803d;text-decoration:none;font-weight:700}
-      .winner-paid{color:#15803d;font-weight:800}
-      .winner-pending{color:#92400e;font-size:12px}
+      .winner-summary .card{min-height:110px}.winner-table-wrap{overflow:auto}
+      .winner-name{display:flex;flex-direction:column;gap:3px}.winner-name strong{font-size:15px}
+      .winner-contact{color:#64748b;font-size:13px}.winner-phone{color:#15803d;text-decoration:none;font-weight:700}
+      .winner-paid{color:#15803d;font-weight:800}.winner-pending{color:#92400e;font-size:12px}
+      .winner-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:190px}.winner-notify{display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap;border:1px solid transparent}
+      .winner-notify.whatsapp{background:#16a34a;color:#fff}.winner-notify.whatsapp:hover{background:#15803d}
+      .winner-notify.email{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}.winner-notify.email:hover{background:#dbeafe}
+      .winner-notify.disabled{opacity:.45;pointer-events:none}
       .expired-panel{margin-bottom:16px;border:1px solid #fecaca;background:#fff7f7}
       .expired-row{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #fee2e2}
       .expired-row:first-of-type{border-top:0}.expired-badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:12px;font-weight:800}
       .contact-second{display:inline-block;text-decoration:none;background:#16a34a;color:#fff;padding:9px 12px;border-radius:9px;font-weight:800;white-space:nowrap}
       @media(max-width:900px){.winner-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.expired-row{grid-template-columns:1fr}}
-      @media(max-width:560px){.winner-summary{grid-template-columns:1fr}.winner-table-wrap table{min-width:760px}}
+      @media(max-width:560px){.winner-summary{grid-template-columns:1fr}.winner-table-wrap table{min-width:980px}}
     `;
     document.head.appendChild(style);
   }
@@ -101,15 +107,22 @@
         return {win,second,person,lot:lotMap.get(String(win.lot_id))||{}};
       });
 
-      const expiredHtml=expiredRows.length?`<div class="panel expired-panel"><h3>Pagamentos não confirmados em 10 minutos</h3><p class="muted">O arremate foi cancelado. Você pode entrar em contato com o participante que fez o segundo maior lance.</p>${expiredRows.map(row=>{
-        const p=row.person||{};const phoneDigits=digits(p.phone);const msg=encodeURIComponent(`Olá ${p.full_name||''}, você ficou com o segundo maior lance no lote ${row.lot.title||''} da JP Leilões. O primeiro arrematante não confirmou o pagamento dentro do prazo. Entre em contato conosco para verificar a possibilidade de compra.`);
-        return `<div class="expired-row"><div><strong>${safe(row.lot.title||'Lote')}</strong><br><span class="expired-badge">Arremate cancelado</span></div><div><small>2º maior lance</small><br><strong>${row.second?currency(row.second.amount):'Não houve outro lance'}</strong></div><div>${p.full_name?`<strong>${safe(p.full_name)}</strong><br><small>${safe(p.email||'')}</small>`:'Sem segundo participante'}</div><div>${phoneDigits?`<a class="contact-second" target="_blank" rel="noopener" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}?text=${msg}">Chamar no WhatsApp</a>`:'—'}</div></div>`;
-      }).join('')}</div>`:'';
+      const expiredHtml=expiredRows.length?`<div class="panel expired-panel"><h3>Pagamentos não confirmados em 10 minutos</h3><p class="muted">O arremate foi cancelado. Você pode entrar em contato com o participante que fez o segundo maior lance.</p>${expiredRows.map(row=>{const p=row.person||{};const phoneDigits=digits(p.phone);const msg=encodeURIComponent(`Olá ${p.full_name||''}, você ficou com o segundo maior lance no lote ${row.lot.title||''} da JP Leilões. O primeiro arrematante não confirmou o pagamento dentro do prazo. Entre em contato conosco para verificar a possibilidade de compra.`);return `<div class="expired-row"><div><strong>${safe(row.lot.title||'Lote')}</strong><br><span class="expired-badge">Arremate cancelado</span></div><div><small>2º maior lance</small><br><strong>${row.second?currency(row.second.amount):'Não houve outro lance'}</strong></div><div>${p.full_name?`<strong>${safe(p.full_name)}</strong><br><small>${safe(p.email||'')}</small>`:'Sem segundo participante'}</div><div>${phoneDigits?`<a class="contact-second" target="_blank" rel="noopener" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}?text=${msg}">Chamar no WhatsApp</a>`:'—'}</div></div>`}).join('')}</div>`:'';
 
       const rows=[...grouped.values()].sort((a,b)=>b.totalArrematado-a.totalArrematado);
       const totalArrematado=rows.reduce((sum,row)=>sum+row.totalArrematado,0),totalPago=rows.reduce((sum,row)=>sum+row.totalPago,0),totalLotes=rows.reduce((sum,row)=>sum+row.count,0);
 
-      app.innerHTML=`${expiredHtml}<div class="winner-summary"><div class="card"><small>Arrematantes</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Lotes arrematados</small><h2>${totalLotes}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos arrematantes</h3><p class="muted">Nome, telefone e histórico de compras nesta empresa.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th></tr></thead><tbody>${rows.map(row=>{const phoneDigits=digits(row.phone);const phone=phoneDigits?`<a class="winner-phone" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';return `<tr><td><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td><td><strong>${currency(row.totalArrematado)}</strong></td><td class="winner-paid">${currency(row.totalPago)}</td><td>${dateLabel(row.latest)}</td></tr>`}).join('')}</tbody></table></div></div>`;
+      const bodyRows=rows.map(row=>{
+        const phoneDigits=digits(row.phone);
+        const phone=phoneDigits?`<a class="winner-phone" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';
+        const message=winnerMessage(row);
+        const wa=phoneDigits?`<a class="winner-notify whatsapp" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}?text=${encodeURIComponent(message)}" target="_blank" rel="noopener">WhatsApp</a>`:`<span class="winner-notify whatsapp disabled">WhatsApp</span>`;
+        const subject=encodeURIComponent('Parabéns! Você arrematou no JP Leilões');
+        const email=row.email?`<a class="winner-notify email" href="mailto:${encodeURIComponent(row.email)}?subject=${subject}&body=${encodeURIComponent(message)}">E-mail</a>`:`<span class="winner-notify email disabled">E-mail</span>`;
+        return `<tr><td><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td><td><strong>${currency(row.totalArrematado)}</strong></td><td class="winner-paid">${currency(row.totalPago)}</td><td>${dateLabel(row.latest)}</td><td><div class="winner-actions">${wa}${email}</div></td></tr>`;
+      }).join('');
+
+      app.innerHTML=`${expiredHtml}<div class="winner-summary"><div class="card"><small>Arrematantes</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Lotes arrematados</small><h2>${totalLotes}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos arrematantes</h3><p class="muted">Use os botões de notificação para avisar o cliente que ele arrematou o lote.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
     }catch(error){app.innerHTML=`<div class="panel"><h3>Arrematantes</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
     finally{rendering=false}
   }
