@@ -15,10 +15,16 @@
     btn.textContent='◷ Histórico';
   }
 
+  let registrationsBtn=nav.querySelector('[data-page="cadastros-leilao"]');
+  if(!registrationsBtn){
+    registrationsBtn=document.createElement('button');
+    registrationsBtn.dataset.page='cadastros-leilao';
+    registrationsBtn.textContent='📝 Cadastros p/ lance';
+  }
+
   function organizeAuctionMenu(){
     if(!submenu)return;
 
-    // Mantém "Leilões da plataforma" fora do submenu e acima do Dashboard.
     const allPlatformButtons=[...nav.querySelectorAll('button')].filter(el=>/leilões da plataforma/i.test(el.textContent||'')||String(el.getAttribute('onclick')||'').includes('explorar'));
     let platformBtn=allPlatformButtons[0];
     allPlatformButtons.slice(1).forEach(el=>el.remove());
@@ -37,12 +43,12 @@
     };
     nav.insertBefore(platformBtn,dashboardBtn||nav.firstChild);
 
-    // Dentro de Leilões ficam apenas as opções da própria empresa.
-    const ordered=[createBtn,myAuctionsBtn,participantsBtn,btn].filter(Boolean);
+    const ordered=[createBtn,myAuctionsBtn,participantsBtn,registrationsBtn,btn].filter(Boolean);
     ordered.forEach(el=>submenu.appendChild(el));
     if(createBtn)createBtn.textContent='＋ Criar leilão';
     if(myAuctionsBtn)myAuctionsBtn.textContent='• Meus leilões';
     if(participantsBtn)participantsBtn.textContent='♙ Participantes';
+    registrationsBtn.textContent='📝 Cadastros p/ lance';
     btn.textContent='◷ Histórico';
   }
 
@@ -59,7 +65,7 @@
     if(document.getElementById('participant-history-style'))return;
     const s=document.createElement('style');
     s.id='participant-history-style';
-    s.textContent=`.history-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.history-summary .card{min-height:108px}.history-table-wrap{overflow:auto}.history-person{display:flex;flex-direction:column;gap:3px}.history-person strong{font-size:15px}.history-muted{color:#64748b;font-size:12px}.history-phone{color:#15803d;text-decoration:none;font-weight:700}.history-spent{color:#15803d;font-weight:800}.history-zero{color:#64748b}@media(max-width:900px){.history-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.history-summary{grid-template-columns:1fr}.history-table-wrap table{min-width:900px}}`;
+    s.textContent=`.history-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.history-summary .card{min-height:108px}.history-table-wrap{overflow:auto}.history-person{display:flex;flex-direction:column;gap:3px}.history-person strong{font-size:15px}.history-muted{color:#64748b;font-size:12px}.history-phone{color:#15803d;text-decoration:none;font-weight:700}.history-spent{color:#15803d;font-weight:800}.history-zero{color:#64748b}.registration-group{margin-bottom:18px}.registration-company{font-size:13px;color:#64748b;margin-top:5px}.registration-count{white-space:nowrap}@media(max-width:900px){.history-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.history-summary{grid-template-columns:1fr}.history-table-wrap table{min-width:900px}}`;
     document.head.appendChild(s);
   }
 
@@ -70,6 +76,32 @@
       if(!token||!currentCompany?.id)return;
       await fetch('/api/reconcile-company-payments',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({companyId:currentCompany.id})});
     }catch(e){console.warn('Não foi possível sincronizar pagamentos antes do histórico.',e)}
+  }
+
+  async function renderRegistrations(){
+    styles();
+    title.textContent='Cadastros para lance';
+    subtitle.textContent='Quem se cadastrou para participar dos seus leilões';
+    document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===registrationsBtn));
+    if(!currentCompany){app.innerHTML='<div class="panel"><h3>Cadastros para lance</h3><p>Faça login como empresa.</p></div>';return}
+    app.innerHTML='<div class="panel"><h3>Cadastros para dar lance</h3><p class="muted">Carregando participantes dos seus leilões...</p></div>';
+    try{
+      const {data,error}=await db.rpc('company_auction_participant_registrations');
+      if(error)throw error;
+      const rows=Array.isArray(data)?data:[];
+      if(!rows.length){
+        app.innerHTML='<div class="panel"><h3>Cadastros para dar lance</h3><p class="muted">Ainda não há participantes cadastrados nos seus leilões.</p></div>';
+        return;
+      }
+      const groups=new Map();
+      for(const row of rows){
+        const key=String(row.auction_id||'sem-leilao');
+        if(!groups.has(key))groups.set(key,{title:row.auction_title||'Leilão',status:row.auction_status||'',items:[]});
+        groups.get(key).items.push(row);
+      }
+      const cards=[...groups.values()].map(group=>`<div class="panel registration-group"><div class="toolbar"><div><h3 style="margin:0">${safe(group.title)}</h3><p class="registration-company">${group.items.length} participante(s) cadastrado(s)</p></div><span class="badge">${safe(group.status||'')}</span></div><div class="history-table-wrap"><table><thead><tr><th>PARTICIPANTE</th><th>E-MAIL</th><th>WHATSAPP</th><th>CPF</th><th>LOTE</th><th>CADASTRO</th></tr></thead><tbody>${group.items.map(x=>{const phoneDigits=digits(x.participant_phone);const phone=phoneDigits?`<a class="history-phone" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}" target="_blank" rel="noopener">${safe(x.participant_phone)}</a>`:'—';return `<tr><td><b>${safe(x.participant_name||'Participante')}</b></td><td>${safe(x.participant_email||'—')}</td><td>${phone}</td><td>${safe(x.participant_cpf||'—')}</td><td>${safe(x.lot_title||'—')}</td><td>${dateLabel(x.registered_at)}</td></tr>`}).join('')}</tbody></table></div></div>`).join('');
+      app.innerHTML=`<div class="cards"><div class="card"><small>Leilões com cadastros</small><h2>${groups.size}</h2><span class="up">Somente desta empresa</span></div><div class="card"><small>Participações</small><h2>${rows.length}</h2><span class="up">Cadastros para dar lance</span></div></div>${cards}`;
+    }catch(error){app.innerHTML=`<div class="panel"><h3>Cadastros para lance</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
   }
 
   async function renderHistory(){
@@ -97,8 +129,10 @@
     }catch(error){app.innerHTML=`<div class="panel"><h3>Histórico</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
   }
 
+  registrationsBtn.onclick=renderRegistrations;
   btn.onclick=renderHistory;
   window.renderParticipantHistory=renderHistory;
+  window.renderCompanyAuctionRegistrations=renderRegistrations;
 
   if(!document.getElementById('myPlatformBidsScript')){
     const s=document.createElement('script');
