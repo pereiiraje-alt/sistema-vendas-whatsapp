@@ -5,10 +5,12 @@
   let rendering=false;
   let armed=false;
 
-  const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const safe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
   const currency=value=>(Number(value)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const dateLabel=value=>value?new Date(value).toLocaleString('pt-BR'):'—';
   const digits=value=>String(value||'').replace(/\D/g,'');
+  const whatsappNumber=value=>{const d=digits(value);if(!d)return'';return d.startsWith('55')?d:`55${d}`};
+  const whatsappUrl=(phone,message='')=>{const number=whatsappNumber(phone);if(!number)return'';return `https://wa.me/${number}${message?`?text=${encodeURIComponent(message)}`:''}`};
 
   function winnerMessage(row){
     const empresa=currentCompany?.name||'JP Leilões';
@@ -107,22 +109,22 @@
         return {win,second,person,lot:lotMap.get(String(win.lot_id))||{}};
       });
 
-      const expiredHtml=expiredRows.length?`<div class="panel expired-panel"><h3>Pagamentos não confirmados em 10 minutos</h3><p class="muted">O arremate foi cancelado. Você pode entrar em contato com o participante que fez o segundo maior lance.</p>${expiredRows.map(row=>{const p=row.person||{};const phoneDigits=digits(p.phone);const msg=encodeURIComponent(`Olá ${p.full_name||''}, você ficou com o segundo maior lance no lote ${row.lot.title||''} da JP Leilões. O primeiro arrematante não confirmou o pagamento dentro do prazo. Entre em contato conosco para verificar a possibilidade de compra.`);return `<div class="expired-row"><div><strong>${safe(row.lot.title||'Lote')}</strong><br><span class="expired-badge">Arremate cancelado</span></div><div><small>2º maior lance</small><br><strong>${row.second?currency(row.second.amount):'Não houve outro lance'}</strong></div><div>${p.full_name?`<strong>${safe(p.full_name)}</strong><br><small>${safe(p.email||'')}</small>`:'Sem segundo participante'}</div><div>${phoneDigits?`<a class="contact-second" target="_blank" rel="noopener" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}?text=${msg}">Chamar no WhatsApp</a>`:'—'}</div></div>`}).join('')}</div>`:'';
+      const expiredHtml=expiredRows.length?`<div class="panel expired-panel"><h3>Pagamentos não confirmados em 10 minutos</h3><p class="muted">O arremate foi cancelado. Você pode entrar em contato com o participante que fez o segundo maior lance.</p>${expiredRows.map(row=>{const p=row.person||{};const msg=`Olá ${p.full_name||''}, você ficou com o segundo maior lance no lote ${row.lot.title||''} da JP Leilões. O primeiro arrematante não confirmou o pagamento dentro do prazo. Entre em contato conosco para verificar a possibilidade de compra.`;const wa=whatsappUrl(p.phone,msg);return `<div class="expired-row"><div><strong>${safe(row.lot.title||'Lote')}</strong><br><span class="expired-badge">Arremate cancelado</span></div><div><small>2º maior lance</small><br><strong>${row.second?currency(row.second.amount):'Não houve outro lance'}</strong></div><div>${p.full_name?`<strong>${safe(p.full_name)}</strong><br><small>${safe(p.email||'')}</small>`:'Sem segundo participante'}</div><div>${wa?`<a class="contact-second" target="_blank" rel="noopener" href="${wa}">Chamar no WhatsApp</a>`:'—'}</div></div>`}).join('')}</div>`:'';
 
       const rows=[...grouped.values()].sort((a,b)=>b.totalArrematado-a.totalArrematado);
       const totalArrematado=rows.reduce((sum,row)=>sum+row.totalArrematado,0),totalPago=rows.reduce((sum,row)=>sum+row.totalPago,0),totalLotes=rows.reduce((sum,row)=>sum+row.count,0);
 
       const bodyRows=rows.map(row=>{
-        const phoneDigits=digits(row.phone);
-        const phone=phoneDigits?`<a class="winner-phone" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';
+        const waNumber=whatsappUrl(row.phone);
+        const phone=waNumber?`<a class="winner-phone" href="${waNumber}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';
         const message=winnerMessage(row);
-        const wa=phoneDigits?`<a class="winner-notify whatsapp" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}?text=${encodeURIComponent(message)}" target="_blank" rel="noopener">WhatsApp</a>`:`<span class="winner-notify whatsapp disabled">WhatsApp</span>`;
+        const wa=whatsappUrl(row.phone,message)?`<a class="winner-notify whatsapp" href="${whatsappUrl(row.phone,message)}" target="_blank" rel="noopener">WhatsApp</a>`:`<span class="winner-notify whatsapp disabled">WhatsApp</span>`;
         const subject=encodeURIComponent('Parabéns! Você arrematou no JP Leilões');
         const email=row.email?`<a class="winner-notify email" href="mailto:${encodeURIComponent(row.email)}?subject=${subject}&body=${encodeURIComponent(message)}">E-mail</a>`:`<span class="winner-notify email disabled">E-mail</span>`;
         return `<tr><td><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td><td><strong>${currency(row.totalArrematado)}</strong></td><td class="winner-paid">${currency(row.totalPago)}</td><td>${dateLabel(row.latest)}</td><td><div class="winner-actions">${wa}${email}</div></td></tr>`;
       }).join('');
 
-      app.innerHTML=`${expiredHtml}<div class="winner-summary"><div class="card"><small>Arrematantes</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Lotes arrematados</small><h2>${totalLotes}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos arrematantes</h3><p class="muted">Use os botões de notificação para avisar o cliente que ele arrematou o lote.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
+      app.innerHTML=`${expiredHtml}<div class="winner-summary"><div class="card"><small>Arrematantes</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Lotes arrematados</small><h2>${totalLotes}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos arrematantes</h3><p class="muted">O botão WhatsApp abre diretamente o número cadastrado no sistema para este arrematante.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
     }catch(error){app.innerHTML=`<div class="panel"><h3>Arrematantes</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
     finally{rendering=false}
   }
