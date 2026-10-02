@@ -30,7 +30,7 @@
       const hasBids=(bidsCount||0)>0;
 
       if(hasBids){
-        if(!silent)alert('Este lote já possui lances. O lance inicial não pode ser alterado porque o histórico precisa ser preservado.');
+        if(!silent)alert('Este lote já possui lances. O lance inicial e o acréscimo não podem ser alterados porque o histórico precisa ser preservado.');
         return false;
       }
 
@@ -39,19 +39,25 @@
       const starting=parseMoney(startRaw);
       if(starting===null||starting<0)throw new Error('Lance inicial inválido.');
 
+      const incrementRaw=prompt(`Novo acréscimo do lance\n${lot.title||''}`,moneyInput(lot.min_increment));
+      if(incrementRaw===null)return false;
+      const increment=parseMoney(incrementRaw);
+      if(increment===null||increment<=0)throw new Error('Acréscimo do lance inválido.');
+
       const {error:updateError}=await timeout(
         db.from('lots').update({
           starting_bid:starting,
-          current_bid:starting
+          current_bid:starting,
+          min_increment:increment
         }).eq('id',lotId).eq('company_id',currentCompany.id),
         7000,
-        'salvar lance inicial do lote'
+        'salvar lance inicial e acréscimo do lote'
       );
       if(updateError)throw updateError;
-      if(!silent)alert('Lance inicial atualizado com sucesso.');
+      if(!silent)alert('Lance inicial e acréscimo atualizados com sucesso.');
       return true;
     }catch(e){
-      alert('Não foi possível editar o lance inicial: '+(e.message||e));
+      alert('Não foi possível editar os valores do lote: '+(e.message||e));
       return false;
     }
   }
@@ -65,7 +71,7 @@
     const minutesRaw=prompt('Por quantos minutos deseja reabrir este leilão?','60');
     if(minutesRaw===null)return;
     const minutes=Math.max(1,parseInt(String(minutesRaw).replace(/\D/g,''),10)||60);
-    const editValues=confirm('Deseja editar o lance inicial dos lotes antes de reabrir?');
+    const editValues=confirm('Deseja editar o lance inicial e o acréscimo dos lotes antes de reabrir?');
     if(!confirm(`Reabrir este leilão por ${minutes} minuto(s)?\n\nSerá criada uma nova edição com os mesmos lotes, preservando o histórico anterior.`))return;
     try{
       const {data,error}=await timeout(db.rpc('reopen_company_auction',{p_auction_id:id,p_minutes:minutes}),10000,'reabrir leilão');
@@ -75,13 +81,13 @@
 
       if(editValues&&newAuctionId){
         const {data:newLots,error:newLotsError}=await timeout(
-          db.from('lots').select('id,lot_number,title').eq('auction_id',newAuctionId).order('lot_number',{ascending:true}),
+          db.from('lots').select('id,lot_number,title,starting_bid,min_increment').eq('auction_id',newAuctionId).order('lot_number',{ascending:true}),
           7000,
           'carregar lotes reabertos'
         );
         if(newLotsError)throw newLotsError;
         for(const lot of (newLots||[])){
-          const proceed=confirm(`Editar o lance inicial do Lote #${lot.lot_number} - ${lot.title}?`);
+          const proceed=confirm(`Editar valores do Lote #${lot.lot_number} - ${lot.title}?\n\nLance inicial atual: R$ ${moneyInput(lot.starting_bid)}\nAcréscimo atual: R$ ${moneyInput(lot.min_increment)}`);
           if(proceed)await editLotValuesInternal(lot.id,{silent:true});
         }
       }
@@ -146,7 +152,7 @@
           const reopen=ended
             ? `<button class="primary auction-action-btn" type="button" onclick="reopenAuction('${a.id}')">↻ Abrir novamente</button>`
             : `<button class="primary auction-action-btn auction-action-placeholder" type="button" tabindex="-1" aria-hidden="true">↻ Abrir novamente</button>`;
-          const edit=`<button class="ghost auction-edit auction-action-btn" type="button" onclick="editLotValues('${l.id}')">✏ Editar lance inicial</button>`;
+          const edit=`<button class="ghost auction-edit auction-action-btn" type="button" onclick="editLotValues('${l.id}')">✏ Editar lance inicial e acréscimo</button>`;
           const del=`<button class="ghost auction-delete auction-action-btn" type="button" onclick="deleteAuction('${a.id}',${JSON.stringify(a.title||'Leilão').replace(/</g,'\\u003c')})">🗑 Excluir leilão</button>`;
           cards.push(`<div class="auction-lot-wrap"><div class="auction-mini-status ${ended?'is-ended':'is-live'}">${ended?'● '+statusLabel(a.status):'● '+statusLabel(a.status)}</div>${lotCard(l)}<div class="auction-card-actions">${reopen}${edit}${del}</div></div>`);
         });
