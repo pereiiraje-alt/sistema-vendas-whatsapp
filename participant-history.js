@@ -7,6 +7,7 @@
   const createBtn=nav.querySelector('[data-page="lotes"]');
   const myAuctionsBtn=nav.querySelector('[data-page="leiloes"]');
   const participantsBtn=nav.querySelector('[data-page="participantes"]');
+  const bidsBtn=nav.querySelector('[data-page="lances"]');
 
   let btn=nav.querySelector('[data-page="historico"]');
   if(!btn){
@@ -18,6 +19,7 @@
   let registrationsBtn=nav.querySelector('[data-page="cadastros-leilao"]');
   if(!registrationsBtn){
     registrationsBtn=document.createElement('button');
+    registrationsBtn.type='button';
     registrationsBtn.dataset.page='cadastros-leilao';
     registrationsBtn.textContent='📝 Cadastros p/ lance';
   }
@@ -28,28 +30,25 @@
     const allPlatformButtons=[...nav.querySelectorAll('button')].filter(el=>/leilões da plataforma/i.test(el.textContent||'')||String(el.getAttribute('onclick')||'').includes('explorar'));
     let platformBtn=allPlatformButtons[0];
     allPlatformButtons.slice(1).forEach(el=>el.remove());
-    if(!platformBtn){
-      platformBtn=document.createElement('button');
-    }
+    if(!platformBtn)platformBtn=document.createElement('button');
     platformBtn.type='button';
     platformBtn.id='platformAuctionsButtonStatic';
     platformBtn.textContent='🌐 Leilões da plataforma';
     platformBtn.removeAttribute('data-page');
     platformBtn.removeAttribute('onclick');
-    platformBtn.onclick=e=>{
-      e.preventDefault();
-      e.stopPropagation();
-      window.location.href='/explorar.html';
-    };
+    platformBtn.onclick=e=>{e.preventDefault();e.stopPropagation();window.location.href='/explorar.html'};
     nav.insertBefore(platformBtn,dashboardBtn||nav.firstChild);
 
-    const ordered=[createBtn,myAuctionsBtn,participantsBtn,registrationsBtn,btn].filter(Boolean);
+    const ordered=[createBtn,myAuctionsBtn,participantsBtn,btn].filter(Boolean);
     ordered.forEach(el=>submenu.appendChild(el));
     if(createBtn)createBtn.textContent='＋ Criar leilão';
     if(myAuctionsBtn)myAuctionsBtn.textContent='• Meus leilões';
     if(participantsBtn)participantsBtn.textContent='♙ Participantes';
-    registrationsBtn.textContent='📝 Cadastros p/ lance';
     btn.textContent='◷ Histórico';
+
+    registrationsBtn.textContent='📝 Cadastros p/ lance';
+    if(registrationsBtn.parentElement!==nav)nav.insertBefore(registrationsBtn,bidsBtn||null);
+    else if(bidsBtn&&registrationsBtn.nextElementSibling!==bidsBtn)nav.insertBefore(registrationsBtn,bidsBtn);
   }
 
   organizeAuctionMenu();
@@ -90,7 +89,7 @@
       if(error)throw error;
       const rows=Array.isArray(data)?data:[];
       if(!rows.length){
-        app.innerHTML='<div class="panel"><h3>Cadastros para dar lance</h3><p class="muted">Ainda não há participantes cadastrados nos seus leilões.</p></div>';
+        app.innerHTML='<div class="panel"><h3>Cadastros para dar lance</h3><p class="muted">Ainda não há participantes registrados nos seus leilões. Os próximos acessos aos lotes serão registrados automaticamente.</p></div>';
         return;
       }
       const groups=new Map();
@@ -134,6 +133,12 @@
   window.renderParticipantHistory=renderHistory;
   window.renderCompanyAuctionRegistrations=renderRegistrations;
 
+  if(!document.getElementById('auctionRegistrationTrackerScript')){
+    const t=document.createElement('script');
+    t.id='auctionRegistrationTrackerScript';
+    t.src='auction-registration-tracker.js?v=20261002-2';
+    document.body.appendChild(t);
+  }
   if(!document.getElementById('myPlatformBidsScript')){
     const s=document.createElement('script');
     s.id='myPlatformBidsScript';
