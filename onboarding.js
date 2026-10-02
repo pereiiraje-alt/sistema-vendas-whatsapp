@@ -101,6 +101,57 @@
     }
   })();
 
+  // Permite que cada empresa informe a cidade/UF que aparecerá nos leilões públicos.
+  (function setupCompanyLocation(){
+    if(!client)return;
+    let loading=false;
+    async function injectLocationForm(){
+      if(loading||document.getElementById('companyLocationPanel'))return;
+      const titleText=document.getElementById('title')?.textContent?.trim();
+      if(titleText!=='Configurações')return;
+      const app=document.getElementById('app');
+      if(!app)return;
+      loading=true;
+      try{
+        const {data:{session}}=await client.auth.getSession();
+        if(!session)return;
+        const {data:member,error:memberError}=await client.from('company_members').select('company_id').eq('user_id',session.user.id).limit(1).maybeSingle();
+        if(memberError)throw memberError;
+        if(!member?.company_id)return;
+        const {data:company,error:companyError}=await client.from('companies').select('id,city,state').eq('id',member.company_id).single();
+        if(companyError)throw companyError;
+
+        const panel=document.createElement('div');
+        panel.className='panel';
+        panel.id='companyLocationPanel';
+        panel.innerHTML=`<h3>Local do leilão</h3><p class="muted">Informe a cidade e o estado. Esse local aparecerá junto ao nome da empresa nos leilões públicos.</p><form id="companyLocationForm"><div class="grid2"><label>Cidade<input id="companyCity" maxlength="100" placeholder="Ex.: Curitiba" value="${String(company.city||'').replace(/"/g,'&quot;')}"></label><label>Estado (UF)<input id="companyState" maxlength="2" placeholder="PR" value="${String(company.state||'').replace(/"/g,'&quot;').toUpperCase()}"></label></div><div class="actions"><button class="primary" type="submit">Salvar localização</button></div><p id="companyLocationMessage" class="muted"></p></form>`;
+        app.appendChild(panel);
+        const form=panel.querySelector('#companyLocationForm');
+        form.onsubmit=async e=>{
+          e.preventDefault();
+          const btn=form.querySelector('button[type="submit"]');
+          const msg=form.querySelector('#companyLocationMessage');
+          const city=form.querySelector('#companyCity').value.trim();
+          const state=form.querySelector('#companyState').value.trim().toUpperCase().replace(/[^A-Z]/g,'').slice(0,2);
+          if(!city){msg.textContent='Informe a cidade.';return;}
+          if(state.length!==2){msg.textContent='Informe a UF com 2 letras, por exemplo PR.';return;}
+          btn.disabled=true;btn.textContent='Salvando...';msg.textContent='';
+          try{
+            const {error}=await client.from('companies').update({city,state,updated_at:new Date().toISOString()}).eq('id',company.id);
+            if(error)throw error;
+            msg.textContent='Localização salva. Ela já aparecerá nos leilões públicos.';
+            form.querySelector('#companyState').value=state;
+          }catch(err){msg.textContent='Não foi possível salvar: '+(err.message||err)}
+          finally{btn.disabled=false;btn.textContent='Salvar localização';}
+        };
+      }catch(err){console.warn('Localização da empresa:',err?.message||err)}
+      finally{loading=false;}
+    }
+    const observer=new MutationObserver(()=>setTimeout(injectLocationForm,0));
+    observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+    setInterval(injectLocationForm,1500);
+  })();
+
   function ensureDialog(){
     let d=document.getElementById('firstAuctionModal');
     if(d)return d;
