@@ -29,47 +29,29 @@
       if(bidsError)throw bidsError;
       const hasBids=(bidsCount||0)>0;
 
-      const valuationRaw=prompt(`Valor de avaliação do lote\n${lot.title||''}`,moneyInput(lot.valuation));
-      if(valuationRaw===null)return false;
-      const valuation=parseMoney(valuationRaw);
-      if(valuation===null||valuation<0)throw new Error('Valor de avaliação inválido.');
-
-      let starting=Number(lot.starting_bid)||0;
-      let current=Number(lot.current_bid)||starting;
-      let increment=Number(lot.min_increment)||1;
-
-      if(!hasBids){
-        const startRaw=prompt('Lance inicial',moneyInput(starting));
-        if(startRaw===null)return false;
-        starting=parseMoney(startRaw);
-        if(starting===null||starting<0)throw new Error('Lance inicial inválido.');
-
-        const incRaw=prompt('Incremento mínimo',moneyInput(increment));
-        if(incRaw===null)return false;
-        increment=parseMoney(incRaw);
-        if(increment===null||increment<=0)throw new Error('Incremento mínimo inválido.');
-        current=starting;
-      }else if(!silent){
-        alert('Este lote já possui lances. Para preservar o histórico, o lance inicial e o lance atual não serão alterados. Você pode alterar a avaliação.');
+      if(hasBids){
+        if(!silent)alert('Este lote já possui lances. O lance inicial não pode ser alterado porque o histórico precisa ser preservado.');
+        return false;
       }
 
-      const update={valuation};
-      if(!hasBids){
-        update.starting_bid=starting;
-        update.current_bid=current;
-        update.min_increment=increment;
-      }
+      const startRaw=prompt(`Novo lance inicial\n${lot.title||''}`,moneyInput(lot.starting_bid));
+      if(startRaw===null)return false;
+      const starting=parseMoney(startRaw);
+      if(starting===null||starting<0)throw new Error('Lance inicial inválido.');
 
       const {error:updateError}=await timeout(
-        db.from('lots').update(update).eq('id',lotId).eq('company_id',currentCompany.id),
+        db.from('lots').update({
+          starting_bid:starting,
+          current_bid:starting
+        }).eq('id',lotId).eq('company_id',currentCompany.id),
         7000,
-        'salvar valores do lote'
+        'salvar lance inicial do lote'
       );
       if(updateError)throw updateError;
-      if(!silent)alert('Valores atualizados com sucesso.');
+      if(!silent)alert('Lance inicial atualizado com sucesso.');
       return true;
     }catch(e){
-      alert('Não foi possível editar os valores: '+(e.message||e));
+      alert('Não foi possível editar o lance inicial: '+(e.message||e));
       return false;
     }
   }
@@ -83,7 +65,7 @@
     const minutesRaw=prompt('Por quantos minutos deseja reabrir este leilão?','60');
     if(minutesRaw===null)return;
     const minutes=Math.max(1,parseInt(String(minutesRaw).replace(/\D/g,''),10)||60);
-    const editValues=confirm('Deseja editar os valores dos lotes ao reabrir?\n\nVocê poderá alterar avaliação, lance inicial e incremento antes de continuar.');
+    const editValues=confirm('Deseja editar o lance inicial dos lotes antes de reabrir?');
     if(!confirm(`Reabrir este leilão por ${minutes} minuto(s)?\n\nSerá criada uma nova edição com os mesmos lotes, preservando o histórico anterior.`))return;
     try{
       const {data,error}=await timeout(db.rpc('reopen_company_auction',{p_auction_id:id,p_minutes:minutes}),10000,'reabrir leilão');
@@ -99,7 +81,7 @@
         );
         if(newLotsError)throw newLotsError;
         for(const lot of (newLots||[])){
-          const proceed=confirm(`Editar os valores do Lote #${lot.lot_number} - ${lot.title}?`);
+          const proceed=confirm(`Editar o lance inicial do Lote #${lot.lot_number} - ${lot.title}?`);
           if(proceed)await editLotValuesInternal(lot.id,{silent:true});
         }
       }
@@ -164,7 +146,7 @@
           const reopen=ended
             ? `<button class="primary auction-action-btn" type="button" onclick="reopenAuction('${a.id}')">↻ Abrir novamente</button>`
             : `<button class="primary auction-action-btn auction-action-placeholder" type="button" tabindex="-1" aria-hidden="true">↻ Abrir novamente</button>`;
-          const edit=`<button class="ghost auction-edit auction-action-btn" type="button" onclick="editLotValues('${l.id}')">✏ Editar valores</button>`;
+          const edit=`<button class="ghost auction-edit auction-action-btn" type="button" onclick="editLotValues('${l.id}')">✏ Editar lance inicial</button>`;
           const del=`<button class="ghost auction-delete auction-action-btn" type="button" onclick="deleteAuction('${a.id}',${JSON.stringify(a.title||'Leilão').replace(/</g,'\\u003c')})">🗑 Excluir leilão</button>`;
           cards.push(`<div class="auction-lot-wrap"><div class="auction-mini-status ${ended?'is-ended':'is-live'}">${ended?'● '+statusLabel(a.status):'● '+statusLabel(a.status)}</div>${lotCard(l)}<div class="auction-card-actions">${reopen}${edit}${del}</div></div>`);
         });
