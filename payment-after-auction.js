@@ -1,7 +1,7 @@
 (()=>{
   if(typeof openLot!=='function'||typeof loadPublicLot!=='function')return;
   const baseOpenLot=openLot;
-  const PAYMENT_LIMIT_MS=10*60*1000;
+  const PAYMENT_LIMIT_MS=30*60*1000;
   let lastFinalization=null;
   let endWatcher=null;
   let paymentWatcher=null;
@@ -161,9 +161,9 @@
     box.insertAdjacentHTML('beforeend',`
       <div class="winner-pay" id="winnerPayment">
         ${paid?`<div class="payment-approved"><div class="check">✅</div><h2>Pagamento aprovado</h2><p>Recebemos a confirmação do Mercado Pago.</p><div class="pay-total">${money(amount)}</div></div>${sellerWhatsHtml(data,amount)}`:
-        expired?`<div class="payment-expired"><h3>Prazo de pagamento encerrado</h3><p>O pagamento não foi confirmado em até 10 minutos após o encerramento do leilão. Este arremate foi cancelado e a empresa poderá entrar em contato com o segundo maior lance.</p></div>`:
+        expired?`<div class="payment-expired"><h3>Prazo de pagamento encerrado</h3><p>O pagamento não foi confirmado em até 30 minutos após o encerramento do leilão. Este arremate foi cancelado e a empresa poderá entrar em contato com o segundo maior lance.</p></div>`:
         `<h3>🏆 Parabéns, você arrematou!</h3><div>Valor do lote:</div><div class="pay-total">${money(amount)}</div>
-          <div class="payment-deadline">O prazo começou quando o leilão encerrou. Você tem 10 minutos para confirmar o pagamento.<strong id="paymentDeadlineClock">${remainingDeadline(deadline)}</strong></div>
+          <div class="payment-deadline">O prazo começou quando o leilão encerrou. Você tem 30 minutos para confirmar o pagamento.<strong id="paymentDeadlineClock">${remainingDeadline(deadline)}</strong></div>
           <span class="pay-label">Escolha a forma de pagamento</span>
           <div class="pay-methods"><button class="pay-method ${selected==='pix'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','pix')">PIX</button><button class="pay-method ${selected==='card'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','card')">Cartão</button></div>
           <div id="paymentChoiceStatus" class="pay-status">${selected?`Forma selecionada: <b>${methodLabel(selected)}</b>`:'Selecione PIX ou cartão para continuar.'}</div>
@@ -207,7 +207,7 @@
     try{
       if(!['pix','card'].includes(method))throw new Error('Escolha PIX ou cartão.');
       const checked=await checkPaymentStatus(id);
-      if(checked?.payment?.status==='cancelled'||checked?.expired)throw new Error('O prazo de 10 minutos contado desde o encerramento do leilão terminou. Este arremate foi cancelado.');
+      if(checked?.payment?.status==='cancelled'||checked?.expired)throw new Error('O prazo de 30 minutos contado desde o encerramento do leilão terminou. Este arremate foi cancelado.');
       if(status)status.textContent=method==='pix'?'Gerando QR Code PIX...':'Preparando pagamento no Mercado Pago...';
       const session=await db.auth.getSession();const token=session?.data?.session?.access_token;
       if(!token)throw new Error('Sua sessão expirou. Entre novamente com a conta usada para dar o lance.');
