@@ -5,6 +5,24 @@
   navButton.dataset.page='criarleilao';
   navButton.textContent='＋ Criar leilão';
 
+  const auctionsMenu=document.querySelector('#auctionsMenu');
+  const auctionsMenuToggle=document.querySelector('#auctionsMenuToggle');
+  const sidebar=document.querySelector('.sidebar');
+  if(auctionsMenuToggle&&auctionsMenu){
+    auctionsMenuToggle.addEventListener('click',event=>{
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const willOpen=!auctionsMenu.classList.contains('open');
+      auctionsMenu.classList.toggle('open',willOpen);
+      if(window.matchMedia('(max-width:900px)').matches)sidebar?.classList.add('open');
+    },true);
+    auctionsMenu.querySelectorAll('.nav-submenu button').forEach(button=>{
+      button.addEventListener('click',()=>{
+        if(window.matchMedia('(max-width:900px)').matches)sidebar?.classList.remove('open');
+      });
+    });
+  }
+
   let quickAuctionId=null;
   let savingQuickLot=false;
 
