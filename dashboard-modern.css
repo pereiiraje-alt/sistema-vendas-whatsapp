@@ -1,0 +1,46 @@
+/* JP Leilões — modernização do painel */
+:root{--jp-green:#18c86b;--jp-green-dark:#0e7f45;--jp-forest:#071f16;--jp-forest-2:#0b2a1f;--jp-bg:#f4f7f5;--jp-card:#ffffff;--jp-line:#e3ebe6;--jp-text:#102019;--jp-muted:#738279;--jp-shadow:0 14px 34px rgba(8,39,27,.08)}
+body:not(.public-lot){background:var(--jp-bg);color:var(--jp-text)}
+body:not(.public-lot) .sidebar{width:270px;background:linear-gradient(180deg,#071f16 0%,#0a2a1e 100%);padding:20px 16px 18px;border-right:1px solid rgba(255,255,255,.06);box-shadow:12px 0 34px rgba(4,24,16,.08)}
+body:not(.public-lot) main{margin-left:270px}
+body:not(.public-lot) .sidebar .brand{margin:0 0 18px!important;padding:4px 10px 18px!important;border-bottom:1px solid rgba(255,255,255,.08)}
+body:not(.public-lot) .sidebar .brand img{max-width:180px!important}
+body:not(.public-lot) #nav{display:grid;gap:6px}
+body:not(.public-lot) #nav button{min-height:46px;border-radius:13px;padding:12px 14px;color:#c5d6cd;font-size:14px;font-weight:700;letter-spacing:.005em;transition:.18s ease}
+body:not(.public-lot) #nav button:hover{background:rgba(255,255,255,.07);color:#fff;transform:translateX(2px)}
+body:not(.public-lot) #nav button.active{background:linear-gradient(135deg,rgba(28,84,58,.95),rgba(20,63,45,.95));color:#fff;box-shadow:inset 0 0 0 1px rgba(53,224,126,.08)}
+body:not(.public-lot) .nav-submenu{margin:4px 0 7px 18px!important;padding-left:12px!important;border-left:1px solid rgba(74,232,137,.28)!important}
+body:not(.public-lot) .nav-submenu button{min-height:40px!important;font-size:13px!important;padding:9px 12px!important}
+body:not(.public-lot) .store{margin-top:auto;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:15px 16px;box-shadow:none}
+body:not(.public-lot) .store strong{font-size:14px}.store small{letter-spacing:.08em}.store span{font-weight:800}
+body:not(.public-lot) header{height:92px;padding:0 34px;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--jp-line);position:sticky;top:0;z-index:4}
+body:not(.public-lot) header h1{font-size:25px;letter-spacing:-.02em}
+body:not(.public-lot) header p{font-size:13px;color:var(--jp-muted);margin-top:5px}
+body:not(.public-lot) .user{gap:10px}
+body:not(.public-lot) .user>span{background:#f5f8f6;border:1px solid #e6ece8;border-radius:999px;padding:9px 13px;color:#42564b;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body:not(.public-lot) .user>b{width:38px;height:38px;display:grid;place-items:center;padding:0;background:linear-gradient(135deg,#dcfae8,#c5f4d7);color:#0f7f43;box-shadow:inset 0 0 0 1px #bfe9cf}
+body:not(.public-lot) .logout-btn{border-radius:11px;padding:9px 13px;background:#fff;border:1px solid #dfe7e2;font-weight:700}
+body:not(.public-lot) #app{padding:30px 34px 46px;max-width:1700px;margin:0 auto}
+body:not(.public-lot) .cards{gap:16px}
+body:not(.public-lot) .card{position:relative;overflow:hidden;border:1px solid var(--jp-line);border-radius:20px;padding:22px 22px 20px;background:linear-gradient(180deg,#fff,#fbfdfc);box-shadow:var(--jp-shadow);min-height:142px;transition:.18s ease}
+body:not(.public-lot) .card:after{content:"";position:absolute;right:-24px;top:-26px;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,rgba(24,200,107,.13),rgba(24,200,107,0) 70%)}
+body:not(.public-lot) .card:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(8,39,27,.11)}
+body:not(.public-lot) .card small{font-size:12px;color:#6e7f75;font-weight:700;text-transform:uppercase;letter-spacing:.045em}
+body:not(.public-lot) .card h2{font-size:31px;letter-spacing:-.035em;margin:15px 0 7px;color:#0d2118}
+body:not(.public-lot) .card .up{display:inline-flex;align-items:center;gap:5px;background:#eaf9f0;border-radius:999px;padding:6px 9px;color:#128047;font-weight:800;font-size:11px}
+body:not(.public-lot) .panels{grid-template-columns:minmax(0,1.5fr) minmax(320px,.9fr);gap:16px;margin-top:16px}
+body:not(.public-lot) .panel,body:not(.public-lot) .auction-head,body:not(.public-lot) .lot-main,body:not(.public-lot) .bidbox{border:1px solid var(--jp-line);border-radius:20px;background:#fff;box-shadow:var(--jp-shadow);padding:24px}
+body:not(.public-lot) .panel h3{font-size:20px;letter-spacing:-.02em;margin:0 0 18px}
+body:not(.public-lot) .panel>b{font-size:18px;display:block;margin-bottom:10px}
+body:not(.public-lot) .panel .muted{line-height:1.6;color:#74827a}
+body:not(.public-lot) .panel .primary{margin-top:10px}
+body:not(.public-lot) .row{padding:16px 0;border-color:#edf2ef}
+body:not(.public-lot) .badge{background:#e9f9ef;color:#0d8142;border:1px solid #d8f2e2;font-weight:800}
+body:not(.public-lot) .primary,body:not(.public-lot) .bidbtn{background:linear-gradient(135deg,#1ad16f,#13b75d);box-shadow:0 9px 22px rgba(24,184,93,.18);border-radius:12px;transition:.18s ease}
+body:not(.public-lot) .primary:hover,body:not(.public-lot) .bidbtn:hover{transform:translateY(-1px);filter:saturate(1.05)}
+body:not(.public-lot) table{border:1px solid var(--jp-line);border-radius:18px;box-shadow:var(--jp-shadow)}
+body:not(.public-lot) th{background:#f8fbf9}
+body:not(.public-lot) .product{border-radius:18px;border-color:var(--jp-line);box-shadow:0 10px 28px rgba(8,39,27,.06)}
+body:not(.public-lot) dialog{border-radius:22px;border:1px solid #e5ede8}
+@media(max-width:900px){body:not(.public-lot) .sidebar{width:270px}body:not(.public-lot) main{margin-left:270px}body:not(.public-lot) .panels{grid-template-columns:1fr}}
+@media(max-width:650px){body:not(.public-lot) .sidebar{width:min(78vw,290px)}body:not(.public-lot) main{margin-left:0}body:not(.public-lot) header{height:76px;padding:0 16px}body:not(.public-lot) header h1{font-size:20px}body:not(.public-lot) #app{padding:18px 14px 34px}body:not(.public-lot) .card{min-height:125px;padding:19px}body:not(.public-lot) .card h2{font-size:27px}body:not(.public-lot) .panel{padding:19px}.user>span{display:none!important}}
