@@ -72,6 +72,22 @@
     if(hidden)hidden.value='180';
   }
 
+  function closeLotModal(event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    if(modal?.open)modal.close('cancel');
+  }
+
+  const modalCloseButton=modal?.querySelector('.modal-head button');
+  const modalCancelButton=modal?.querySelector('button[value="cancel"]:not(.modal-head button)')||modal?.querySelector('.actions button[value="cancel"]');
+  [modalCloseButton,modalCancelButton].filter(Boolean).forEach(button=>{
+    button.type='button';
+    button.addEventListener('click',closeLotModal);
+  });
+  modal?.addEventListener('cancel',event=>{
+    event.preventDefault();
+    closeLotModal();
+  });
+
   async function startQuickAuction(){
     document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
     navButton.classList.add('active');
