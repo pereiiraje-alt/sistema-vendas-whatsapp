@@ -1,6 +1,6 @@
 const {authUser,serviceFetch,decrypt}=require('../lib/mercadopago');
 const PUBLIC_ORIGIN='https://jpleiloes.com.br';
-const PAYMENT_LIMIT_MS=10*60*1000;
+const PAYMENT_LIMIT_MS=30*60*1000;
 
 function paymentMethodRules(method){
   if(method==='pix')return {excluded_payment_types:[{id:'ticket'},{id:'credit_card'},{id:'debit_card'},{id:'prepaid_card'},{id:'digital_currency'},{id:'atm'}]};
@@ -74,7 +74,7 @@ module.exports=async(req,res)=>{
       const existing=await serviceFetch(`/rest/v1/payments?arremate_id=eq.${encodeURIComponent(arremate.id)}&select=id,status&limit=1`);
       const payment=Array.isArray(existing)?existing[0]:null;
       if(payment?.status!=='paid'&&payment?.id){await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'cancelled',updated_at:new Date().toISOString()})});}
-      return res.status(409).json({error:'O prazo de 10 minutos para pagamento terminou. O arremate foi cancelado.'});
+      return res.status(409).json({error:'O prazo de 30 minutos para pagamento terminou. O arremate foi cancelado.'});
     }
 
     const participants=await serviceFetch(`/rest/v1/participants?auth_user_id=eq.${encodeURIComponent(user.id)}&company_id=eq.${encodeURIComponent(arremate.company_id)}&select=id,email&limit=1`);
