@@ -31,7 +31,11 @@ module.exports=async(req,res)=>{
         promo_image_url:String(body.promo_image_url||'').trim()||null,
         site_url:String(body.site_url||'https://www.jpleiloes.com.br').trim()||'https://www.jpleiloes.com.br'
       };
-      if(body.meta_app_id!==undefined)data.meta_app_id=String(body.meta_app_id||'').trim()||null;
+      if(body.meta_app_id!==undefined){
+        const appId=String(body.meta_app_id||'').trim();
+        if(appId&&!/^\d{5,30}$/.test(appId))return res.status(400).json({error:'App ID inválido. Use o número do aplicativo da Meta, não e-mail, nome de usuário ou ID da Página.'});
+        data.meta_app_id=appId||null;
+      }
       if(String(body.meta_app_secret||'').trim())data.meta_app_secret_enc=seal(String(body.meta_app_secret).trim());
       if(body.clearMetaApp){data.meta_app_id=null;data.meta_app_secret_enc=null;data.meta_accounts_enc=null;data.access_token_enc=null;data.facebook_page_id=null;data.facebook_page_name=null;data.instagram_account_id=null;data.instagram_username=null;data.meta_connected_at=null;data.enabled=false}
       if(body.clearToken){data.access_token_enc=null;data.facebook_page_id=null;data.facebook_page_name=null;data.instagram_account_id=null;data.instagram_username=null;data.meta_accounts_enc=null;data.meta_connected_at=null;data.enabled=false}
