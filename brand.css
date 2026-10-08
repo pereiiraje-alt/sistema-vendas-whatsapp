@@ -3,3 +3,75 @@
 :root{--jp-green:#18c86b;--jp-forest:#071f16;--jp-bg:#f4f7f5;--jp-line:#e3ebe6;--jp-text:#102019;--jp-muted:#738279;--jp-shadow:0 14px 34px rgba(8,39,27,.08)}body:not(.public-lot){background:var(--jp-bg);color:var(--jp-text)}body:not(.public-lot) .sidebar{width:270px;background:linear-gradient(180deg,#071f16 0%,#0a2a1e 100%);padding:20px 16px 18px;border-right:1px solid rgba(255,255,255,.06);box-shadow:12px 0 34px rgba(4,24,16,.08);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}body:not(.public-lot) .sidebar::-webkit-scrollbar{width:6px}body:not(.public-lot) .sidebar::-webkit-scrollbar-track{background:transparent}body:not(.public-lot) .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:999px}body:not(.public-lot) main{margin-left:270px}body:not(.public-lot) .sidebar .brand{height:100px!important;min-height:100px!important;flex:0 0 auto;margin:0 0 12px!important;padding:0 10px 12px!important;border-bottom:1px solid rgba(255,255,255,.08);filter:none!important}body:not(.public-lot) #nav{display:grid;gap:5px;flex:0 0 auto}body:not(.public-lot) #nav button{min-height:42px;border-radius:13px;padding:10px 14px;color:#c5d6cd;font-size:14px;font-weight:700;transition:.18s ease}body:not(.public-lot) #nav button:hover{background:rgba(255,255,255,.07);color:#fff;transform:translateX(2px)}body:not(.public-lot) #nav button.active{background:linear-gradient(135deg,rgba(28,84,58,.95),rgba(20,63,45,.95));color:#fff;box-shadow:inset 0 0 0 1px rgba(53,224,126,.08)}body:not(.public-lot) .nav-submenu{margin:4px 0 6px 18px!important;padding-left:12px!important;border-left:1px solid rgba(74,232,137,.28)!important}body:not(.public-lot) .nav-submenu button{min-height:36px!important;font-size:13px!important;padding:8px 12px!important}body:not(.public-lot) .store{margin-top:14px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:13px 15px;flex:0 0 auto}body:not(.public-lot) header{height:92px;padding:0 34px;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--jp-line);position:sticky;top:0;z-index:4}body:not(.public-lot) header h1{font-size:25px;letter-spacing:-.02em}body:not(.public-lot) header p{font-size:13px;color:var(--jp-muted);margin-top:5px}body:not(.public-lot) .user{gap:10px}body:not(.public-lot) .user>span{background:#f5f8f6;border:1px solid #e6ece8;border-radius:999px;padding:9px 13px;color:#42564b;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}body:not(.public-lot) .user>b{width:38px;height:38px;display:grid;place-items:center;padding:0;background:linear-gradient(135deg,#dcfae8,#c5f4d7);color:#0f7f43;box-shadow:inset 0 0 0 1px #bfe9cf}body:not(.public-lot) .logout-btn{border-radius:11px;padding:9px 13px;background:#fff;border:1px solid #dfe7e2;font-weight:700}body:not(.public-lot) #app{padding:30px 34px 46px;max-width:1700px;margin:0 auto}body:not(.public-lot) .cards{gap:16px}body:not(.public-lot) .card{position:relative;overflow:hidden;border:1px solid var(--jp-line);border-radius:20px;padding:22px 22px 20px;background:linear-gradient(180deg,#fff,#fbfdfc);box-shadow:var(--jp-shadow);min-height:142px;transition:.18s ease}body:not(.public-lot) .card:after{content:"";position:absolute;right:-24px;top:-26px;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,rgba(24,200,107,.13),rgba(24,200,107,0) 70%)}body:not(.public-lot) .card:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(8,39,27,.11)}body:not(.public-lot) .card small{font-size:12px;color:#6e7f75;font-weight:700;text-transform:uppercase;letter-spacing:.045em}body:not(.public-lot) .card h2{font-size:31px;letter-spacing:-.035em;margin:15px 0 7px;color:#0d2118}body:not(.public-lot) .card .up{display:inline-flex;align-items:center;gap:5px;background:#eaf9f0;border-radius:999px;padding:6px 9px;color:#128047;font-weight:800;font-size:11px}body:not(.public-lot) .panels{grid-template-columns:minmax(0,1.5fr) minmax(320px,.9fr);gap:16px;margin-top:16px}body:not(.public-lot) .panel,body:not(.public-lot) .auction-head,body:not(.public-lot) .lot-main,body:not(.public-lot) .bidbox{border:1px solid var(--jp-line);border-radius:20px;background:#fff;box-shadow:var(--jp-shadow);padding:24px}body:not(.public-lot) .panel h3{font-size:20px;letter-spacing:-.02em;margin:0 0 18px}body:not(.public-lot) .panel>b{font-size:18px;display:block;margin-bottom:10px}body:not(.public-lot) .panel .muted{line-height:1.6;color:#74827a}body:not(.public-lot) .row{padding:16px 0;border-color:#edf2ef}body:not(.public-lot) .badge{background:#e9f9ef;color:#0d8142;border:1px solid #d8f2e2;font-weight:800}body:not(.public-lot) .primary,body:not(.public-lot) .bidbtn{background:linear-gradient(135deg,#1ad16f,#13b75d);box-shadow:0 9px 22px rgba(24,184,93,.18);border-radius:12px;transition:.18s ease}body:not(.public-lot) .primary:hover,body:not(.public-lot) .bidbtn:hover{transform:translateY(-1px)}body:not(.public-lot) table{border:1px solid var(--jp-line);border-radius:18px;box-shadow:var(--jp-shadow)}body:not(.public-lot) th{background:#f8fbf9}body:not(.public-lot) .product{border-radius:18px;border-color:var(--jp-line);box-shadow:0 10px 28px rgba(8,39,27,.06)}body:not(.public-lot) dialog{border-radius:22px;border:1px solid #e5ede8}@media(max-width:900px){body:not(.public-lot) .sidebar{width:270px}body:not(.public-lot) main{margin-left:270px}body:not(.public-lot) .panels{grid-template-columns:1fr}}@media(max-width:650px){body:not(.public-lot) .sidebar{width:min(78vw,290px);padding-top:14px;padding-bottom:14px}body:not(.public-lot) .sidebar .brand{height:82px!important;min-height:82px!important;margin-bottom:8px!important;padding-bottom:8px!important}body:not(.public-lot) #nav button{min-height:40px;padding:9px 12px}body:not(.public-lot) .nav-submenu button{min-height:34px!important;padding:7px 10px!important}body:not(.public-lot) main{margin-left:0}body:not(.public-lot) header{height:76px;padding:0 16px}body:not(.public-lot) header h1{font-size:20px}body:not(.public-lot) #app{padding:18px 14px 34px}body:not(.public-lot) .card{min-height:125px;padding:19px}body:not(.public-lot) .card h2{font-size:27px}body:not(.public-lot) .panel{padding:19px}.user>span{display:none!important}}
 /* Corrige logo duplicada no menu lateral */
 body:not(.public-lot) .sidebar .brand{background:none!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;padding:4px 8px 12px!important}body:not(.public-lot) .sidebar .brand img{display:block!important;width:auto!important;max-width:210px!important;height:78px!important;object-fit:contain!important;object-position:center!important;margin:0 auto!important} @media(max-width:650px){body:not(.public-lot) .sidebar .brand{height:88px!important;min-height:88px!important;padding:4px 8px 8px!important}body:not(.public-lot) .sidebar .brand img{height:68px!important;max-width:190px!important}}
+
+/* Página pública de lote — visual premium azul */
+.public-lot{background:#f7f9fc!important;color:#0f2447}
+.public-lot main{margin-left:0!important}
+.public-lot #app{max-width:1540px!important;padding:0 28px 48px!important}
+.public-auction-header{height:76px;display:grid;grid-template-columns:250px minmax(260px,470px) 1fr auto;align-items:center;gap:28px;background:#fff;border-bottom:1px solid #e8edf5;margin:0 -28px;padding:0 max(28px,calc((100vw - 1484px)/2));position:sticky;top:0;z-index:20;box-shadow:0 4px 18px rgba(16,63,133,.04)}
+.public-auction-logo img{display:block;width:205px;height:58px;object-fit:contain}
+.public-auction-search{height:46px;border:1px solid #dce4ef;border-radius:9px;background:#f6f8fb;display:flex;align-items:center;gap:10px;padding:0 15px;color:#4b617f;font-size:14px}
+.public-auction-search:first-letter{font-size:22px;color:#134dab}
+.public-auction-nav{display:flex;align-items:center;gap:28px;justify-content:center}
+.public-auction-nav a,.public-account-link{color:#0c2044;text-decoration:none;font-weight:750;font-size:14px}
+.public-account-link{padding:12px 15px;border-radius:999px;background:#eef4ff;color:#0d4eae}
+.public-auction-breadcrumb{height:62px;display:flex;align-items:center;gap:12px;color:#62738e;font-size:13px}
+.public-auction-breadcrumb a{color:#476384;text-decoration:none}
+.public-auction-breadcrumb b{color:#10254d}
+.public-auction-breadcrumb button{margin-left:auto;border:0;background:transparent;color:#174f9e;font-weight:750;cursor:pointer}
+.public-lot .public-auction-layout{grid-template-columns:minmax(0,1.65fr) minmax(390px,.95fr)!important;gap:24px!important;align-items:start}
+.public-lot .public-lot-card{padding:0!important;border:0!important;box-shadow:none!important;background:transparent!important;position:relative;overflow:visible!important}
+.public-media-shell{position:relative;background:#fff;border:1px solid #e7edf5;border-radius:18px;overflow:hidden;box-shadow:0 14px 40px rgba(19,77,160,.07)}
+.public-lot .public-media-shell .hero-img,.public-lot .public-media-shell .hero-photo{height:540px!important;margin:0!important;border-radius:0!important;background:#f5f7fa!important;object-fit:contain!important}
+.public-live-badge{position:absolute;z-index:3;left:20px;top:18px;padding:8px 12px;border-radius:999px;background:#ff3038;color:#fff;font-size:13px;font-weight:900;letter-spacing:.02em;box-shadow:0 8px 18px rgba(255,48,56,.25)}
+.public-lot-info{margin-top:14px;background:#fff;border:1px solid #e7edf5;border-radius:18px;padding:22px 24px;box-shadow:0 10px 28px rgba(19,77,160,.05)}
+.public-lot-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:28px}
+.public-lot-heading small{font-size:11px;font-weight:900;color:#6b7e99}
+.public-lot-heading h2{margin:4px 0 0!important;font-size:29px!important;line-height:1.16;letter-spacing:-.03em;color:#0d2150}
+.public-valuation{min-width:190px;padding-left:24px;border-left:1px solid #e3e9f2;text-align:right;display:grid;gap:4px}
+.public-valuation span{font-size:13px;color:#64748b}
+.public-valuation b{font-size:24px;color:#102652}
+.public-description{margin-top:20px;padding-top:18px;border-top:1px solid #edf1f6}
+.public-description h3{font-size:16px;margin:0 0 9px;color:#102652}
+.public-description p{margin:0!important;color:#4f6078!important;line-height:1.65}
+.public-lot .public-lot-info>.whatsapp{margin:18px 0 0!important;background:#25D366!important}
+.public-bid-column{display:grid;gap:16px;align-self:start}
+.public-lot .public-bid-column .bidbox{position:sticky;top:92px;padding:28px 30px!important;border:1px solid #e4eaf3!important;border-radius:18px!important;box-shadow:0 14px 38px rgba(19,77,160,.075)!important;text-align:left!important}
+.public-lot .bidbox>small{font-size:12px;color:#65758e!important}
+.public-lot .bigprice{font-size:62px!important;line-height:1;color:#0752b9!important;margin:12px 0 10px!important;letter-spacing:-.045em}
+.public-next-bid{font-size:15px;color:#64748b;margin:0 0 9px}
+.public-next-bid b{color:#0752b9;font-size:17px}
+.public-leader{font-size:14px;color:#4d5f79;margin:0}
+.public-leader b{color:#17253f}
+.public-lot .bidbox hr{margin:22px 0 16px!important;border-top-color:#e7edf5!important}
+.public-time-box{padding:14px 18px;background:linear-gradient(180deg,#f1fbf6,#edf9f3);border-radius:14px;text-align:center}
+.public-time-box small{display:block;color:#119b51;font-weight:900;font-size:13px}
+.public-lot .public-time-box .bigtime{font-size:38px!important;color:#0ba34e!important;line-height:1;margin:8px 0 6px}
+.public-time-box span{font-size:12px;color:#718078}
+.public-lot .register-call,.public-lot .logged{margin-top:14px!important}
+.public-lot .public-slide-bid{height:72px!important;margin-top:14px!important;border-radius:36px!important;background:linear-gradient(90deg,#0564e8,#2487ff)!important;color:#fff!important;border:0!important;display:grid;grid-template-columns:56px 1fr 42px;align-items:center;gap:10px;padding:8px 12px 8px 8px!important;box-shadow:0 12px 25px rgba(14,97,224,.23)!important}
+.slide-circle{width:54px;height:54px;border-radius:50%;background:#fff;color:#0d63df;display:grid;place-items:center;font-size:34px;font-weight:400}
+.public-slide-bid>span:nth-child(2){font-size:15px;font-weight:850;text-align:center}
+.slide-gavel{font-size:22px;text-align:center}
+.public-lot .public-bid-history{width:100%!important;margin:0!important;padding:20px 22px!important;border:1px solid #e4eaf3!important;border-radius:18px!important;box-shadow:0 10px 28px rgba(19,77,160,.06)!important}
+.history-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:6px}
+.history-head h3{font-size:17px;margin:0!important;color:#102652}
+.history-head span{font-size:11px;color:#3d6fb2}
+.public-bid-history .row{padding:11px 10px!important;border-bottom:1px solid #edf1f6!important}
+.public-bid-history .row b{color:#17253f}
+.public-bid-history .leader-row{background:#e9f2ff;border-radius:9px;border-bottom:0!important;color:#0c4fae}
+.public-bid-history .leader-row b{color:#0752b9}
+@media(max-width:1100px){
+  .public-auction-header{grid-template-columns:210px 1fr auto;gap:16px}.public-auction-nav{display:none}
+  .public-lot .public-auction-layout{grid-template-columns:1fr!important}
+  .public-bid-column{grid-template-columns:1fr 1fr}.public-lot .public-bid-column .bidbox{position:static}
+}
+@media(max-width:760px){
+  .public-lot #app{padding:0 12px 30px!important}
+  .public-auction-header{height:64px;margin:0 -12px;padding:0 14px;grid-template-columns:1fr auto}.public-auction-logo img{width:155px;height:48px}.public-auction-search{display:none}.public-account-link{font-size:12px}
+  .public-auction-breadcrumb{height:52px;font-size:12px}.public-auction-breadcrumb a:nth-of-type(2),.public-auction-breadcrumb span:nth-of-type(1){display:none}
+  .public-lot .public-media-shell .hero-img,.public-lot .public-media-shell .hero-photo{height:330px!important}
+  .public-lot-info{padding:18px 16px}.public-lot-heading{display:grid;gap:14px}.public-lot-heading h2{font-size:23px!important}.public-valuation{min-width:0;padding:12px 0 0;border-left:0;border-top:1px solid #edf1f6;text-align:left}
+  .public-bid-column{grid-template-columns:1fr}.public-lot .public-bid-column .bidbox{padding:22px 18px!important}.public-lot .bigprice{font-size:46px!important}
+  .public-lot .public-slide-bid{grid-template-columns:50px 1fr 34px;height:66px!important}.slide-circle{width:48px;height:48px}.public-slide-bid>span:nth-child(2){font-size:13px}
+}
