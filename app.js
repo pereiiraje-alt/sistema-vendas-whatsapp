@@ -18,7 +18,48 @@ async function dashboard(){await loadLots();let bids=0;if(currentCompany){let{co
 async function leiloes(){await loadLots();app.innerHTML=`<div class="auction-head"><div><span class="live">● ONLINE</span><h2>${esc(currentAuction?.title||'Leilões publicados')}</h2><p>Os lotes abaixo são carregados diretamente do banco.</p></div></div><div class="catalog">${lots.map(l=>lotCard(l)).join('')||'<div class="panel"><p class="muted">Nenhum lote publicado ainda.</p></div>'}</div>`;tick()}
 function lotCard(l){return `<article class="product">${img(l)}<div><small>LOTE #${l.number}</small><h3>${esc(l.name)}</h3><p>Avaliação: ${money(l.valuation)}</p><span class="price">${money(l.current)}</span><div class="timer" data-end="${l.ends||''}">${l.ends?remaining(l.ends):'--:--:--'}</div><button class="primary full" onclick="openLot('${l.id}')">Ver lote e dar lance</button><button class="whatsapp full" onclick="shareWhats('${l.id}')">WhatsApp</button></div></article>`}
 async function loadBids(l){let{data,error}=await timeout(db.from('bids').select('id,amount,created_at,participant_id').eq('lot_id',l.id).order('created_at',{ascending:false}).limit(30),7000,'carregar lances');if(error)return[];let ids=[...new Set((data||[]).map(x=>x.participant_id))],names={};if(ids.length){let{data:p}=await timeout(db.from('participants').select('id,full_name').in('id',ids),7000,'carregar participantes');(p||[]).forEach(x=>names[x.id]=x.full_name)}return(data||[]).map(b=>({user:names[b.participant_id]||'Participante',value:+b.amount,time:new Date(b.created_at).getTime(),participantId:b.participant_id}))}
-async function openLot(id){try{let l=await loadPublicLot(id);l.bids=await loadBids(l);let ended=l.ends&&Date.now()>=new Date(l.ends);app.innerHTML=`<div class="lot-layout"><div class="lot-main">${img(l,'hero-img')}<small>LOTE #${l.number}</small><h2>${esc(l.name)}</h2><p>${esc(l.desc)}</p><div class="row"><span>Valor de avaliação</span><b>${money(l.valuation)}</b></div><button class="whatsapp full" onclick="shareWhats('${l.id}')">Enviar este lote pelo WhatsApp</button></div><aside class="bidbox">${ended?`<div class="ended"><h3>Leilão encerrado</h3><div class="bigprice">${money(l.current)}</div><p>${l.winnerId?'Lote arrematado.':'Aguardando fechamento do lote.'}</p></div>`:`<small>LANCE ATUAL</small><div class="bigprice">${money(l.current)}</div><p>Próximo lance mínimo: <b>${money(l.current+l.step)}</b></p><hr><small>TERMINA EM</small><div class="bigtime timer" data-end="${l.ends}">${remaining(l.ends)}</div>${participant?`<div class="logged">✓ Participando como <b>${esc(participant.name)}</b></div>`:`<div class="register-call"><b>Cadastre-se para participar</b><span>Cadastro rápido para dar lances.</span></div>`}<button class="bidbtn" onclick="bid('${l.id}')">${participant?'Dar lance de '+money(l.current+l.step):'Cadastrar e dar lance'}</button>`}</aside></div><div class="panel bidhistory"><h3>Últimos lances</h3>${l.bids.map(b=>`<div class="row"><span>${esc(b.user)}</span><b>${money(b.value)}</b></div>`).join('')||'<p class="muted">Nenhum lance ainda — seja o primeiro!</p>'}</div>`;tick()}catch(e){app.innerHTML=`<div class="panel"><h3>Lote indisponível</h3><p>${esc(e.message)}</p></div>`}}
+async function openLot(id){try{
+  let l=await loadPublicLot(id);l.bids=await loadBids(l);
+  let ended=l.ends&&Date.now()>=new Date(l.ends);
+  const nextBid=l.current+l.step;
+  const leader=l.bids[0]?.user||'Aguardando lance';
+  const publicTop=\`<div class="public-auction-header">
+    <a class="public-auction-logo" href="/apresentacao.html"><img src="/jp-leiloes-logo.svg?v=20260930-5" alt="JP Leilões"></a>
+    <div class="public-auction-search">⌕ <span>Buscar lotes, categorias, marcas...</span></div>
+    <nav class="public-auction-nav"><a href="/apresentacao.html">Início</a><a href="/explorar.html">Leilões</a><a href="/apresentacao.html#como-funciona">Como funciona</a></nav>
+    <a class="public-account-link" href="/login.html">Minha conta</a>
+  </div>
+  <div class="public-auction-breadcrumb"><a href="/apresentacao.html">⌂ Início</a><span>›</span><a href="/explorar.html">Leilões</a><span>›</span><b>Lote nº \${l.number}</b><button type="button" onclick="shareWhats('\${l.id}')">↗ Compartilhar</button></div>\`:'';
+  app.innerHTML=\`${document.body.classList.contains('public-lot')?publicTop:''}
+  <div class="lot-layout public-auction-layout">
+    <div class="lot-main public-lot-card">
+      <div class="public-live-badge">${ended?'ENCERRADO':'● AO VIVO'}</div>
+      <div class="public-media-shell">${img(l,'hero-img')}</div>
+      <div class="public-lot-info">
+        <div class="public-lot-heading"><div><small>LOTE #${l.number}</small><h2>${esc(l.name)}</h2></div><div class="public-valuation"><span>Valor de avaliação</span><b>${money(l.valuation)}</b></div></div>
+        ${l.desc?\`<div class="public-description"><h3>▤ Descrição do lote</h3><p>${esc(l.desc)}</p></div>\`:''}
+        <button class="whatsapp full" onclick="shareWhats('${l.id}')">Compartilhar este lote no WhatsApp</button>
+      </div>
+    </div>
+    <aside class="public-bid-column">
+      <div class="bidbox">
+        ${ended?\`<div class="ended"><small>RESULTADO DO LOTE</small><h3>Leilão encerrado</h3><div class="bigprice">${money(l.current)}</div><p>${l.winnerId?'Lote arrematado.':'Aguardando fechamento do lote.'}</p></div>\`:\`
+          <small>LANCE ATUAL</small>
+          <div class="bigprice">${money(l.current)}</div>
+          <p class="public-next-bid">Próximo lance mínimo: <b>${money(nextBid)}</b></p>
+          <p class="public-leader">♛ Líder do leilão: <b>${esc(leader)}</b></p>
+          <hr>
+          <div class="public-time-box"><small>◷ TERMINA EM</small><div class="bigtime timer" data-end="${l.ends}">${remaining(l.ends)}</div><span>O cronômetro acompanha o encerramento do lote.</span></div>
+          ${participant?\`<div class="logged">✓ Participando como <b>${esc(participant.name)}</b></div>\`:\`<div class="register-call"><b>Cadastre-se para participar</b><span>Cadastro rápido para dar lances.</span></div>\`}
+          <button class="bidbtn public-slide-bid" onclick="bid('${l.id}')"><span class="slide-circle">›</span><span>${participant?'Dar lance de '+money(nextBid):'Cadastrar e dar lance de '+money(nextBid)}</span><span class="slide-gavel">🔨</span></button>\`}
+      </div>
+      <div class="panel bidhistory public-bid-history">
+        <div class="history-head"><h3>🔨 Últimos lances</h3><span>Atualizado em tempo real</span></div>
+        ${l.bids.slice(0,8).map((b,i)=>\`<div class="row ${i===0?'leader-row':''}"><span>${i===0?'♛ ':''}${esc(b.user)}</span><b>${money(b.value)}</b></div>\`).join('')||'<p class="muted">Nenhum lance ainda — seja o primeiro!</p>'}
+      </div>
+    </aside>
+  </div>\`;tick()
+}catch(e){app.innerHTML=\`<div class="panel"><h3>Lote indisponível</h3><p>${esc(e.message)}</p></div>\`}}
 async function bid(id){try{let l=await loadPublicLot(id);if(!participant){pendingBid=id;registerModal.showModal();return}if(participant.companyId!==l.companyId){participant=null;pendingBid=id;registerModal.showModal();return}let amount=l.current+l.step;let{error}=await timeout(db.rpc('place_bid',{p_lot_id:id,p_participant_id:participant.id,p_amount:amount}),7000,'registrar lance');if(error)throw error;await openLot(id)}catch(e){alert(e.message)}}
 async function shareWhats(id){let l=lots.find(x=>x.id===id)||await loadPublicLot(id);let shareUrl=location.origin+'/?lote='+encodeURIComponent(l.id),msg=`🔨 *LEILÃO AO VIVO: ${l.name}*\n\n*Lote:* #${l.number}\n*Avaliação:* ${money(l.valuation)}\n*Lance inicial:* ${money(l.start)}\n*Lance atual:* ${money(l.current)}\n*Incremento:* ${money(l.step)}\n*Termina:* ${l.ends?endTime(l.ends):'a definir'}\n\n👉 Veja a foto e dê seu lance:\n${shareUrl}`;window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank')}
 async function lotes(){await loadLots();app.innerHTML=`<div class="toolbar"><input class="search" id="search" placeholder="Buscar lote..."><button class="primary" id="new" ${currentCompany?'':'disabled'}>+ Novo lote</button></div><div id="ltable"></div>`;document.querySelector('#new').onclick=()=>{if(!currentAuction)return alert('Crie/ative um leilão antes de cadastrar lotes.');modal.showModal()};document.querySelector('#search').oninput=e=>renderLots(e.target.value);renderLots()}
