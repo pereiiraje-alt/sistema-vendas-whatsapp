@@ -51,7 +51,12 @@ async function openLot(id){try{
           <hr>
           <div class="public-time-box"><small>◷ TERMINA EM</small><div class="bigtime timer" data-end="${l.ends}">${remaining(l.ends)}</div><span>O cronômetro acompanha o encerramento do lote.</span></div>
           ${participant?`<div class="logged">✓ Participando como <b>${esc(participant.name)}</b></div>`:`<div class="register-call"><b>Cadastre-se para participar</b><span>Cadastro rápido para dar lances.</span></div>`}
-          <button class="bidbtn public-slide-bid" onclick="bid('${l.id}')"><span class="slide-circle">›</span><span>${participant?'Dar lance de '+money(nextBid):'Cadastrar e dar lance de '+money(nextBid)}</span><span class="slide-gavel">🔨</span></button>`}
+          <div class="public-slide-bid" data-lot-id="${l.id}" data-ready="0" aria-label="Arraste para confirmar o lance">
+            <div class="slide-fill"></div>
+            <div class="slide-circle" role="presentation">›</div>
+            <span class="slide-label">${participant?'Arraste para dar lance de '+money(nextBid):'Arraste para cadastrar e dar lance de '+money(nextBid)}</span>
+            <span class="slide-gavel">🔨</span>
+          </div>`}
       </div>
       <div class="panel bidhistory public-bid-history">
         <div class="history-head"><h3>🔨 Últimos lances</h3><span>Atualizado em tempo real</span></div>
@@ -60,7 +65,83 @@ async function openLot(id){try{
     </aside>
   </div>`;
   tick();
+  initSlideBid();
 }catch(e){app.innerHTML=`<div class="panel"><h3>Lote indisponível</h3><p>${esc(e.message)}</p></div>`}}
+
+function initSlideBid(){
+  document.querySelectorAll('.public-slide-bid[data-ready="0"]').forEach(slider=>{
+    slider.dataset.ready='1';
+    const thumb=slider.querySelector('.slide-circle');
+    const fill=slider.querySelector('.slide-fill');
+    const label=slider.querySelector('.slide-label');
+    const lotId=slider.dataset.lotId;
+    if(!thumb||!lotId)return;
+
+    let dragging=false,startX=0,currentX=0,maxX=0,confirmed=false,pointerId=null;
+    const leftPad=8;
+    const setPosition=x=>{
+      currentX=Math.max(0,Math.min(maxX,x));
+      thumb.style.transform=`translate3d(${currentX}px,-50%,0)`;
+      if(fill)fill.style.width=`${currentX+thumb.offsetWidth+leftPad}px`;
+      const progress=maxX?currentX/maxX:0;
+      if(label)label.style.opacity=String(Math.max(.2,1-progress*.65));
+    };
+    const reset=()=>{
+      dragging=false;confirmed=false;pointerId=null;
+      slider.classList.remove('dragging','confirmed');
+      thumb.style.transition='transform .28s cubic-bezier(.22,.8,.22,1)';
+      if(fill)fill.style.transition='width .28s cubic-bezier(.22,.8,.22,1)';
+      setPosition(0);
+      setTimeout(()=>{thumb.style.transition='';if(fill)fill.style.transition='';},300);
+    };
+    const finish=async()=>{
+      if(confirmed)return;
+      confirmed=true;dragging=false;slider.classList.add('confirmed');
+      thumb.style.transition='transform .18s ease';
+      if(fill)fill.style.transition='width .18s ease';
+      setPosition(maxX);
+      if(label)label.textContent='Confirmando lance...';
+      try{
+        await bid(lotId);
+      }finally{
+        if(slider.isConnected){
+          if(label)label.textContent=participant?'Arraste para dar lance':'Arraste para cadastrar e dar lance';
+          setTimeout(reset,450);
+        }
+      }
+    };
+    const begin=e=>{
+      if(confirmed)return;
+      dragging=true;pointerId=e.pointerId;slider.classList.add('dragging');
+      maxX=Math.max(0,slider.clientWidth-thumb.offsetWidth-leftPad*2);
+      startX=e.clientX-currentX;
+      try{thumb.setPointerCapture(pointerId)}catch(_){}
+      e.preventDefault();
+    };
+    const move=e=>{
+      if(!dragging||confirmed||e.pointerId!==pointerId)return;
+      setPosition(e.clientX-startX);
+      e.preventDefault();
+    };
+    const end=e=>{
+      if(!dragging||confirmed||e.pointerId!==pointerId)return;
+      dragging=false;slider.classList.remove('dragging');
+      try{thumb.releasePointerCapture(pointerId)}catch(_){}
+      pointerId=null;
+      if(maxX&&currentX/maxX>=.82)finish();else reset();
+      e.preventDefault();
+    };
+
+    thumb.addEventListener('pointerdown',begin);
+    thumb.addEventListener('pointermove',move);
+    thumb.addEventListener('pointerup',end);
+    thumb.addEventListener('pointercancel',end);
+    slider.addEventListener('click',e=>e.preventDefault());
+    window.addEventListener('resize',()=>{if(!dragging&&!confirmed){maxX=Math.max(0,slider.clientWidth-thumb.offsetWidth-leftPad*2);setPosition(0);}});
+    maxX=Math.max(0,slider.clientWidth-thumb.offsetWidth-leftPad*2);
+    setPosition(0);
+  });
+}
 
 async function bid(id){try{let l=await loadPublicLot(id);if(!participant){pendingBid=id;registerModal.showModal();return}if(participant.companyId!==l.companyId){participant=null;pendingBid=id;registerModal.showModal();return}let amount=l.current+l.step;let{error}=await timeout(db.rpc('place_bid',{p_lot_id:id,p_participant_id:participant.id,p_amount:amount}),7000,'registrar lance');if(error)throw error;await openLot(id)}catch(e){alert(e.message)}}
 async function shareWhats(id){let l=lots.find(x=>x.id===id)||await loadPublicLot(id);let shareUrl=location.origin+'/?lote='+encodeURIComponent(l.id),msg=`🔨 *LEILÃO AO VIVO: ${l.name}*\n\n*Lote:* #${l.number}\n*Avaliação:* ${money(l.valuation)}\n*Lance inicial:* ${money(l.start)}\n*Lance atual:* ${money(l.current)}\n*Incremento:* ${money(l.step)}\n*Termina:* ${l.ends?endTime(l.ends):'a definir'}\n\n👉 Veja a foto e dê seu lance:\n${shareUrl}`;window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank')}
