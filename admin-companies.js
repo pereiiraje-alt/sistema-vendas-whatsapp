@@ -47,9 +47,26 @@
       if(company?.deleted_at){row.remove();return;}
       visible++;
 
-      // Deixa claro que este botão abre todos os dados editáveis do cliente.
+      // Acesso rápido para trocar o plano do cliente.
       edit.textContent='Dados do cliente';
-      edit.title='Editar nome, responsável, telefone, e-mail, documento, plano, cobrança e vencimento';
+      edit.title='Editar nome, responsável, telefone, e-mail, documento e demais informações';
+      if(!row.querySelector('.editClientPlan')){
+        const planBtn=document.createElement('button');
+        planBtn.type='button';
+        planBtn.className='ghost mini editClientPlan';
+        planBtn.dataset.id=id;
+        planBtn.textContent='Editar plano';
+        planBtn.title='Alterar o plano deste cliente';
+        planBtn.style.marginLeft='4px';
+        planBtn.onclick=()=>{
+          edit.click();
+          setTimeout(()=>{
+            const plan=document.querySelector('#companyPlan');
+            if(plan){plan.focus();plan.scrollIntoView({behavior:'smooth',block:'center'});}
+          },120);
+        };
+        edit.parentElement.insertBefore(planBtn,edit);
+      }
 
       // Mostra telefone logo abaixo do responsável para facilitar a administração.
       const responsibleCell=row.children?.[1];
@@ -77,7 +94,7 @@
     });
 
     const countText=app.querySelector('.panel .toolbar .muted');
-    if(countText)countText.textContent=`${visible} empresa(s) cadastrada(s). Clique em “Dados do cliente” para editar nome, responsável, telefone e demais informações.`;
+    if(countText)countText.textContent=`${visible} empresa(s) cadastrada(s). Use “Editar plano” para trocar o plano do cliente ou “Dados do cliente” para alterar os demais dados.`;
   };
 
   overview=async function(){
