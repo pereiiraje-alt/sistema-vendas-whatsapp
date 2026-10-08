@@ -14,7 +14,110 @@ function normalize(l){return{id:l.id,companyId:l.company_id,auctionId:l.auction_
 async function loadLots(){let q=db.from('lots').select('*').order('lot_number');if(currentCompany)q=q.eq('company_id',currentCompany.id);let{data,error}=await timeout(q,7000,'carregar lotes');if(error)throw error;lots=(data||[]).map(normalize);return lots}
 async function loadPublicLot(id){let{data,error}=await timeout(db.from('lots').select('*').eq('id',id).single(),7000,'carregar lote');if(error)throw error;let l=normalize(data);let{data:a}=await timeout(db.from('auctions').select('*').eq('id',l.auctionId).single(),7000,'carregar leilão');currentAuction=a||null;return l}
 async function loadMyContext(){let result=await timeout(db.auth.getSession(),5000,'verificar sessão');let user=result?.data?.session?.user;if(!user)return;document.querySelector('#userName').textContent=user.user_metadata?.full_name||user.email;let{data:m,error:me}=await timeout(db.from('company_members').select('company_id,role').eq('user_id',user.id).limit(1).maybeSingle(),7000,'buscar empresa');if(me)throw me;if(m){let{data:c,error:ce}=await timeout(db.from('companies').select('*').eq('id',m.company_id).single(),7000,'carregar empresa');if(ce)throw ce;currentCompany=c;document.querySelector('#companyName').textContent=c.name;let{data:a}=await timeout(db.from('auctions').select('*').eq('company_id',c.id).in('status',['draft','scheduled','live']).order('created_at',{ascending:false}).limit(1).maybeSingle(),7000,'carregar leilão');currentAuction=a||null}let{data:p}=await timeout(db.from('participants').select('*').eq('auth_user_id',user.id).limit(1).maybeSingle(),7000,'buscar participante');if(p)participant={id:p.id,name:p.full_name,cpf:p.cpf,phone:p.phone,email:p.email,companyId:p.company_id}}
-async function dashboard(){await loadLots();let bids=0;if(currentCompany){let{count}=await timeout(db.from('bids').select('*',{count:'exact',head:true}).eq('company_id',currentCompany.id),7000,'contar lances');bids=count||0}app.innerHTML=`<div class="cards"><div class="card"><small>Leilões ativos</small><h2>${currentAuction?1:0}</h2><span class="up">● Banco online</span></div><div class="card"><small>Lotes cadastrados</small><h2>${lots.length}</h2><span class="up">Salvos no Supabase</span></div><div class="card"><small>Lances registrados</small><h2>${bids}</h2><span class="up">Dados centralizados</span></div><div class="card"><small>Maior lance</small><h2>${money(Math.max(0,...lots.map(x=>x.current)))}</h2><span class="up">Atualizado online</span></div></div><div class="panels"><div class="panel"><h3>Leilão</h3><b>${esc(currentAuction?.title||'Nenhum leilão ativo')}</b><p class="muted">${currentCompany?'Os dados desta empresa ficam no banco online.':'Nenhuma empresa vinculada ao usuário atual.'}</p><button class="primary" onclick="go('leiloes')">Ver leilões</button></div><div class="panel"><h3>Status da conexão</h3><div class="row"><span>Supabase</span><b class="badge">Conectado</b></div><div class="row"><span>Fotos</span><b class="badge">Storage online</b></div></div></div>`}
+async function dashboard(){
+  await loadLots();
+  let bids=[],participants=[],wins=[],payments=[];
+  if(currentCompany){
+    const results=await Promise.all([
+      timeout(db.from('bids').select('id,amount,created_at,participant_id,lot_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(12),7000,'carregar lances recentes').catch(()=>({data:[]})),
+      timeout(db.from('participants').select('id,full_name,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(8),7000,'carregar participantes recentes').catch(()=>({data:[]})),
+      timeout(db.from('arremates').select('id,winning_bid,total_amount,created_at,participant_id,lot_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(12),7000,'carregar arremates recentes').catch(()=>({data:[]})),
+      timeout(db.from('payments').select('id,status,amount,created_at,arremate_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(12),7000,'carregar pagamentos recentes').catch(()=>({data:[]}))
+    ]);
+    bids=results[0]?.data||[];
+    participants=results[1]?.data||[];
+    wins=results[2]?.data||[];
+    payments=results[3]?.data||[];
+  }
+
+  const liveLots=lots.filter(x=>x.status==='live'&&(!x.ends||Date.now()<new Date(x.ends))).length;
+  const highestBid=Math.max(0,...lots.map(x=>Number(x.current||0)),...bids.map(x=>Number(x.amount||0)));
+  const totalArrematado=wins.reduce((sum,x)=>sum+Number(x.total_amount||x.winning_bid||0),0);
+  const pendingPayments=payments.filter(x=>!['paid','approved'].includes(String(x.status||'').toLowerCase())&&!['cancelled','canceled'].includes(String(x.status||'').toLowerCase())).length;
+  const paidAmount=payments.filter(x=>['paid','approved'].includes(String(x.status||'').toLowerCase())).reduce((sum,x)=>sum+Number(x.amount||0),0);
+  const uniqueParticipants=new Set(bids.map(x=>x.participant_id).filter(Boolean)).size;
+  const companyName=esc(currentCompany?.name||'sua empresa');
+  const auctionTitle=esc(currentAuction?.title||'Nenhum leilão em andamento');
+  const auctionEnds=currentAuction?.ends_at||lots.filter(x=>x.status==='live'&&x.ends).sort((a,b)=>new Date(a.ends)-new Date(b.ends))[0]?.ends||'';
+  const recent=[];
+  const participantNames=new Map(participants.map(p=>[String(p.id),p.full_name||'Participante']));
+  bids.slice(0,4).forEach(x=>recent.push({date:x.created_at,icon:'↗',title:'Novo lance',text:`${participantNames.get(String(x.participant_id))||'Participante'} deu um lance de ${money(x.amount)}`,kind:'bid'}));
+  participants.slice(0,3).forEach(x=>recent.push({date:x.created_at,icon:'♙',title:'Novo participante',text:`${x.full_name||'Participante'} entrou no leilão`,kind:'participant'}));
+  wins.slice(0,3).forEach(x=>recent.push({date:x.created_at,icon:'✓',title:'Lote arrematado',text:`Arremate registrado no valor de ${money(x.total_amount||x.winning_bid)}`,kind:'win'}));
+  payments.filter(x=>['paid','approved'].includes(String(x.status||'').toLowerCase())).slice(0,3).forEach(x=>recent.push({date:x.created_at,icon:'💳',title:'Pagamento aprovado',text:`${money(x.amount)} recebido`,kind:'paid'}));
+  recent.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+
+  title.textContent='Dashboard';
+  subtitle.textContent='Visão geral e desempenho dos seus leilões';
+
+  app.innerHTML=`
+    <section class="dash-welcome">
+      <div>
+        <span class="dash-eyebrow">PAINEL DA EMPRESA</span>
+        <h2>Bem-vindo, ${companyName}</h2>
+        <p>Acompanhe seus leilões, lances, participantes e pagamentos em um só lugar.</p>
+      </div>
+      <div class="dash-top-actions">
+        <button class="ghost" type="button" onclick="go('leiloes')">Ver leilões</button>
+        <button class="primary" type="button" onclick="go('lotes')">＋ Criar leilão</button>
+      </div>
+    </section>
+
+    <div class="dash-metrics">
+      <article class="dash-metric"><div class="dash-metric-icon">⚑</div><div><small>Leilões ativos</small><h3>${currentAuction?1:0}</h3><span>${liveLots} lote(s) ao vivo</span></div></article>
+      <article class="dash-metric"><div class="dash-metric-icon">↗</div><div><small>Lances registrados</small><h3>${bids.length}</h3><span>Maior lance ${money(highestBid)}</span></div></article>
+      <article class="dash-metric"><div class="dash-metric-icon">✓</div><div><small>Total arrematado</small><h3>${money(totalArrematado)}</h3><span>${wins.length} arremate(s)</span></div></article>
+      <article class="dash-metric"><div class="dash-metric-icon">💳</div><div><small>Recebido</small><h3>${money(paidAmount)}</h3><span>${pendingPayments} pagamento(s) pendente(s)</span></div></article>
+    </div>
+
+    <div class="dash-main-grid">
+      <section class="panel dash-live-panel">
+        <div class="dash-panel-head">
+          <div><span class="dash-live-pill">${currentAuction?'● AO VIVO':'SEM LEILÃO ATIVO'}</span><h3>${auctionTitle}</h3></div>
+          ${auctionEnds?`<div class="dash-countdown"><small>TERMINA EM</small><b class="timer" data-end="${auctionEnds}">${remaining(auctionEnds)}</b></div>`:''}
+        </div>
+        <div class="dash-auction-stats">
+          <div><small>Lotes cadastrados</small><b>${lots.length}</b></div>
+          <div><small>Participantes</small><b>${Math.max(participants.length,uniqueParticipants)}</b></div>
+          <div><small>Lances recentes</small><b>${bids.length}</b></div>
+          <div><small>Maior lance</small><b>${money(highestBid)}</b></div>
+        </div>
+        <div class="dash-actions">
+          <button class="primary" onclick="go('leiloes')">Abrir painel do leilão</button>
+          <button class="ghost" onclick="go('lotes')">＋ Novo lote</button>
+          <button class="ghost" onclick="go('arrematantes')">Ver arrematantes</button>
+        </div>
+      </section>
+
+      <section class="panel dash-quick-panel">
+        <div class="dash-panel-head"><div><span class="dash-eyebrow">ATALHOS</span><h3>Ações rápidas</h3></div></div>
+        <div class="dash-quick-grid">
+          <button onclick="go('lotes')"><span>＋</span><b>Criar leilão</b><small>Cadastre lotes e publique</small></button>
+          <button onclick="go('lances')"><span>↗</span><b>Ver lances</b><small>Acompanhe a disputa</small></button>
+          <button onclick="go('arrematantes')"><span>✓</span><b>Arrematantes</b><small>Vencedores e pagamentos</small></button>
+          <button onclick="go('participantes')"><span>♙</span><b>Participantes</b><small>Cadastros do leilão</small></button>
+        </div>
+      </section>
+    </div>
+
+    <div class="dash-bottom-grid">
+      <section class="panel dash-activity">
+        <div class="dash-panel-head"><div><span class="dash-eyebrow">EM TEMPO REAL</span><h3>Atividade recente</h3></div><button class="dash-text-btn" onclick="go('lances')">Ver histórico</button></div>
+        <div class="dash-activity-list">
+          ${recent.length?recent.slice(0,7).map(x=>`<div class="dash-activity-item"><span class="dash-activity-icon ${x.kind}">${x.icon}</span><div><b>${esc(x.title)}</b><p>${esc(x.text)}</p></div><time>${x.date?new Date(x.date).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</time></div>`).join(''):'<div class="dash-empty">Ainda não há atividades recentes. Quando houver lances, cadastros ou pagamentos, eles aparecerão aqui.</div>'}
+        </div>
+      </section>
+      <section class="panel dash-health">
+        <div class="dash-panel-head"><div><span class="dash-eyebrow">STATUS</span><h3>Operação</h3></div></div>
+        <div class="dash-health-row"><span><i></i> Banco de dados</span><b>Online</b></div>
+        <div class="dash-health-row"><span><i></i> Fotos e arquivos</span><b>Online</b></div>
+        <div class="dash-health-row"><span><i class="${pendingPayments?'warn':''}"></i> Pagamentos pendentes</span><b>${pendingPayments}</b></div>
+        <div class="dash-health-row"><span><i></i> Lotes publicados</span><b>${lots.length}</b></div>
+      </section>
+    </div>`;
+  tick();
+}
+
 async function leiloes(){await loadLots();app.innerHTML=`<div class="auction-head"><div><span class="live">● ONLINE</span><h2>${esc(currentAuction?.title||'Leilões publicados')}</h2><p>Os lotes abaixo são carregados diretamente do banco.</p></div></div><div class="catalog">${lots.map(l=>lotCard(l)).join('')||'<div class="panel"><p class="muted">Nenhum lote publicado ainda.</p></div>'}</div>`;tick()}
 function lotCard(l){return `<article class="product">${img(l)}<div><small>LOTE #${l.number}</small><h3>${esc(l.name)}</h3><p>Avaliação: ${money(l.valuation)}</p><span class="price">${money(l.current)}</span><div class="timer" data-end="${l.ends||''}">${l.ends?remaining(l.ends):'--:--:--'}</div><button class="primary full" onclick="openLot('${l.id}')">Ver lote e dar lance</button><button class="whatsapp full" onclick="shareWhats('${l.id}')">WhatsApp</button></div></article>`}
 async function loadBids(l){let{data,error}=await timeout(db.from('bids').select('id,amount,created_at,participant_id').eq('lot_id',l.id).order('created_at',{ascending:false}).limit(30),7000,'carregar lances');if(error)return[];let ids=[...new Set((data||[]).map(x=>x.participant_id))],names={};if(ids.length){let{data:p}=await timeout(db.from('participants').select('id,full_name').in('id',ids),7000,'carregar participantes');(p||[]).forEach(x=>names[x.id]=x.full_name)}return(data||[]).map(b=>({user:names[b.participant_id]||'Participante',value:+b.amount,time:new Date(b.created_at).getTime(),participantId:b.participant_id}))}
