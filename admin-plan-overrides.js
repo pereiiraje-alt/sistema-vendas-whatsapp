@@ -82,10 +82,46 @@
   const originalCompanies=companies;
   companies=async function(showForm=false){await originalCompanies(showForm);if(showForm)bindOfficialPlanHelp();};
 
-  async function officialPlans(){
+  async function officialPlans(editCode=null){
     const {data,error}=await db.from('platform_plans').select('*').in('code',['teste','plano_porcentagem','profissional','cortesia']).order('sort_order');
     if(error)throw error;
-    app.innerHTML=`<div class="panel"><div class="toolbar"><div><h3 style="margin:0">Planos oficiais</h3><p class="muted">Todo novo cadastro público começa com 4 dias grátis. Ao terminar, o cliente escolhe entre 5% por venda ou R$ 129,90/mês. A cortesia é exclusiva do administrador.</p></div></div><table><thead><tr><th>PLANO</th><th>COBRANÇA</th><th>VISIBILIDADE</th><th>STATUS</th></tr></thead><tbody>${(data||[]).map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.description||'')}</small></td><td><b>${x.code==='teste'?'4 dias grátis':x.charge_type==='percentage'?`${Number(x.percentage||0)}% por venda`:Number(x.price||0)>0?`${money(x.price)} / mês`:'Grátis'}</b></td><td>${x.admin_only?'<span class="badge warn">Somente ADM</span>':x.code==='teste'?'<span class="badge">Entrada automática</span>':'<span class="badge">Escolha após o teste</span>'}</td><td><span class="badge">${x.active?'Ativo':'Inativo'}</span></td></tr>`).join('')}</tbody></table><p class="muted" style="margin-top:16px">Fluxo oficial: 4 dias grátis → 5% por venda ou R$ 129,90 por mês. Cortesia somente pelo administrador.</p></div>`;
+    const plans=data||[];
+    const editing=editCode?plans.find(x=>x.code===editCode):null;
+    const editForm=editing?\`<div class="panel" style="margin-bottom:16px"><div class="toolbar"><div><h3 style="margin:0">Editar plano — ${esc(editing.name)}</h3><p class="muted">Altere nome, descrição, valor e status. O código do plano permanece protegido.</p></div><button class="ghost" id="closeOfficialPlan">Fechar</button></div>
+      <form id="officialPlanForm" class="grid2">
+        <label>Nome do plano<input name="name" required value="${esc(editing.name||'')}"></label>
+        <label>Código<input value="${esc(editing.code)}" disabled><small>O código não pode ser alterado.</small></label>
+        ${editing.charge_type==='percentage'?\`<label>Porcentagem (%)<input name="percentage" type="number" min="0" max="100" step="0.01" required value="${Number(editing.percentage||0)}"></label>\`:editing.code==='profissional'?\`<label>Valor mensal (R$)<input name="price" type="number" min="0" step="0.01" required value="${Number(editing.price||0)}"></label>\`:'<label>Preço<input value="Grátis" disabled></label>'}
+        <label>Status<select name="active"><option value="true" ${editing.active!==false?'selected':''}>Ativo</option><option value="false" ${editing.active===false?'selected':''}>Inativo</option></select></label>
+        <label style="grid-column:1/-1">Descrição<input name="description" value="${esc(editing.description||'')}"></label>
+        <div><button class="primary" type="submit">Salvar alterações</button></div>
+      </form></div>\`:'';
+    app.innerHTML=\`${editForm}<div class="panel"><div class="toolbar"><div><h3 style="margin:0">Planos oficiais</h3><p class="muted">Você pode editar os valores e informações dos planos oficiais da JP Leilões.</p></div></div><table><thead><tr><th>PLANO</th><th>COBRANÇA</th><th>VISIBILIDADE</th><th>STATUS</th><th>AÇÕES</th></tr></thead><tbody>${plans.map(x=>\`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.description||'')}</small></td><td><b>${x.code==='teste'?'4 dias grátis':x.charge_type==='percentage'?\`${Number(x.percentage||0)}% por venda\`:Number(x.price||0)>0?\`${money(x.price)} / mês\`:'Grátis'}</b></td><td>${x.admin_only?'<span class="badge warn">Somente ADM</span>':x.code==='teste'?'<span class="badge">Entrada automática</span>':'<span class="badge">Escolha após o teste</span>'}</td><td><span class="badge ${x.active?'':'warn'}">${x.active?'Ativo':'Inativo'}</span></td><td><button class="ghost mini editOfficialPlan" data-code="${esc(x.code)}">Editar plano</button></td></tr>\`).join('')}</tbody></table><p class="muted" style="margin-top:16px">O período de teste permanece em 4 dias. Alterações no plano percentual e mensal passam a valer para novas escolhas e cobranças futuras.</p></div>\`;
+    document.querySelectorAll('.editOfficialPlan').forEach(b=>b.onclick=()=>officialPlans(b.dataset.code));
+    document.querySelector('#closeOfficialPlan')?.addEventListener('click',()=>officialPlans());
+    const form=document.querySelector('#officialPlanForm');
+    if(form&&editing){
+      form.onsubmit=async e=>{
+        e.preventDefault();
+        const button=form.querySelector('button[type="submit"]'),f=new FormData(form);
+        const payload={name:String(f.get('name')||'').trim(),description:String(f.get('description')||'').trim()||null,active:String(f.get('active'))==='true',updated_at:new Date().toISOString()};
+        if(editing.charge_type==='percentage'){
+          const pct=Number(f.get('percentage')||0);
+          if(!Number.isFinite(pct)||pct<0||pct>100)return alert('Informe uma porcentagem entre 0 e 100.');
+          payload.percentage=pct;payload.price=0;
+        }else if(editing.code==='profissional'){
+          const price=Number(f.get('price')||0);
+          if(!Number.isFinite(price)||price<0)return alert('Informe um valor mensal válido.');
+          payload.price=price;payload.percentage=0;
+        }
+        if(!payload.name)return alert('Informe o nome do plano.');
+        button.disabled=true;button.textContent='Salvando...';
+        const {error}=await db.from('platform_plans').update(payload).eq('code',editing.code);
+        if(error){button.disabled=false;button.textContent='Salvar alterações';return alert('Erro: '+error.message)}
+        alert('Plano atualizado com sucesso.');
+        officialPlans();
+      };
+    }
   }
   pages.plans=[officialPlans,'Planos','Teste gratuito e planos oficiais da plataforma'];
 })();
