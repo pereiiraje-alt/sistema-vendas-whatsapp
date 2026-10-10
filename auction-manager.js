@@ -1,9 +1,9 @@
 (()=>{
-  const navButton=document.querySelector('#nav button[data-page="lotes"]');
+  const navButton=document.querySelector('#nav button[data-page="produtos"]');
   if(!navButton)return;
 
   navButton.dataset.page='criarleilao';
-  navButton.textContent='＋ Criar leilão';
+  navButton.textContent='＋ Criar venda';
 
   const auctionsMenu=document.querySelector('#auctionsMenu');
   const auctionsMenuToggle=document.querySelector('#auctionsMenuToggle');
@@ -35,7 +35,7 @@
         .order('created_at',{ascending:true})
         .order('id',{ascending:true}),
       7000,
-      'organizar numeração dos lotes'
+      'organizar numeração dos produtos'
     );
     if(error)throw error;
     const changes=(data||[])
@@ -45,7 +45,7 @@
       const {error:updateError}=await timeout(
         db.from('lots').update({lot_number:lot.next}).eq('id',lot.id),
         7000,
-        'atualizar número do lote'
+        'atualizar número do produto'
       );
       if(updateError)throw updateError;
     }
@@ -62,7 +62,7 @@
         .limit(1)
         .maybeSingle(),
       7000,
-      'restaurar leilão atual'
+      'restaurar venda atual'
     );
     if(error)throw error;
     currentAuction=data||null;
@@ -73,8 +73,8 @@
     if(!currentCompany)throw new Error('É necessário estar vinculado a uma empresa.');
     const now=new Date();
     const stamp=now.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const payload={company_id:currentCompany.id,title:`Leilão ${stamp}`,description:null,status:'draft',starts_at:null,ends_at:null};
-    const {data,error}=await timeout(db.from('auctions').insert(payload).select().single(),7000,'criar leilão');
+    const payload={company_id:currentCompany.id,title:`Venda ${stamp}`,description:null,status:'draft',starts_at:null,ends_at:null};
+    const {data,error}=await timeout(db.from('auctions').insert(payload).select().single(),7000,'criar venda');
     if(error)throw error;
     currentAuction=data;
     quickAuctionId=data.id;
@@ -109,13 +109,13 @@
   async function startQuickAuction(){
     document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
     navButton.classList.add('active');
-    document.querySelector('#title').textContent='Criar leilão';
-    document.querySelector('#subtitle').textContent='Cadastre o primeiro lote e publique automaticamente';
+    document.querySelector('#title').textContent='Criar venda';
+    document.querySelector('#subtitle').textContent='Cadastre o primeiro produto e publique automaticamente';
     document.querySelector('.sidebar').classList.remove('open');
-    if(!currentCompany){app.innerHTML='<div class="panel"><h3>Criar leilão</h3><p>É necessário estar vinculado a uma empresa.</p></div>';return;}
-    app.innerHTML='<div class="panel"><h3>Novo leilão</h3><p class="muted">Preencha os dados do produto. Ao criar o lote, o leilão entra automaticamente ao vivo.</p></div>';
+    if(!currentCompany){app.innerHTML='<div class="panel"><h3>Criar venda</h3><p>É necessário estar vinculado a uma empresa.</p></div>';return;}
+    app.innerHTML='<div class="panel"><h3>Novo venda</h3><p class="muted">Preencha os dados do produto. Ao criar o produto, o venda entra automaticamente ao vivo.</p></div>';
     try{await createQuickAuction();resetLotForm();modal.showModal();}
-    catch(error){app.innerHTML=`<div class="panel"><h3>Não foi possível iniciar o leilão</h3><p>${String(error.message||error).replace(/[&<>]/g,'')}</p><button class="primary" id="retryQuickAuction">Tentar novamente</button></div>`;const retry=document.querySelector('#retryQuickAuction');if(retry)retry.onclick=startQuickAuction;}
+    catch(error){app.innerHTML=`<div class="panel"><h3>Não foi possível iniciar o venda</h3><p>${String(error.message||error).replace(/[&<>]/g,'')}</p><button class="primary" id="retryQuickAuction">Tentar novamente</button></div>`;const retry=document.querySelector('#retryQuickAuction');if(retry)retry.onclick=startQuickAuction;}
   }
 
   navButton.onclick=startQuickAuction;
@@ -124,11 +124,11 @@
     if(savingQuickLot||!quickAuctionId)return;
     const abandonedId=quickAuctionId;quickAuctionId=null;
     try{
-      const {count,error}=await timeout(db.from('lots').select('*',{count:'exact',head:true}).eq('auction_id',abandonedId),7000,'verificar lote do leilão');
-      if(!error&&!count)await timeout(db.from('auctions').delete().eq('id',abandonedId).eq('status','draft'),7000,'cancelar leilão vazio');
+      const {count,error}=await timeout(db.from('lots').select('*',{count:'exact',head:true}).eq('auction_id',abandonedId),7000,'verificar produto do venda');
+      if(!error&&!count)await timeout(db.from('auctions').delete().eq('id',abandonedId).eq('status','draft'),7000,'cancelar venda vazio');
       await restoreLatestAuction();
-    }catch(error){console.error('Limpeza do leilão cancelado:',error);}
-    if(navButton.classList.contains('active'))app.innerHTML='<div class="panel"><h3>Criação cancelada</h3><p class="muted">Clique em “Criar leilão” quando quiser cadastrar um novo lote.</p></div>';
+    }catch(error){console.error('Limpeza do venda cancelado:',error);}
+    if(navButton.classList.contains('active'))app.innerHTML='<div class="panel"><h3>Criação cancelada</h3><p class="muted">Clique em “Criar venda” quando quiser cadastrar um novo produto.</p></div>';
   });
 
   const saveLotButton=document.querySelector('#saveLot');
@@ -144,25 +144,25 @@
       if(!auctionBeforeSave){savingQuickLot=false;return;}
       try{
         await renumberCompanyLots();
-        const {data:lastLot,error:lastLotError}=await timeout(db.from('lots').select('ends_at,title').eq('auction_id',auctionBeforeSave.id).order('lot_number',{ascending:false}).limit(1).maybeSingle(),7000,'carregar lote criado');
+        const {data:lastLot,error:lastLotError}=await timeout(db.from('lots').select('ends_at,title').eq('auction_id',auctionBeforeSave.id).order('lot_number',{ascending:false}).limit(1).maybeSingle(),7000,'carregar produto criado');
         if(lastLotError)throw lastLotError;
         const update={status:'live',starts_at:new Date().toISOString(),title:lotName||lastLot?.title||auctionBeforeSave.title};
         if(lastLot?.ends_at)update.ends_at=lastLot.ends_at;
-        const {data,error}=await timeout(db.from('auctions').update(update).eq('id',auctionBeforeSave.id).select().single(),7000,'ativar leilão');
+        const {data,error}=await timeout(db.from('auctions').update(update).eq('id',auctionBeforeSave.id).select().single(),7000,'ativar venda');
         if(error)throw error;
         currentAuction=data;if(quickSave)quickAuctionId=null;
         const auctionsButton=document.querySelector('#nav button[data-page="leiloes"]');
         document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
         if(auctionsButton)auctionsButton.classList.add('active');
-        document.querySelector('#title').textContent='Leilões';
-        document.querySelector('#subtitle').textContent='Leilões publicados e em andamento';
+        document.querySelector('#title').textContent='Vendas';
+        document.querySelector('#subtitle').textContent='Vendas publicados e em andamento';
         await leiloes();
-      }catch(error){alert('O lote foi criado, mas não foi possível publicar o leilão: '+(error.message||error));}
+      }catch(error){alert('O produto foi criado, mas não foi possível publicar o venda: '+(error.message||error));}
       finally{savingQuickLot=false;}
     };
   }
 
-  setTimeout(async()=>{try{await renumberCompanyLots();const activePage=document.querySelector('#nav button.active')?.dataset.page;if(activePage==='leiloes')await leiloes();}catch(error){console.warn('Não foi possível ajustar a numeração dos lotes:',error?.message||error);}},1600);
+  setTimeout(async()=>{try{await renumberCompanyLots();const activePage=document.querySelector('#nav button.active')?.dataset.page;if(activePage==='leiloes')await leiloes();}catch(error){console.warn('Não foi possível ajustar a numeração dos produtos:',error?.message||error);}},1600);
 
   lances=async function(){
     if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';
@@ -171,8 +171,8 @@
       if(error)throw error;
       const bids=data||[],participantIds=[...new Set(bids.map(x=>x.participant_id).filter(Boolean))],lotIds=[...new Set(bids.map(x=>x.lot_id).filter(Boolean))],names={},lotNames={};
       if(participantIds.length){const {data:people}=await timeout(db.from('participants').select('id,full_name').in('id',participantIds),7000,'carregar nomes dos participantes');(people||[]).forEach(p=>names[p.id]=p.full_name||'Participante');}
-      if(lotIds.length){const {data:lotRows}=await timeout(db.from('lots').select('id,lot_number,title').in('id',lotIds),7000,'carregar lotes dos lances');(lotRows||[]).forEach(l=>lotNames[l.id]=`Lote #${l.lot_number} · ${l.title}`);}
-      app.innerHTML=`<div class="panel"><h3>Histórico de lances</h3>${bids.map(x=>`<div class="row"><span><b>${esc(names[x.participant_id]||'Participante')}</b><br><small>${esc(lotNames[x.lot_id]||'Lote')} · ${new Date(x.created_at).toLocaleString('pt-BR')}</small></span><b>${money(x.amount)}</b></div>`).join('')||'<p class="muted">Nenhum lance registrado.</p>'}</div>`;
+      if(lotIds.length){const {data:lotRows}=await timeout(db.from('lots').select('id,lot_number,title').in('id',lotIds),7000,'carregar produtos dos lances');(lotRows||[]).forEach(l=>lotNames[l.id]=`Produto #${l.lot_number} · ${l.title}`);}
+      app.innerHTML=`<div class="panel"><h3>Histórico de lances</h3>${bids.map(x=>`<div class="row"><span><b>${esc(names[x.participant_id]||'Participante')}</b><br><small>${esc(lotNames[x.lot_id]||'Produto')} · ${new Date(x.created_at).toLocaleString('pt-BR')}</small></span><b>${money(x.amount)}</b></div>`).join('')||'<p class="muted">Nenhum lance registrado.</p>'}</div>`;
     }catch(error){app.innerHTML=`<div class="panel"><h3>Histórico de lances</h3><p>Não foi possível carregar os nomes dos participantes.</p><p class="muted">${esc(error.message||error)}</p></div>`;}
   };
   if(typeof pages!=='undefined'&&pages.lances)pages.lances[0]=lances;
