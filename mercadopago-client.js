@@ -109,7 +109,7 @@
     if(!host)return;
 
     if(!document.getElementById('mpConnectionPanel')){
-      host.insertAdjacentHTML('beforeend',`<div class="panel" id="mpConnectionPanel"><h3>Mercado Pago</h3><p class="muted">Conecte a conta Mercado Pago da empresa para receber pagamentos dos lotes arrematados.</p><div id="mpConnectionStatus" class="row"><span>Status</span><b class="badge">Consultando...</b></div><div style="margin-top:14px"><button class="primary" id="mpConnectButton" type="button">Conectar Mercado Pago</button></div><p class="muted" style="margin-top:10px">O pagamento será processado diretamente na conta Mercado Pago desta empresa.</p></div>`);
+      host.insertAdjacentHTML('beforeend',`<div class="panel" id="mpConnectionPanel"><h3>Mercado Pago</h3><p class="muted">Conecte a conta Mercado Pago da empresa para receber os pagamentos das vendas concluídas.</p><div id="mpConnectionStatus" class="row"><span>Status</span><b class="badge">Consultando...</b></div><div style="margin-top:14px"><button class="primary" id="mpConnectButton" type="button">Conectar Mercado Pago</button></div><p class="muted" style="margin-top:10px">O pagamento será processado diretamente na conta Mercado Pago desta empresa.</p></div>`);
       const status=document.getElementById('mpConnectionStatus');
       const button=document.getElementById('mpConnectButton');
       try{
