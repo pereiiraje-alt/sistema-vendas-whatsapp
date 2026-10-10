@@ -74,7 +74,7 @@ async function dashboard(){
     <div class="dash-main-grid">
       <section class="panel dash-live-panel">
         <div class="dash-panel-head">
-          <div><span class="dash-live-pill">${currentAuction?'● AO VIVO':'SEM LEILÃO ATIVO'}</span><h3>${auctionTitle}</h3></div>
+          <div><span class="dash-live-pill">${currentAuction?'● AO VIVO':'SEM VENDA ATIVA'}</span><h3>${auctionTitle}</h3></div>
           ${auctionEnds?`<div class="dash-countdown"><small>TERMINA EM</small><b class="timer" data-end="${auctionEnds}">${remaining(auctionEnds)}</b></div>`:''}
         </div>
         <div class="dash-auction-stats">
@@ -120,8 +120,8 @@ async function dashboard(){
   tick();
 }
 
-async function leiloes(){await loadLots();app.innerHTML=`<div class="auction-head"><div><span class="live">● ONLINE</span><h2>${esc(currentAuction?.title||'Vendas por lances publicados')}</h2><p>Os lotes abaixo são carregados diretamente do banco.</p></div></div><div class="catalog">${lots.map(l=>lotCard(l)).join('')||'<div class="panel"><p class="muted">Nenhum produto publicado ainda.</p></div>'}</div>`;tick()}
-function lotCard(l){return `<article class="product">${img(l)}<div><small>PRODUTO #${l.number}</small><h3>${esc(l.name)}</h3><p>Avaliação: ${money(l.valuation)}</p><span class="price">${money(l.current)}</span><div class="timer" data-end="${l.ends||''}">${l.ends?remaining(l.ends):'--:--:--'}</div><button class="primary full" onclick="openLot('${l.id}')">Ver lote e ofertar</button><button class="whatsapp full" onclick="shareWhats('${l.id}')">WhatsApp</button></div></article>`}
+async function leiloes(){await loadLots();app.innerHTML=`<div class="auction-head"><div><span class="live">● ONLINE</span><h2>${esc(currentAuction?.title||'Suas vendas por lances')}</h2><p>Seus produtos aparecem aqui com oferta e tempo atualizados.</p></div></div><div class="catalog">${lots.map(l=>lotCard(l)).join('')||'<div class="panel"><p class="muted">Nenhum produto publicado ainda.</p></div>'}</div>`;tick()}
+function lotCard(l){return `<article class="product">${img(l)}<div><small>PRODUTO #${l.number}</small><h3>${esc(l.name)}</h3><p>Avaliação: ${money(l.valuation)}</p><span class="price">${money(l.current)}</span><div class="timer" data-end="${l.ends||''}">${l.ends?remaining(l.ends):'--:--:--'}</div><button class="primary full" onclick="openLot('${l.id}')">Ver produto e ofertar</button><button class="whatsapp full" onclick="shareWhats('${l.id}')">WhatsApp</button></div></article>`}
 async function loadBids(l){let{data,error}=await timeout(db.from('bids').select('id,amount,created_at,participant_id').eq('lot_id',l.id).order('created_at',{ascending:false}).limit(30),7000,'carregar lances');if(error)return[];let ids=[...new Set((data||[]).map(x=>x.participant_id))],names={};if(ids.length){let{data:p}=await timeout(db.from('participants').select('id,full_name').in('id',ids),7000,'carregar participantes');(p||[]).forEach(x=>names[x.id]=x.full_name)}return(data||[]).map(b=>({user:names[b.participant_id]||'Participante',value:+b.amount,time:new Date(b.created_at).getTime(),participantId:b.participant_id}))}
 async function openLot(id){try{
   let l=await loadPublicLot(id);l.bids=await loadBids(l);
@@ -129,12 +129,12 @@ async function openLot(id){try{
   const nextBid=l.current+l.step;
   const leader=l.bids[0]?.user||'Aguardando oferta';const sellerName=esc(currentSeller?.name||'Vendedor');const sellerLocation=[currentSeller?.city,currentSeller?.state].filter(Boolean).join(' - ');
   const publicTop=document.body.classList.contains('public-lot')?`<div class="public-auction-header">
-    <a class="public-auction-logo" href="/apresentacao.html"><img src="/jp-leiloes-logo.svg?v=20260930-5" alt="JP Vendas por lances"></a>
+    <a class="public-auction-logo" href="/apresentacao.html"><img src="/jp-leiloes-logo.svg?v=20260930-5" alt="JP Leilões"></a>
     <div class="public-auction-search">⌕ <span>Buscar produtos e ofertas...</span></div>
     <nav class="public-auction-nav"><a href="/apresentacao.html">Início</a><a href="/explorar.html">Ofertas</a><a href="/apresentacao.html#como">Como funciona</a></nav>
     <a class="public-account-link" href="/login.html">Minha conta</a>
   </div>
-  <div class="public-auction-breadcrumb"><a href="/apresentacao.html">⌂ Início</a><span>›</span><a href="/explorar.html">Vendas por lances</a><span>›</span><b>Produto nº ${l.number}</b><button type="button" onclick="shareWhats('${l.id}')">↗ Compartilhar</button></div>`:'';
+  <div class="public-auction-breadcrumb"><a href="/apresentacao.html">⌂ Início</a><span>›</span><a href="/explorar.html">Ofertas</a><span>›</span><b>Produto nº ${l.number}</b><button type="button" onclick="shareWhats('${l.id}')">↗ Compartilhar</button></div>`:'';
   app.innerHTML=`${publicTop}
   <div class="lot-layout public-auction-layout">
     <div class="lot-main public-lot-card">
