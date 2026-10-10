@@ -937,3 +937,26 @@ body:not(.public-lot) .nav-submenu button{color:#afc1b7!important}
   .nav-secondary-group.open .nav-secondary-body{display:flex!important}
   .nav-secondary-group.open{padding-bottom:8px}
 }
+
+#mobileMenuBackdrop{display:none}
+@media(max-width:650px){
+  #mobileMenuBackdrop{
+    position:fixed;
+    inset:0;
+    z-index:29;
+    border:0;
+    padding:0;
+    margin:0;
+    background:rgba(3,18,13,.42);
+    backdrop-filter:blur(1.5px);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .18s ease;
+  }
+  #mobileMenuBackdrop.show{
+    display:block;
+    opacity:1;
+    pointer-events:auto;
+  }
+  body:not(.public-lot) .sidebar{z-index:30!important}
+}
