@@ -251,6 +251,18 @@ function openMobileMenu(){sidebar?.classList.add('open');mobileMenuBackdrop?.cla
 document.querySelectorAll('#nav button[data-page]').forEach(b=>b.onclick=async()=>{document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.remove('active'));b.classList.add('active');let p=pages[b.dataset.page];if(!p)return;title.textContent=p[1];subtitle.textContent=p[2];try{await p[0]()}catch(e){bootError(e.message)}closeMobileMenu()});
 document.querySelector('#menu').onclick=()=>sidebar?.classList.contains('open')?closeMobileMenu():openMobileMenu();
 mobileMenuBackdrop.onclick=closeMobileMenu;
+// No celular, cliques dentro do menu nunca devem ser tratados como clique externo.
+sidebar?.addEventListener('pointerdown',e=>e.stopPropagation(),true);
+sidebar?.addEventListener('click',e=>e.stopPropagation());
+// Garante que abrir submenus mantenha a lateral e o fundo ativos.
+document.querySelector('#auctionsMenuToggle')?.addEventListener('click',()=>{
+  if(innerWidth<=650){sidebar?.classList.add('open');mobileMenuBackdrop?.classList.add('show')}
+},true);
+document.addEventListener('click',e=>{
+  if(innerWidth>650)return;
+  const more=e.target.closest?.('.nav-secondary-toggle');
+  if(more){sidebar?.classList.add('open');mobileMenuBackdrop?.classList.add('show')}
+},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileMenu()});
 window.addEventListener('resize',()=>{if(innerWidth>650)closeMobileMenu()});
 document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();if(!lotForm.checkValidity())return lotForm.reportValidity();if(!currentCompany||!currentAuction)return alert('É necessário estar vinculado a uma empresa e ter um venda ativo.');try{let image='';let file=limage.files[0];if(file){let path=`${currentCompany.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;let{error:u}=await timeout(db.storage.from('lot-images').upload(path,file),10000,'enviar foto');if(u)throw u;image=db.storage.from('lot-images').getPublicUrl(path).data.publicUrl}let{data:last}=await timeout(db.from('lots').select('lot_number').eq('auction_id',currentAuction.id).order('lot_number',{ascending:false}).limit(1).maybeSingle(),7000,'buscar último lote'),number=(last?.lot_number||0)+1,start=+lstart.value,ends=new Date(Date.now()+60000*(+lduration.value)).toISOString();let{error}=await timeout(db.from('lots').insert({company_id:currentCompany.id,auction_id:currentAuction.id,lot_number:number,title:lname.value,description:ldesc.value||'',image_url:image,valuation:+lvalue.value,starting_bid:start,current_bid:start,min_increment:+lstep.value,status:'live',starts_at:new Date().toISOString(),ends_at:ends}),7000,'salvar lote');if(error)throw error;modal.close();lotForm.reset();await lotes()}catch(e){alert('Erro ao salvar lote: '+e.message)}};
