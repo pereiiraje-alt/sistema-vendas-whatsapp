@@ -1185,3 +1185,36 @@ body:not(.public-lot) .nav-submenu button{color:#afc1b7!important}
     min-height:42px!important;
   }
 }
+
+
+/* Acabamento final do menu e dashboard */
+body:not(.public-lot) .sidebar .brand{
+  height:104px!important;
+  min-height:104px!important;
+  margin:0 6px 10px!important;
+}
+body:not(.public-lot) .sidebar .brand img{
+  max-width:178px!important;
+  max-height:98px!important;
+}
+.nav-secondary-group:not(.open) .nav-secondary-body{display:none!important}
+.nav-secondary-body button{white-space:normal;line-height:1.25}
+.dash-focus-sale{margin-bottom:12px!important}
+.dash-clean-activity{margin-top:0!important}
+@media(max-width:650px){
+  .dash-focus-sale{padding:16px!important}
+  .dash-focus-head h2{font-size:20px!important}
+  .dash-focus-head p{font-size:12px!important;line-height:1.45}
+  .dash-focus-stats{margin:14px 0 12px!important}
+  .dash-focus-stats>div{padding:10px 12px!important}
+  .dash-focus-stats span{font-size:10px!important}
+  .dash-focus-stats b{font-size:16px!important}
+  .dash-focus-actions{gap:8px!important}
+  .dash-focus-actions>*{
+    flex:1 1 calc(50% - 8px)!important;
+    min-height:38px!important;
+    padding:8px 10px!important;
+    font-size:12px!important;
+  }
+  .dash-clean-activity{padding:16px!important}
+}
