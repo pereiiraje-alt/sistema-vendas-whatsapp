@@ -39,6 +39,7 @@ async function dashboard(){
   const companyName=esc(currentCompany?.name||'sua empresa');
   const auctionTitle=esc(currentAuction?.title||'Nenhuma venda em andamento');
   const auctionEnds=currentAuction?.ends_at||lots.filter(x=>x.status==='live'&&x.ends).sort((a,b)=>new Date(a.ends)-new Date(b.ends))[0]?.ends||'';
+  const shareLotId=(lots.find(x=>x.status==='live'&&(!x.ends||Date.now()<new Date(x.ends)))||lots[0])?.id||'';
   const recent=[];
   const participantNames=new Map(participants.map(p=>[String(p.id),p.full_name||'Participante']));
   bids.slice(0,4).forEach(x=>recent.push({date:x.created_at,icon:'↗',title:'Nova oferta',text:`${participantNames.get(String(x.participant_id))||'Participante'} fez uma oferta de ${money(x.amount)}`,kind:'bid'}));
@@ -66,7 +67,7 @@ async function dashboard(){
     <div class="dash-metrics">
       <article class="dash-metric"><div class="dash-metric-icon">⚑</div><div><small>Vendas ativas</small><h3>${currentAuction?1:0}</h3><span>${liveLots} produto(s) ao vivo</span></div></article>
       <article class="dash-metric"><div class="dash-metric-icon">↗</div><div><small>Ofertas registradas</small><h3>${bids.length}</h3><span>Maior oferta ${money(highestBid)}</span></div></article>
-      <article class="dash-metric"><div class="dash-metric-icon">✓</div><div><small>Total arrematado</small><h3>${money(totalArrematado)}</h3><span>${wins.length} venda(s) concluída(s)</span></div></article>
+      <article class="dash-metric"><div class="dash-metric-icon">✓</div><div><small>Total vendido</small><h3>${money(totalArrematado)}</h3><span>${wins.length} venda(s) concluída(s)</span></div></article>
       <article class="dash-metric"><div class="dash-metric-icon">💳</div><div><small>Recebido</small><h3>${money(paidAmount)}</h3><span>${pendingPayments} pagamento(s) pendente(s)</span></div></article>
     </div>
 
@@ -85,6 +86,7 @@ async function dashboard(){
         <div class="dash-actions">
           <button class="primary" onclick="go('leiloes')">Abrir painel da venda</button>
           <button class="ghost" onclick="go('lotes')">＋ Novo produto</button>
+          ${shareLotId?`<button class="whatsapp" onclick="shareWhats('${shareLotId}')">💬 Compartilhar</button><button class="ghost" onclick="copyOfferLink('${shareLotId}')">🔗 Copiar link</button>`:''}
           <button class="ghost" onclick="go('arrematantes')">Ver compradores</button>
         </div>
       </section>
