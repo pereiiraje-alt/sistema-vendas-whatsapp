@@ -259,4 +259,34 @@
     setInterval(renderGuide,1800);
   })();
 
+  // Agrupa itens menos usados para deixar o menu principal mais limpo.
+  (function setupCompactSidebar(){
+    const nav=document.getElementById('nav');
+    if(!nav)return;
+    let group=null,body=null,toggle=null;
+    function ensureGroup(){
+      if(group)return;
+      group=document.createElement('div');
+      group.className='nav-secondary-group';
+      group.innerHTML='<button type="button" class="nav-secondary-toggle">⋯ Mais <span>⌄</span></button><div class="nav-secondary-body"></div>';
+      nav.appendChild(group);
+      toggle=group.querySelector('.nav-secondary-toggle');
+      body=group.querySelector('.nav-secondary-body');
+      toggle.onclick=()=>group.classList.toggle('open');
+    }
+    function regroup(){
+      ensureGroup();
+      const secondary=['suporte','mensalidade','cadastros p/ oferta','instalar aplicativo'];
+      [...nav.querySelectorAll(':scope > button')].forEach(btn=>{
+        const txt=(btn.textContent||'').trim().toLowerCase();
+        if(secondary.some(x=>txt.includes(x)))body.appendChild(btn);
+      });
+      if(!body.children.length)group.style.display='none';else group.style.display='';
+    }
+    const observer=new MutationObserver(()=>setTimeout(regroup,20));
+    observer.observe(nav,{childList:true,subtree:false});
+    setTimeout(regroup,100);
+    setTimeout(regroup,1200);
+  })();
+
 })();
