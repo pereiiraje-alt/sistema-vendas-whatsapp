@@ -259,40 +259,87 @@
     setInterval(renderGuide,1800);
   })();
 
-  // Agrupa itens menos usados para deixar o menu principal mais limpo.
-  (function setupCompactSidebar(){
+  // Mantém o menu simples no computador e no celular.
+  (function setupCleanNavigation(){
     const nav=document.getElementById('nav');
-    if(!nav)return;
-    let group=null,body=null,toggle=null;
-    function ensureGroup(){
-      if(group)return;
+    const submenu=document.getElementById('auctionsSubmenu');
+    if(!nav||!submenu)return;
+
+    let group=document.getElementById('moreMenu');
+    let body=document.getElementById('secondaryMenuBody');
+    if(!group){
       group=document.createElement('div');
+      group.id='moreMenu';
       group.className='nav-secondary-group';
-      group.innerHTML='<button type="button" class="nav-secondary-toggle">⋯ Mais <span>⌄</span></button><div class="nav-secondary-body"></div>';
+      group.innerHTML='<button type="button" class="nav-secondary-toggle">⋯ Mais <span>⌄</span></button><div class="nav-secondary-body" id="secondaryMenuBody"></div>';
       nav.appendChild(group);
-      toggle=group.querySelector('.nav-secondary-toggle');
-      body=group.querySelector('.nav-secondary-body');
-      toggle.onclick=e=>{
+      body=group.querySelector('#secondaryMenuBody');
+    }
+
+    const toggle=group.querySelector('.nav-secondary-toggle');
+    if(toggle&&!toggle.dataset.bound){
+      toggle.dataset.bound='1';
+      toggle.addEventListener('click',e=>{
         e.preventDefault();
         e.stopPropagation();
         group.classList.toggle('open');
-        document.querySelector('.sidebar')?.classList.add('open');
-      };
-      toggle.addEventListener('pointerup',e=>e.stopPropagation());
-    }
-    function regroup(){
-      ensureGroup();
-      const secondary=['suporte','mensalidade','cadastros p/ oferta','instalar aplicativo'];
-      [...nav.querySelectorAll(':scope > button')].forEach(btn=>{
-        const txt=(btn.textContent||'').trim().toLowerCase();
-        if(secondary.some(x=>txt.includes(x)))body.appendChild(btn);
+        if(window.matchMedia('(max-width:650px)').matches)document.querySelector('.sidebar')?.classList.add('open');
       });
-      if(!body.children.length)group.style.display='none';else group.style.display='';
     }
-    const observer=new MutationObserver(()=>setTimeout(regroup,20));
-    observer.observe(nav,{childList:true,subtree:false});
-    setTimeout(regroup,100);
-    setTimeout(regroup,1200);
+
+    let organizing=false;
+    function textOf(el){return (el?.textContent||'').replace(/\s+/g,' ').trim().toLowerCase()}
+    function isSecondary(btn){
+      const t=textOf(btn);
+      const page=String(btn.dataset?.page||'').toLowerCase();
+      return page==='taxas'||page==='suporte'||page==='mensalidade'||page==='historico'||page==='cadastros-leilao'||
+        btn.id==='myPlatformBidsButton'||btn.id==='platformAuctionsButtonStatic'||
+        /meu plano|suporte|mensalidade|instalar aplicativo|cadastros p\/ oferta|histórico|minhas ofertas na plataforma|vendas da plataforma|leilões da plataforma|ofertas da plataforma/.test(t);
+    }
+    function isCreate(btn){const t=textOf(btn),p=String(btn.dataset?.page||'');return /criar venda/.test(t)||['lotes','produtos','criarleilao'].includes(p)}
+    function isMySales(btn){const t=textOf(btn),p=String(btn.dataset?.page||'');return p==='leiloes'||/minhas vendas|meus vendas/.test(t)}
+    function isOffers(btn){const t=textOf(btn),p=String(btn.dataset?.page||'');return (p==='lances'||p==='ofertas'||/^↗?\s*ofertas$/.test(t))&&!/plataforma/.test(t)}
+    function isInterested(btn){const t=textOf(btn),p=String(btn.dataset?.page||'');return p==='participantes'||p==='interessados'||/^♙?\s*interessados$/.test(t)}
+
+    function moveIfNeeded(el,parent){if(el&&el.parentElement!==parent)parent.appendChild(el)}
+    function organize(){
+      if(organizing)return;
+      organizing=true;
+      try{
+        const all=[...nav.querySelectorAll('button')].filter(b=>!b.classList.contains('nav-parent')&&!b.classList.contains('nav-secondary-toggle'));
+        const create=all.find(isCreate);
+        const sales=all.find(isMySales);
+        const offers=all.find(isOffers);
+        const interested=all.find(isInterested);
+        [create,sales,offers,interested].filter(Boolean).forEach(b=>moveIfNeeded(b,submenu));
+
+        [...nav.querySelectorAll('button')].forEach(btn=>{
+          if(isSecondary(btn))moveIfNeeded(btn,body);
+        });
+
+        if(create)create.textContent='＋ Criar venda';
+        if(sales)sales.textContent='• Minhas vendas';
+        if(offers)offers.textContent='↗ Ofertas';
+        if(interested)interested.textContent='♙ Interessados';
+
+        const dashboard=nav.querySelector('[data-page="dashboard"]');
+        const auctions=document.getElementById('auctionsMenu');
+        const buyers=[...nav.querySelectorAll('button')].find(b=>String(b.dataset?.page||'')==='arrematantes');
+        const wallet=[...nav.querySelectorAll('button')].find(b=>String(b.dataset?.page||'')==='carteira');
+        const config=[...nav.querySelectorAll('button')].find(b=>String(b.dataset?.page||'')==='config');
+        [dashboard,auctions,buyers,wallet,config,group].filter(Boolean).forEach(el=>moveIfNeeded(el,nav));
+
+        group.style.display=body.children.length?'':'none';
+      }finally{organizing=false}
+    }
+
+    let timer;
+    const observer=new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(organize,30)});
+    observer.observe(nav,{subtree:true,childList:true,characterData:true});
+    organize();
+    setTimeout(organize,250);
+    setTimeout(organize,1000);
+    setTimeout(organize,2200);
   })();
 
 })();
