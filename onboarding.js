@@ -101,7 +101,7 @@
     }
   })();
 
-  // Permite que cada empresa informe a cidade/UF que aparecerá nos leilões públicos.
+  // Permite que cada empresa informe a cidade/UF que aparecerá nas ofertas públicas.
   (function setupCompanyLocation(){
     if(!client)return;
     let loading=false;
@@ -124,7 +124,7 @@
         const panel=document.createElement('div');
         panel.className='panel';
         panel.id='companyLocationPanel';
-        panel.innerHTML=`<h3>Local do leilão</h3><p class="muted">Informe a cidade e o estado. Esse local aparecerá junto ao nome da empresa nos leilões públicos.</p><form id="companyLocationForm"><div class="grid2"><label>Cidade<input id="companyCity" maxlength="100" placeholder="Ex.: Curitiba" value="${String(company.city||'').replace(/"/g,'&quot;')}"></label><label>Estado (UF)<input id="companyState" maxlength="2" placeholder="PR" value="${String(company.state||'').replace(/"/g,'&quot;').toUpperCase()}"></label></div><div class="actions"><button class="primary" type="submit">Salvar localização</button></div><p id="companyLocationMessage" class="muted"></p></form>`;
+        panel.innerHTML=`<h3>Local da venda</h3><p class="muted">Informe a cidade e o estado. Esse local aparecerá junto ao nome da empresa nas ofertas públicas.</p><form id="companyLocationForm"><div class="grid2"><label>Cidade<input id="companyCity" maxlength="100" placeholder="Ex.: Curitiba" value="${String(company.city||'').replace(/"/g,'&quot;')}"></label><label>Estado (UF)<input id="companyState" maxlength="2" placeholder="PR" value="${String(company.state||'').replace(/"/g,'&quot;').toUpperCase()}"></label></div><div class="actions"><button class="primary" type="submit">Salvar localização</button></div><p id="companyLocationMessage" class="muted"></p></form>`;
         app.appendChild(panel);
         const form=panel.querySelector('#companyLocationForm');
         form.onsubmit=async e=>{
@@ -139,7 +139,7 @@
           try{
             const {error}=await client.from('companies').update({city,state,updated_at:new Date().toISOString()}).eq('id',company.id);
             if(error)throw error;
-            msg.textContent='Localização salva. Ela já aparecerá nos leilões públicos.';
+            msg.textContent='Localização salva. Ela já aparecerá nas ofertas públicas.';
             form.querySelector('#companyState').value=state;
           }catch(err){msg.textContent='Não foi possível salvar: '+(err.message||err)}
           finally{btn.disabled=false;btn.textContent='Salvar localização';}
@@ -158,14 +158,14 @@
     d=document.createElement('dialog');
     d.id='firstAuctionModal';
     d.innerHTML=`<form id="firstAuctionForm">
-      <div class="modal-head"><div><h2>Crie seu primeiro leilão</h2><p class="muted">Antes de cadastrar lotes, configure o leilão da sua empresa.</p></div><button type="button" id="closeFirstAuction">×</button></div>
-      <label>Nome do leilão<input id="faTitle" required maxlength="120" placeholder="Ex.: Leilão de veículos - Outubro"></label>
+      <div class="modal-head"><div><h2>Crie sua primeira venda</h2><p class="muted">Antes de cadastrar produtos, configure sua primeira venda por lances.</p></div><button type="button" id="closeFirstAuction">×</button></div>
+      <label>Nome da venda<input id="faTitle" required maxlength="120" placeholder="Ex.: Oferta especial de veículos"></label>
       <div class="grid2">
         <label>Início<input id="faStart" type="datetime-local" required></label>
         <label>Encerramento<input id="faEnd" type="datetime-local" required></label>
       </div>
-      <label>Descrição<input id="faDescription" maxlength="240" placeholder="Informações gerais do leilão"></label>
-      <div class="actions"><button type="button" class="ghost" id="cancelFirstAuction">Agora não</button><button type="submit" class="primary" id="createFirstAuction">Criar leilão e continuar</button></div>
+      <label>Descrição<input id="faDescription" maxlength="240" placeholder="Informações gerais da venda"></label>
+      <div class="actions"><button type="button" class="ghost" id="cancelFirstAuction">Agora não</button><button type="submit" class="primary" id="createFirstAuction">Criar venda e continuar</button></div>
       <p class="muted" id="faMessage"></p>
     </form>`;
     document.body.appendChild(d);
@@ -192,9 +192,9 @@
         const payload={company_id:member.company_id,title:d.querySelector('#faTitle').value.trim(),status,starts_at:starts.toISOString(),ends_at:ends.toISOString()};
         const {error}=await client.from('auctions').insert(payload);
         if(error)throw error;
-        msg.textContent='Leilão criado com sucesso. Liberando cadastro de lotes...';
+        msg.textContent='Venda criada com sucesso. Liberando cadastro de produtos...';
         setTimeout(()=>location.reload(),700);
-      }catch(err){msg.textContent='Não foi possível criar o leilão: '+err.message;btn.disabled=false;btn.textContent='Criar leilão e continuar';}
+      }catch(err){msg.textContent='Não foi possível criar a venda: '+err.message;btn.disabled=false;btn.textContent='Criar venda e continuar';}
     };
     return d;
   }
@@ -202,9 +202,60 @@
   window.openFirstAuction=()=>ensureDialog().showModal();
   window.alert=(message)=>{
     const text=String(message||'');
-    if(text.includes('Crie/ative um leilão antes de cadastrar lotes')||text.includes('ter um leilão ativo')){
+    if(text.includes('Crie ou ative uma venda antes de cadastrar produtos')||text.includes('ter uma venda ativa')){
       openFirstAuction();return;
     }
     originalAlert(message);
   };
+  // Guia simples para novos vendedores: aparece somente até ser dispensado.
+  (function setupSellerGuide(){
+    if(!client)return;
+    let busy=false;
+    async function renderGuide(){
+      if(busy||document.body.classList.contains('public-lot'))return;
+      const app=document.getElementById('app');
+      if(!app||document.getElementById('sellerGettingStarted'))return;
+      if(document.getElementById('title')?.textContent?.trim()!=='Dashboard')return;
+      busy=true;
+      try{
+        const {data:{session}}=await client.auth.getSession();
+        if(!session)return;
+        const {data:member}=await client.from('company_members').select('company_id').eq('user_id',session.user.id).limit(1).maybeSingle();
+        if(!member?.company_id)return;
+        const storageKey='jp-guide-dismissed-'+member.company_id;
+        if(localStorage.getItem(storageKey)==='1')return;
+        const [{count:auctionCount},{count:lotCount}]=await Promise.all([
+          client.from('auctions').select('*',{count:'exact',head:true}).eq('company_id',member.company_id),
+          client.from('lots').select('*',{count:'exact',head:true}).eq('company_id',member.company_id)
+        ]);
+        const panel=document.createElement('section');
+        panel.id='sellerGettingStarted';
+        panel.className='seller-guide';
+        const hasSale=Number(auctionCount||0)>0,hasProduct=Number(lotCount||0)>0;
+        panel.innerHTML=`
+          <div class="seller-guide-head">
+            <div><small>COMECE POR AQUI</small><h3>Faça sua primeira venda pelo WhatsApp</h3><p>Em poucos minutos você publica um produto e começa a receber ofertas.</p></div>
+            <button type="button" class="seller-guide-close" aria-label="Fechar">×</button>
+          </div>
+          <div class="seller-guide-steps">
+            <button type="button" class="${hasSale?'done':''}" data-guide="sale"><span>${hasSale?'✓':'1'}</span><div><b>Criar uma venda</b><small>Defina nome, início e encerramento</small></div></button>
+            <button type="button" class="${hasProduct?'done':''}" data-guide="product"><span>${hasProduct?'✓':'2'}</span><div><b>Adicionar produto</b><small>Foto, valor inicial e incremento</small></div></button>
+            <button type="button" data-guide="share"><span>3</span><div><b>Compartilhar no WhatsApp</b><small>Envie o link para clientes e grupos</small></div></button>
+            <button type="button" data-guide="track"><span>4</span><div><b>Acompanhar ofertas</b><small>Veja interessados, valores e pagamentos</small></div></button>
+          </div>`;
+        const welcome=app.querySelector('.dash-welcome');
+        if(welcome)welcome.insertAdjacentElement('afterend',panel);else app.prepend(panel);
+        panel.querySelector('.seller-guide-close').onclick=()=>{localStorage.setItem(storageKey,'1');panel.remove()};
+        panel.querySelector('[data-guide="sale"]').onclick=()=>window.openFirstAuction?.();
+        panel.querySelector('[data-guide="product"]').onclick=()=>document.querySelector('[data-page="lotes"]')?.click();
+        panel.querySelector('[data-guide="share"]').onclick=()=>document.querySelector('[data-page="leiloes"]')?.click();
+        panel.querySelector('[data-guide="track"]').onclick=()=>document.querySelector('[data-page="lances"]')?.click();
+      }catch(err){console.warn('Guia inicial:',err?.message||err)}
+      finally{busy=false}
+    }
+    const observer=new MutationObserver(()=>setTimeout(renderGuide,60));
+    observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+    setInterval(renderGuide,1800);
+  })();
+
 })();
