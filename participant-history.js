@@ -4,10 +4,10 @@
 
   const submenu=document.querySelector('#auctionsSubmenu');
   const dashboardBtn=nav.querySelector('[data-page="dashboard"]');
-  const createBtn=nav.querySelector('[data-page="lotes"]');
+  const createBtn=nav.querySelector('[data-page="produtos"]');
   const myAuctionsBtn=nav.querySelector('[data-page="leiloes"]');
-  const participantsBtn=nav.querySelector('[data-page="participantes"]');
-  const bidsBtn=nav.querySelector('[data-page="lances"]');
+  const participantsBtn=nav.querySelector('[data-page="interessados"]');
+  const bidsBtn=nav.querySelector('[data-page="ofertas"]');
 
   let btn=nav.querySelector('[data-page="historico"]');
   if(!btn){
@@ -21,19 +21,19 @@
     registrationsBtn=document.createElement('button');
     registrationsBtn.type='button';
     registrationsBtn.dataset.page='cadastros-leilao';
-    registrationsBtn.textContent='📝 Cadastros p/ lance';
+    registrationsBtn.textContent='📝 Cadastros p/ oferta';
   }
 
   function organizeAuctionMenu(){
     if(!submenu)return;
 
-    const allPlatformButtons=[...nav.querySelectorAll('button')].filter(el=>/leilões da plataforma/i.test(el.textContent||'')||String(el.getAttribute('onclick')||'').includes('explorar'));
+    const allPlatformButtons=[...nav.querySelectorAll('button')].filter(el=>/vendas da plataforma/i.test(el.textContent||'')||String(el.getAttribute('onclick')||'').includes('explorar'));
     let platformBtn=allPlatformButtons[0];
     allPlatformButtons.slice(1).forEach(el=>el.remove());
     if(!platformBtn)platformBtn=document.createElement('button');
     platformBtn.type='button';
     platformBtn.id='platformAuctionsButtonStatic';
-    platformBtn.textContent='🌐 Leilões da plataforma';
+    platformBtn.textContent='🌐 Vendas da plataforma';
     platformBtn.removeAttribute('data-page');
     platformBtn.removeAttribute('onclick');
     platformBtn.onclick=e=>{e.preventDefault();e.stopPropagation();window.location.href='/explorar.html'};
@@ -41,12 +41,12 @@
 
     const ordered=[createBtn,myAuctionsBtn,participantsBtn,btn].filter(Boolean);
     ordered.forEach(el=>submenu.appendChild(el));
-    if(createBtn)createBtn.textContent='＋ Criar leilão';
-    if(myAuctionsBtn)myAuctionsBtn.textContent='• Meus leilões';
-    if(participantsBtn)participantsBtn.textContent='♙ Participantes';
+    if(createBtn)createBtn.textContent='＋ Criar venda';
+    if(myAuctionsBtn)myAuctionsBtn.textContent='• Meus vendas';
+    if(participantsBtn)participantsBtn.textContent='♙ Interessados';
     btn.textContent='◷ Histórico';
 
-    registrationsBtn.textContent='📝 Cadastros p/ lance';
+    registrationsBtn.textContent='📝 Cadastros p/ oferta';
     if(registrationsBtn.parentElement!==nav)nav.insertBefore(registrationsBtn,bidsBtn||null);
     else if(bidsBtn&&registrationsBtn.nextElementSibling!==bidsBtn)nav.insertBefore(registrationsBtn,bidsBtn);
   }
@@ -79,52 +79,52 @@
 
   async function renderRegistrations(){
     styles();
-    title.textContent='Cadastros para lance';
-    subtitle.textContent='Quem se cadastrou para participar dos seus leilões';
+    title.textContent='Cadastros para oferta';
+    subtitle.textContent='Quem se cadastrou para participar dos seus vendas';
     document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===registrationsBtn));
-    if(!currentCompany){app.innerHTML='<div class="panel"><h3>Cadastros para lance</h3><p>Faça login como empresa.</p></div>';return}
-    app.innerHTML='<div class="panel"><h3>Cadastros para dar lance</h3><p class="muted">Carregando participantes dos seus leilões...</p></div>';
+    if(!currentCompany){app.innerHTML='<div class="panel"><h3>Cadastros para oferta</h3><p>Faça login como empresa.</p></div>';return}
+    app.innerHTML='<div class="panel"><h3>Cadastros para ofertar</h3><p class="muted">Carregando interessados dos seus vendas...</p></div>';
     try{
       const {data,error}=await db.rpc('company_auction_participant_registrations');
       if(error)throw error;
       const rows=Array.isArray(data)?data:[];
       if(!rows.length){
-        app.innerHTML='<div class="panel"><h3>Cadastros para dar lance</h3><p class="muted">Ainda não há participantes registrados nos seus leilões. Os próximos acessos aos lotes serão registrados automaticamente.</p></div>';
+        app.innerHTML='<div class="panel"><h3>Cadastros para ofertar</h3><p class="muted">Ainda não há interessados registrados nos seus vendas. Os próximos acessos aos produtos serão registrados automaticamente.</p></div>';
         return;
       }
       const groups=new Map();
       for(const row of rows){
         const key=String(row.auction_id||'sem-leilao');
-        if(!groups.has(key))groups.set(key,{title:row.auction_title||'Leilão',status:row.auction_status||'',items:[]});
+        if(!groups.has(key))groups.set(key,{title:row.auction_title||'Venda',status:row.auction_status||'',items:[]});
         groups.get(key).items.push(row);
       }
-      const cards=[...groups.values()].map(group=>`<div class="panel registration-group"><div class="toolbar"><div><h3 style="margin:0">${safe(group.title)}</h3><p class="registration-company">${group.items.length} participante(s) cadastrado(s)</p></div><span class="badge">${safe(group.status||'')}</span></div><div class="history-table-wrap"><table><thead><tr><th>PARTICIPANTE</th><th>E-MAIL</th><th>WHATSAPP</th><th>CPF</th><th>LOTE</th><th>CADASTRO</th></tr></thead><tbody>${group.items.map(x=>{const phoneDigits=digits(x.participant_phone);const phone=phoneDigits?`<a class="history-phone" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}" target="_blank" rel="noopener">${safe(x.participant_phone)}</a>`:'—';return `<tr><td><b>${safe(x.participant_name||'Participante')}</b></td><td>${safe(x.participant_email||'—')}</td><td>${phone}</td><td>${safe(x.participant_cpf||'—')}</td><td>${safe(x.lot_title||'—')}</td><td>${dateLabel(x.registered_at)}</td></tr>`}).join('')}</tbody></table></div></div>`).join('');
-      app.innerHTML=`<div class="cards"><div class="card"><small>Leilões com cadastros</small><h2>${groups.size}</h2><span class="up">Somente desta empresa</span></div><div class="card"><small>Participações</small><h2>${rows.length}</h2><span class="up">Cadastros para dar lance</span></div></div>${cards}`;
-    }catch(error){app.innerHTML=`<div class="panel"><h3>Cadastros para lance</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
+      const cards=[...groups.values()].map(group=>`<div class="panel registration-group"><div class="toolbar"><div><h3 style="margin:0">${safe(group.title)}</h3><p class="registration-company">${group.items.length} interessado(s) cadastrado(s)</p></div><span class="badge">${safe(group.status||'')}</span></div><div class="history-table-wrap"><table><thead><tr><th>INTERESSADO</th><th>E-MAIL</th><th>WHATSAPP</th><th>CPF</th><th>LOTE</th><th>CADASTRO</th></tr></thead><tbody>${group.items.map(x=>{const phoneDigits=digits(x.participant_phone);const phone=phoneDigits?`<a class="history-phone" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}" target="_blank" rel="noopener">${safe(x.participant_phone)}</a>`:'—';return `<tr><td><b>${safe(x.participant_name||'Interessado')}</b></td><td>${safe(x.participant_email||'—')}</td><td>${phone}</td><td>${safe(x.participant_cpf||'—')}</td><td>${safe(x.lot_title||'—')}</td><td>${dateLabel(x.registered_at)}</td></tr>`}).join('')}</tbody></table></div></div>`).join('');
+      app.innerHTML=`<div class="cards"><div class="card"><small>Vendas com cadastros</small><h2>${groups.size}</h2><span class="up">Somente desta empresa</span></div><div class="card"><small>Participações</small><h2>${rows.length}</h2><span class="up">Cadastros para ofertar</span></div></div>${cards}`;
+    }catch(error){app.innerHTML=`<div class="panel"><h3>Cadastros para oferta</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
   }
 
   async function renderHistory(){
-    styles();title.textContent='Histórico';subtitle.textContent='Participantes dos leilões e valores já gastos';
+    styles();title.textContent='Histórico';subtitle.textContent='Interessados dos vendas e valores já gastos';
     document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===btn));
     if(!currentCompany){app.innerHTML='<div class="panel"><h3>Histórico</h3><p>Faça login como empresa.</p></div>';return}
-    app.innerHTML='<div class="panel"><h3>Histórico de participantes</h3><p class="muted">Carregando participantes e pagamentos...</p></div>';
+    app.innerHTML='<div class="panel"><h3>Histórico de interessados</h3><p class="muted">Carregando interessados e pagamentos...</p></div>';
     try{
       await reconcilePayments();
       const [{data:participants,error:participantsError},{data:bids,error:bidsError},{data:wins,error:winsError}]=await Promise.all([
-        timeout(db.from('participants').select('id,full_name,phone,email,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),9000,'carregar participantes'),
-        timeout(db.from('bids').select('participant_id,lot_id,amount,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),9000,'carregar histórico de lances'),
-        timeout(db.from('arremates').select('id,participant_id,total_amount,winning_bid,created_at').eq('company_id',currentCompany.id),9000,'carregar arremates')
+        timeout(db.from('participants').select('id,full_name,phone,email,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),9000,'carregar interessados'),
+        timeout(db.from('bids').select('participant_id,lot_id,amount,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),9000,'carregar histórico de ofertas'),
+        timeout(db.from('vendas').select('id,participant_id,total_amount,winning_bid,created_at').eq('company_id',currentCompany.id),9000,'carregar vendas')
       ]);
       if(participantsError)throw participantsError;if(bidsError)throw bidsError;if(winsError)throw winsError;
-      if(!participants?.length){app.innerHTML='<div class="panel"><h3>Histórico de participantes</h3><p class="muted">Ainda não há participantes cadastrados nesta empresa.</p></div>';return}
+      if(!participants?.length){app.innerHTML='<div class="panel"><h3>Histórico de interessados</h3><p class="muted">Ainda não há interessados cadastrados nesta empresa.</p></div>';return}
       const arremateIds=(wins||[]).map(x=>x.id).filter(Boolean);let payments=[];
       if(arremateIds.length){const {data,error}=await timeout(db.from('payments').select('arremate_id,status,amount,paid_at').in('arremate_id',arremateIds),9000,'carregar pagamentos');if(error)throw error;payments=data||[]}
       const paymentMap=new Map(payments.map(x=>[x.arremate_id,x]));const rows=new Map();
-      for(const p of participants||[])rows.set(p.id,{id:p.id,name:p.full_name||'Participante',phone:p.phone||'',email:p.email||'',bids:0,lots:new Set(),wins:0,spent:0,lastActivity:p.created_at||null});
+      for(const p of participants||[])rows.set(p.id,{id:p.id,name:p.full_name||'Interessado',phone:p.phone||'',email:p.email||'',bids:0,lots:new Set(),wins:0,spent:0,lastActivity:p.created_at||null});
       for(const bid of bids||[]){const row=rows.get(bid.participant_id);if(!row)continue;row.bids+=1;if(bid.lot_id)row.lots.add(bid.lot_id);if(!row.lastActivity||new Date(bid.created_at)>new Date(row.lastActivity))row.lastActivity=bid.created_at}
       for(const win of wins||[]){const row=rows.get(win.participant_id);if(!row)continue;row.wins+=1;const payment=paymentMap.get(win.id);if(payment?.status==='paid')row.spent+=Number(payment.amount||win.total_amount||win.winning_bid||0);if(!row.lastActivity||new Date(win.created_at)>new Date(row.lastActivity))row.lastActivity=win.created_at}
       const list=[...rows.values()].sort((a,b)=>b.spent-a.spent||b.bids-a.bids||String(a.name).localeCompare(String(b.name),'pt-BR'));const totalSpent=list.reduce((sum,x)=>sum+x.spent,0);const totalBids=list.reduce((sum,x)=>sum+x.bids,0);const totalWins=list.reduce((sum,x)=>sum+x.wins,0);
-      app.innerHTML=`<div class="history-summary"><div class="card"><small>Participantes</small><h2>${list.length}</h2><span class="up">Cadastrados nos leilões</span></div><div class="card"><small>Lances</small><h2>${totalBids}</h2><span class="up">Lances registrados</span></div><div class="card"><small>Arremates</small><h2>${totalWins}</h2><span class="up">Lotes vencidos</span></div><div class="card"><small>Total gasto</small><h2>${currency(totalSpent)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Quem já participou</h3><p class="muted">Participantes cadastrados, quantidade de lances e quanto cada pessoa já pagou na plataforma.</p><div class="history-table-wrap"><table><thead><tr><th>PARTICIPANTE</th><th>TELEFONE</th><th>LOTES PARTICIPADOS</th><th>LANCES</th><th>ARREMATES</th><th>VALOR GASTO</th><th>ÚLTIMA PARTICIPAÇÃO</th></tr></thead><tbody>${list.map(row=>{const phoneDigits=digits(row.phone);const phone=phoneDigits?`<a class="history-phone" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';return `<tr><td><div class="history-person"><strong>${safe(row.name)}</strong><span class="history-muted">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.lots.size}</strong></td><td><strong>${row.bids}</strong></td><td><strong>${row.wins}</strong></td><td class="${row.spent>0?'history-spent':'history-zero'}">${currency(row.spent)}</td><td>${dateLabel(row.lastActivity)}</td></tr>`}).join('')}</tbody></table></div></div>`;
+      app.innerHTML=`<div class="history-summary"><div class="card"><small>Interessados</small><h2>${list.length}</h2><span class="up">Cadastrados nos vendas</span></div><div class="card"><small>Ofertas</small><h2>${totalBids}</h2><span class="up">Ofertas registrados</span></div><div class="card"><small>Vendas</small><h2>${totalWins}</h2><span class="up">Produtos vencidos</span></div><div class="card"><small>Total gasto</small><h2>${currency(totalSpent)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Quem já participou</h3><p class="muted">Interessados cadastrados, quantidade de ofertas e quanto cada pessoa já pagou na plataforma.</p><div class="history-table-wrap"><table><thead><tr><th>INTERESSADO</th><th>TELEFONE</th><th>PRODUTOS PARTICIPADOS</th><th>OFERTAS</th><th>VENDAS</th><th>VALOR GASTO</th><th>ÚLTIMA PARTICIPAÇÃO</th></tr></thead><tbody>${list.map(row=>{const phoneDigits=digits(row.phone);const phone=phoneDigits?`<a class="history-phone" href="https://wa.me/55${phoneDigits.replace(/^55/,'')}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';return `<tr><td><div class="history-person"><strong>${safe(row.name)}</strong><span class="history-muted">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.lots.size}</strong></td><td><strong>${row.bids}</strong></td><td><strong>${row.wins}</strong></td><td class="${row.spent>0?'history-spent':'history-zero'}">${currency(row.spent)}</td><td>${dateLabel(row.lastActivity)}</td></tr>`}).join('')}</tbody></table></div></div>`;
     }catch(error){app.innerHTML=`<div class="panel"><h3>Histórico</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
   }
 
