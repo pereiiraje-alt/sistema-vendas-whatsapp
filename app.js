@@ -31,12 +31,14 @@ async function dashboard(){
   }
 
   const liveLots=lots.filter(x=>x.status==='live'&&(!x.ends||Date.now()<new Date(x.ends))).length;
+  const saleIsLive=!!currentAuction&&String(currentAuction.status||'').toLowerCase()==='live'&&(!currentAuction.ends_at||Date.now()<new Date(currentAuction.ends_at));
   const highestBid=Math.max(0,...lots.map(x=>Number(x.current||0)),...bids.map(x=>Number(x.amount||0)));
   const totalSold=wins.reduce((sum,x)=>sum+Number(x.total_amount||x.winning_bid||0),0);
   const pendingPayments=payments.filter(x=>!['paid','approved'].includes(String(x.status||'').toLowerCase())&&!['cancelled','canceled'].includes(String(x.status||'').toLowerCase())).length;
   const paidAmount=payments.filter(x=>['paid','approved'].includes(String(x.status||'').toLowerCase())).reduce((sum,x)=>sum+Number(x.amount||0),0);
   const uniqueParticipants=new Set(bids.map(x=>x.participant_id).filter(Boolean)).size;
-  const auctionTitle=esc(currentAuction?.title||'Nenhuma venda em andamento');
+  const rawAuctionTitle=String(currentAuction?.title||'Nenhuma venda em andamento').replace(/^Leilão\b/i,'Venda');
+  const auctionTitle=esc(rawAuctionTitle);
   const auctionEnds=currentAuction?.ends_at||lots.filter(x=>x.status==='live'&&x.ends).sort((a,b)=>new Date(a.ends)-new Date(b.ends))[0]?.ends||'';
   const shareLotId=(lots.find(x=>x.status==='live'&&(!x.ends||Date.now()<new Date(x.ends)))||lots[0])?.id||'';
   const recent=[];
@@ -52,7 +54,7 @@ async function dashboard(){
 
   app.innerHTML=`
     <div class="dash-compact-metrics">
-      <article><small>Vendas ativas</small><b>${currentAuction?1:0}</b><span>${liveLots} produto(s) ao vivo</span></article>
+      <article><small>Vendas ativas</small><b>${saleIsLive?1:0}</b><span>${liveLots?liveLots+' produto(s) ao vivo':lots.length+' produto(s) cadastrado(s)'}</span></article>
       <article><small>Ofertas</small><b>${bids.length}</b><span>Maior: ${money(highestBid)}</span></article>
       <article><small>Total vendido</small><b>${money(totalSold)}</b><span>${wins.length} venda(s)</span></article>
       <article><small>Recebido</small><b>${money(paidAmount)}</b><span>${pendingPayments?pendingPayments+' pendente(s)':'Tudo em dia'}</span></article>
@@ -61,9 +63,9 @@ async function dashboard(){
     <section class="panel dash-focus-sale">
       <div class="dash-focus-head">
         <div>
-          <span class="dash-live-pill">${currentAuction?'● AO VIVO':'SEM VENDA ATIVA'}</span>
+          <span class="dash-live-pill">${saleIsLive?'● AO VIVO':currentAuction?'VENDA CADASTRADA':'SEM VENDA ATIVA'}</span>
           <h2>${auctionTitle}</h2>
-          <p>${currentAuction?'Acompanhe o desempenho da venda e compartilhe com seus clientes.':'Crie uma venda para começar a receber ofertas.'}</p>
+          <p>${saleIsLive?'Acompanhe o desempenho da venda e compartilhe com seus clientes.':currentAuction?'Venda cadastrada. Publique ou reative produtos para voltar a receber ofertas.':'Crie uma venda para começar a receber ofertas.'}</p>
         </div>
         ${auctionEnds?`<div class="dash-countdown"><small>TERMINA EM</small><b class="timer" data-end="${auctionEnds}">${remaining(auctionEnds)}</b></div>`:''}
       </div>
@@ -76,7 +78,7 @@ async function dashboard(){
       </div>
 
       <div class="dash-focus-actions">
-        ${currentAuction?'<button class="primary" onclick="go(\'leiloes\')">Ver venda</button>':'<button class="primary" onclick="openFirstAuction()">＋ Criar venda</button>'}
+        ${currentAuction?'<button class="ghost" onclick="go(\'leiloes\')">Ver venda</button>':'<button class="primary" onclick="openFirstAuction()">＋ Criar venda</button>'}
         <button class="ghost" onclick="go('lotes')">＋ Produto</button>
         ${shareLotId?`<button class="whatsapp" onclick="shareWhats('${shareLotId}')">💬 WhatsApp</button><button class="ghost" onclick="copyOfferLink('${shareLotId}')">🔗 Copiar link</button>`:''}
       </div>
