@@ -246,25 +246,56 @@ if(!mobileMenuBackdrop){
   mobileMenuBackdrop.setAttribute('aria-label','Fechar menu');
   document.body.appendChild(mobileMenuBackdrop);
 }
-function closeMobileMenu(){sidebar?.classList.remove('open');mobileMenuBackdrop?.classList.remove('show')}
-function openMobileMenu(){sidebar?.classList.add('open');mobileMenuBackdrop?.classList.add('show')}
-document.querySelectorAll('#nav button[data-page]').forEach(b=>b.onclick=async()=>{document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.remove('active'));b.classList.add('active');let p=pages[b.dataset.page];if(!p)return;title.textContent=p[1];subtitle.textContent=p[2];try{await p[0]()}catch(e){bootError(e.message)}closeMobileMenu()});
-document.querySelector('#menu').onclick=()=>sidebar?.classList.contains('open')?closeMobileMenu():openMobileMenu();
-mobileMenuBackdrop.onclick=closeMobileMenu;
-// No celular, cliques dentro do menu nunca devem ser tratados como clique externo.
-sidebar?.addEventListener('pointerdown',e=>e.stopPropagation(),true);
-sidebar?.addEventListener('click',e=>e.stopPropagation());
-// Garante que abrir submenus mantenha a lateral e o fundo ativos.
-document.querySelector('#auctionsMenuToggle')?.addEventListener('click',()=>{
-  if(innerWidth<=650){sidebar?.classList.add('open');mobileMenuBackdrop?.classList.add('show')}
-},true);
+function isMobileMenu(){return window.matchMedia('(max-width:650px)').matches}
+function closeMobileMenu(){
+  sidebar?.classList.remove('open');
+  mobileMenuBackdrop?.classList.remove('show');
+}
+function openMobileMenu(){
+  sidebar?.classList.add('open');
+  mobileMenuBackdrop?.classList.add('show');
+}
+document.querySelectorAll('#nav button[data-page]').forEach(b=>b.onclick=async()=>{
+  document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  let p=pages[b.dataset.page];
+  if(!p)return;
+  title.textContent=p[1];
+  subtitle.textContent=p[2];
+  try{await p[0]()}catch(e){bootError(e.message)}
+  if(isMobileMenu())closeMobileMenu();
+});
+document.querySelector('#menu').onclick=e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  sidebar?.classList.contains('open')?closeMobileMenu():openMobileMenu();
+};
+mobileMenuBackdrop.onclick=e=>{e.preventDefault();closeMobileMenu()};
+
+const auctionsMenu=document.querySelector('#auctionsMenu');
+const auctionsMenuToggle=document.querySelector('#auctionsMenuToggle');
+auctionsMenuToggle?.addEventListener('click',e=>{
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  auctionsMenu?.classList.toggle('open');
+  if(isMobileMenu())openMobileMenu();
+});
+
 document.addEventListener('click',e=>{
-  if(innerWidth>650)return;
   const more=e.target.closest?.('.nav-secondary-toggle');
-  if(more){sidebar?.classList.add('open');mobileMenuBackdrop?.classList.add('show')}
-},true);
+  if(more){
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    more.closest('.nav-secondary-group')?.classList.toggle('open');
+    if(isMobileMenu())openMobileMenu();
+    return;
+  }
+  if(!isMobileMenu()||!sidebar?.classList.contains('open'))return;
+  if(sidebar.contains(e.target)||e.target.closest?.('#menu'))return;
+  closeMobileMenu();
+});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileMenu()});
-window.addEventListener('resize',()=>{if(innerWidth>650)closeMobileMenu()});
+window.addEventListener('resize',()=>{if(!isMobileMenu())closeMobileMenu()});
 document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();if(!lotForm.checkValidity())return lotForm.reportValidity();if(!currentCompany||!currentAuction)return alert('É necessário estar vinculado a uma empresa e ter um venda ativo.');try{let image='';let file=limage.files[0];if(file){let path=`${currentCompany.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;let{error:u}=await timeout(db.storage.from('lot-images').upload(path,file),10000,'enviar foto');if(u)throw u;image=db.storage.from('lot-images').getPublicUrl(path).data.publicUrl}let{data:last}=await timeout(db.from('lots').select('lot_number').eq('auction_id',currentAuction.id).order('lot_number',{ascending:false}).limit(1).maybeSingle(),7000,'buscar último lote'),number=(last?.lot_number||0)+1,start=+lstart.value,ends=new Date(Date.now()+60000*(+lduration.value)).toISOString();let{error}=await timeout(db.from('lots').insert({company_id:currentCompany.id,auction_id:currentAuction.id,lot_number:number,title:lname.value,description:ldesc.value||'',image_url:image,valuation:+lvalue.value,starting_bid:start,current_bid:start,min_increment:+lstep.value,status:'live',starts_at:new Date().toISOString(),ends_at:ends}),7000,'salvar lote');if(error)throw error;modal.close();lotForm.reset();await lotes()}catch(e){alert('Erro ao salvar lote: '+e.message)}};
 document.querySelector('#registerForm').onsubmit=async e=>{e.preventDefault();let id=pendingBid;if(!id)return;try{let l=await loadPublicLot(id);let email=remail.value.trim().toLowerCase(),password=rpassword.value;let{data,error}=await timeout(db.auth.signUp({email,password,options:{data:{full_name:rname.value.trim()}}}),7000,'criar cadastro');if(error)throw error;if(!data.user)throw new Error('Não foi possível criar o usuário.');let{data:p,error:pe}=await timeout(db.from('participants').insert({company_id:l.companyId,auth_user_id:data.user.id,full_name:rname.value.trim(),cpf:rcpf.value.trim(),phone:rphone.value.trim(),email,status:'approved'}).select().single(),7000,'salvar participante');if(pe)throw pe;participant={id:p.id,name:p.full_name,cpf:p.cpf,phone:p.phone,email:p.email,companyId:p.company_id};registerModal.close();pendingBid=null;await bid(id)}catch(e){alert('Cadastro: '+e.message)}};
 (async()=>{try{app.innerHTML='<div class="panel"><p>Conectando ao banco...</p></div>';await loadMyContext();let requestedLot=new URLSearchParams(location.search).get('lote');if(requestedLot){title.textContent='Oferta do produto';subtitle.textContent='Acompanhe e faça sua oferta';await openLot(requestedLot)}else await dashboard();window.lanceCertoBootDone=true;if(statusEl){statusEl.textContent='● Banco online';statusEl.style.color=''}}catch(e){console.error(e);bootError(e.message)}})();
