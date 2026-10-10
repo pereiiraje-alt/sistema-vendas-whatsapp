@@ -7,7 +7,7 @@
     btn=document.createElement('button');
     btn.id='myPlatformBidsButton';
     btn.type='button';
-    btn.textContent='↗ Meus lances na plataforma';
+    btn.textContent='↗ Minhas ofertas na plataforma';
     submenu.appendChild(btn);
   }
 
@@ -32,10 +32,10 @@
 
   async function render(){
     ensureStyles();
-    title.textContent='Meus lances na plataforma';
-    subtitle.textContent='Acompanhe leilões de outras empresas e pagamentos pendentes';
+    title.textContent='Minhas ofertas na plataforma';
+    subtitle.textContent='Acompanhe vendas de outras empresas e pagamentos pendentes';
     document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===btn));
-    app.innerHTML='<div class="panel"><h3>Meus lances</h3><p class="muted">Carregando os leilões em que você participou...</p></div>';
+    app.innerHTML='<div class="panel"><h3>Minhas ofertas</h3><p class="muted">Carregando os vendas em que você participou...</p></div>';
 
     try{
       const session=await db.auth.getSession();
@@ -47,11 +47,11 @@
       const ownCompanyId=currentCompany?.id||null;
       const relevant=(participants||[]).filter(p=>!ownCompanyId||String(p.company_id)!==String(ownCompanyId));
       const participantIds=relevant.map(p=>p.id);
-      if(!participantIds.length){app.innerHTML='<div class="panel"><h3>Meus lances na plataforma</h3><p class="muted">Você ainda não deu lances em leilões de outras empresas.</p></div>';return}
+      if(!participantIds.length){app.innerHTML='<div class="panel"><h3>Minhas ofertas na plataforma</h3><p class="muted">Você ainda não deu ofertas em vendas de outras empresas.</p></div>';return}
 
       const {data:bids,error:bErr}=await db.from('bids').select('participant_id,lot_id,amount,created_at').in('participant_id',participantIds).order('created_at',{ascending:false});
       if(bErr)throw bErr;
-      if(!bids?.length){app.innerHTML='<div class="panel"><h3>Meus lances na plataforma</h3><p class="muted">Você ainda não deu lances em leilões de outras empresas.</p></div>';return}
+      if(!bids?.length){app.innerHTML='<div class="panel"><h3>Minhas ofertas na plataforma</h3><p class="muted">Você ainda não deu ofertas em vendas de outras empresas.</p></div>';return}
 
       const latestByLot=new Map();
       for(const bid of bids){if(!latestByLot.has(bid.lot_id))latestByLot.set(bid.lot_id,bid)}
@@ -87,8 +87,8 @@
         const html=rows.map(({lot,bid,win,payment})=>{
           const end=lot.ends_at?new Date(lot.ends_at).getTime():null;
           const active=!end||end>now;
-          let badge='<span class="mpb-badge mpb-live">● Leilão ao vivo</span>';
-          let action='Voltar para o leilão';
+          let badge='<span class="mpb-badge mpb-live">● Venda ao vivo</span>';
+          let action='Voltar para o venda';
           let extra='';
           if(!active){
             if(win){
@@ -96,12 +96,12 @@
               if(payment?.status==='paid'){badge='<span class="mpb-badge mpb-done">✓ Pagamento aprovado</span>';action='Ver arremate';}
               else if(payment?.status==='cancelled'||deadline<=now){badge='<span class="mpb-badge mpb-done">Prazo encerrado</span>';action='Ver resultado';}
               else{badge='<span class="mpb-badge mpb-pay">⚠ Pagamento pendente</span>';action='Continuar pagamento';extra=`<div class="mpb-row"><b>Tempo para pagar</b><strong class="mpb-payment-clock" data-deadline="${deadline}">${remain(deadline-now)}</strong></div>`;}
-            }else{badge='<span class="mpb-badge mpb-done">Leilão encerrado</span>';action='Ver resultado';}
+            }else{badge='<span class="mpb-badge mpb-done">Venda encerrado</span>';action='Ver resultado';}
           }
-          const image=lot.image_url?`<img src="${safe(lot.image_url)}" alt="${safe(lot.title||'Lote')}">`:'🔨';
-          return `<article class="mpb-card"><div class="mpb-img">${image}</div><div class="mpb-body"><div class="mpb-company">${safe(companyMap.get(String(lot.company_id))||'Empresa parceira')}</div><h3>${safe(lot.title||`Lote #${lot.lot_number||''}`)}</h3>${badge}<div class="mpb-row"><span>Seu último lance</span><b>${money(bid.amount)}</b></div><div class="mpb-row"><span>Lance atual</span><b>${money(lot.current_bid||lot.starting_bid)}</b></div><div class="mpb-row"><span>${active?'Termina em':'Encerrado em'}</span><span>${when(lot.ends_at)}</span></div>${extra}<a class="mpb-btn" href="/?lote=${encodeURIComponent(lot.id)}">${action}</a></div></article>`;
+          const image=lot.image_url?`<img src="${safe(lot.image_url)}" alt="${safe(lot.title||'Produto')}">`:'🔨';
+          return `<article class="mpb-card"><div class="mpb-img">${image}</div><div class="mpb-body"><div class="mpb-company">${safe(companyMap.get(String(lot.company_id))||'Empresa parceira')}</div><h3>${safe(lot.title||`Produto #${lot.lot_number||''}`)}</h3>${badge}<div class="mpb-row"><span>Seu último oferta</span><b>${money(bid.amount)}</b></div><div class="mpb-row"><span>Oferta atual</span><b>${money(lot.current_bid||lot.starting_bid)}</b></div><div class="mpb-row"><span>${active?'Termina em':'Encerrado em'}</span><span>${when(lot.ends_at)}</span></div>${extra}<a class="mpb-btn" href="/?produto=${encodeURIComponent(lot.id)}">${action}</a></div></article>`;
         }).join('');
-        app.innerHTML=`<div class="panel"><h3>Leilões em que você deu lance</h3><p class="muted">Esta lista fica salva na sua conta. Você pode sair da página e voltar depois sem perder o acompanhamento do leilão ou do prazo de pagamento.</p><div class="mpb-grid">${html}</div></div>`;
+        app.innerHTML=`<div class="panel"><h3>Vendas em que você deu oferta</h3><p class="muted">Esta lista fica salva na sua conta. Você pode sair da página e voltar depois sem perder o acompanhamento do venda ou do prazo de pagamento.</p><div class="mpb-grid">${html}</div></div>`;
       };
       renderCards();
       const timer=setInterval(()=>{
@@ -109,8 +109,8 @@
         document.querySelectorAll('.mpb-payment-clock').forEach(el=>{const d=Number(el.dataset.deadline);el.textContent=remain(d-Date.now())});
       },1000);
     }catch(error){
-      console.error('Meus lances na plataforma:',error);
-      app.innerHTML=`<div class="panel"><h3>Meus lances na plataforma</h3><p>Não foi possível carregar agora: ${safe(error.message||error)}</p></div>`;
+      console.error('Minhas ofertas na plataforma:',error);
+      app.innerHTML=`<div class="panel"><h3>Minhas ofertas na plataforma</h3><p>Não foi possível carregar agora: ${safe(error.message||error)}</p></div>`;
     }
   }
 
