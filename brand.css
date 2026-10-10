@@ -960,3 +960,62 @@ body:not(.public-lot) .nav-submenu button{color:#afc1b7!important}
   }
   body:not(.public-lot) .sidebar{z-index:30!important}
 }
+
+
+/* Centraliza o modal de novo produto no celular */
+@media(max-width:650px){
+  body:not(.public-lot) dialog#modal,
+  body:not(.public-lot) dialog#registerModal,
+  body:not(.public-lot) dialog#firstAuctionModal{
+    position:fixed!important;
+    inset:50% auto auto 50%!important;
+    transform:translate(-50%,-50%)!important;
+    width:min(94vw,520px)!important;
+    max-width:94vw!important;
+    max-height:88dvh!important;
+    margin:0!important;
+    padding:0!important;
+    border-radius:20px!important;
+    overflow:auto!important;
+  }
+  body:not(.public-lot) dialog#modal form,
+  body:not(.public-lot) dialog#registerModal form,
+  body:not(.public-lot) dialog#firstAuctionModal form{
+    width:100%!important;
+    max-width:100%!important;
+    padding:18px!important;
+    margin:0!important;
+    box-sizing:border-box!important;
+  }
+  body:not(.public-lot) dialog input,
+  body:not(.public-lot) dialog select,
+  body:not(.public-lot) dialog textarea{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
+  body:not(.public-lot) dialog input[type="file"]{
+    display:block!important;
+    width:100%!important;
+    font-size:14px!important;
+    padding:10px!important;
+    overflow:hidden!important;
+  }
+  body:not(.public-lot) dialog .modal-head{
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:#fff;
+    padding-top:2px;
+  }
+  body:not(.public-lot) dialog .actions{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:10px!important;
+  }
+  body:not(.public-lot) dialog .actions button{
+    width:100%!important;
+    min-width:0!important;
+  }
+}
