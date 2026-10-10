@@ -1,5 +1,6 @@
 (()=>{
   const submenu=document.getElementById('auctionsSubmenu');
+  const secondary=document.getElementById('secondaryMenuBody');
   if(!submenu||typeof db==='undefined')return;
 
   let btn=document.getElementById('myPlatformBidsButton');
@@ -8,7 +9,7 @@
     btn.id='myPlatformBidsButton';
     btn.type='button';
     btn.textContent='↗ Minhas ofertas na plataforma';
-    submenu.appendChild(btn);
+    (secondary||submenu).appendChild(btn);
   }
 
   const PAYMENT_LIMIT_MS=10*60*1000;
