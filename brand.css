@@ -931,3 +931,9 @@ body:not(.public-lot) .store span{font-size:9.5px!important}
 .dash-clean-head h3{font-size:17px!important}
 .dash-clean-activity{padding:18px 20px!important}
 body:not(.public-lot) .nav-submenu button{color:#afc1b7!important}
+
+@media(max-width:650px){
+  body:not(.public-lot) .sidebar{overflow-y:auto!important;overscroll-behavior:contain!important}
+  .nav-secondary-group.open .nav-secondary-body{display:flex!important}
+  .nav-secondary-group.open{padding-bottom:8px}
+}
