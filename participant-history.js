@@ -26,29 +26,22 @@
 
   function organizeAuctionMenu(){
     if(!submenu)return;
-
-    const allPlatformButtons=[...nav.querySelectorAll('button')].filter(el=>/vendas da plataforma/i.test(el.textContent||'')||String(el.getAttribute('onclick')||'').includes('explorar'));
-    let platformBtn=allPlatformButtons[0];
-    allPlatformButtons.slice(1).forEach(el=>el.remove());
-    if(!platformBtn)platformBtn=document.createElement('button');
-    platformBtn.type='button';
-    platformBtn.id='platformAuctionsButtonStatic';
-    platformBtn.textContent='🌐 Vendas da plataforma';
-    platformBtn.removeAttribute('data-page');
-    platformBtn.removeAttribute('onclick');
-    platformBtn.onclick=e=>{e.preventDefault();e.stopPropagation();window.location.href='/explorar.html'};
-    nav.insertBefore(platformBtn,dashboardBtn||nav.firstChild);
-
-    const ordered=[createBtn,myAuctionsBtn,participantsBtn,btn].filter(Boolean);
+    const ordered=[createBtn,myAuctionsBtn,participantsBtn].filter(Boolean);
     ordered.forEach(el=>submenu.appendChild(el));
     if(createBtn)createBtn.textContent='＋ Criar venda';
-    if(myAuctionsBtn)myAuctionsBtn.textContent='• Meus vendas';
+    if(myAuctionsBtn)myAuctionsBtn.textContent='• Minhas vendas';
     if(participantsBtn)participantsBtn.textContent='♙ Interessados';
     btn.textContent='◷ Histórico';
-
     registrationsBtn.textContent='📝 Cadastros p/ oferta';
-    if(registrationsBtn.parentElement!==nav)nav.insertBefore(registrationsBtn,bidsBtn||null);
-    else if(bidsBtn&&registrationsBtn.nextElementSibling!==bidsBtn)nav.insertBefore(registrationsBtn,bidsBtn);
+
+    const more=document.getElementById('secondaryMenuBody');
+    if(more){
+      more.appendChild(btn);
+      more.appendChild(registrationsBtn);
+    }else{
+      nav.appendChild(btn);
+      nav.appendChild(registrationsBtn);
+    }
   }
 
   organizeAuctionMenu();
