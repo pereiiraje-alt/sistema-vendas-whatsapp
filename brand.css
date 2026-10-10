@@ -912,3 +912,22 @@ body:not(.public-lot) .store span{font-size:9.5px!important}
  .dash-focus-actions>*{flex:1 1 calc(50% - 9px)}
  .dash-clean-head{align-items:flex-start;flex-direction:column}
 }
+
+
+/* Ajustes finos do dashboard */
+.dash-focus-sale{padding:18px 20px!important}
+.dash-focus-head h2{font-size:22px!important;margin-top:6px!important}
+.dash-focus-stats{margin:16px 0 14px!important}
+.dash-focus-stats>div{padding:12px 14px!important}
+.dash-focus-actions .whatsapp{
+  order:-1;
+  background:#20c866!important;
+  box-shadow:0 8px 18px rgba(37,211,102,.16)!important;
+}
+.dash-focus-actions .primary,
+.dash-focus-actions .ghost{
+  box-shadow:none!important;
+}
+.dash-clean-head h3{font-size:17px!important}
+.dash-clean-activity{padding:18px 20px!important}
+body:not(.public-lot) .nav-submenu button{color:#afc1b7!important}
