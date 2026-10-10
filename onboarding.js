@@ -228,10 +228,11 @@
           client.from('auctions').select('*',{count:'exact',head:true}).eq('company_id',member.company_id),
           client.from('lots').select('*',{count:'exact',head:true}).eq('company_id',member.company_id)
         ]);
+        const hasSale=Number(auctionCount||0)>0,hasProduct=Number(lotCount||0)>0;
+        if(hasSale||hasProduct)return;
         const panel=document.createElement('section');
         panel.id='sellerGettingStarted';
         panel.className='seller-guide';
-        const hasSale=Number(auctionCount||0)>0,hasProduct=Number(lotCount||0)>0;
         panel.innerHTML=`
           <div class="seller-guide-head">
             <div><small>COMECE POR AQUI</small><h3>Faça sua primeira venda pelo WhatsApp</h3><p>Em poucos minutos você publica um produto e começa a receber ofertas.</p></div>
