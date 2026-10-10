@@ -51,7 +51,7 @@
     if(!token)return null;
     const response=await fetch('/api/finalize-lot',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id})});
     const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(data.error||'Não foi possível finalizar o lote.');
+    if(!response.ok)throw new Error(data.error||'Não foi possível finalizar o produto.');
     return data;
   }
 
@@ -133,11 +133,11 @@
     const message=[
       `Olá, ${seller.name||'vendedor'}!`,
       `Meu pagamento foi aprovado na JP Leilões.`,
-      sale.auctionTitle?`Leilão: ${sale.auctionTitle}`:'',
-      sale.lotNumber!=null?`Lote: #${sale.lotNumber}`:'',
+      sale.auctionTitle?`Venda por ofertas: ${sale.auctionTitle}`:'',
+      sale.lotNumber!=null?`Produto: #${sale.lotNumber}`:'',
       sale.lotTitle?`Produto: ${sale.lotTitle}`:'',
       `Valor pago: ${money(amount)}`,
-      sale.arremateId?`Arremate: ${sale.arremateId}`:'',
+      sale.vendaId?`Venda: ${sale.vendaId}`:'',
       `Gostaria de combinar os próximos passos para retirada/entrega.`
     ].filter(Boolean).join('\n');
     const href=`https://wa.me/${String(seller.phone).replace(/\D/g,'')}?text=${encodeURIComponent(message)}`;
@@ -151,7 +151,7 @@
   };
 
   function renderWinnerPayment(box,id,data,lotEnds){
-    const a=data.arremate;const payment=data.payment;const amount=Number(a.total_amount||a.winning_bid||0);
+    const a=data.venda;const payment=data.payment;const amount=Number(a.total_amount||a.winning_bid||0);
     const paid=payment?.status==='paid';
     const expired=payment?.status==='cancelled';
     const selected=['pix','card'].includes(payment?.method)?payment.method:'';
@@ -161,14 +161,14 @@
     box.insertAdjacentHTML('beforeend',`
       <div class="winner-pay" id="winnerPayment">
         ${paid?`<div class="payment-approved"><div class="check">✅</div><h2>Pagamento aprovado</h2><p>Recebemos a confirmação do Mercado Pago.</p><div class="pay-total">${money(amount)}</div></div>${sellerWhatsHtml(data,amount)}`:
-        expired?`<div class="payment-expired"><h3>Prazo de pagamento encerrado</h3><p>O pagamento não foi confirmado em até 30 minutos após o encerramento do leilão. Este arremate foi cancelado e a empresa poderá entrar em contato com o segundo maior lance.</p></div>`:
-        `<h3>🏆 Parabéns, você arrematou!</h3><div>Valor do lote:</div><div class="pay-total">${money(amount)}</div>
-          <div class="payment-deadline">O prazo começou quando o leilão encerrou. Você tem 30 minutos para confirmar o pagamento.<strong id="paymentDeadlineClock">${remainingDeadline(deadline)}</strong></div>
+        expired?`<div class="payment-expired"><h3>Prazo de pagamento encerrado</h3><p>O pagamento não foi confirmado em até 30 minutos após o encerramento do venda por ofertas. Este venda foi cancelado e a empresa poderá entrar em contato com o segundo maior oferta.</p></div>`:
+        `<h3>🏆 Parabéns, você arrematou!</h3><div>Valor do produto:</div><div class="pay-total">${money(amount)}</div>
+          <div class="payment-deadline">O prazo começou quando o venda por ofertas encerrou. Você tem 30 minutos para confirmar o pagamento.<strong id="paymentDeadlineClock">${remainingDeadline(deadline)}</strong></div>
           <span class="pay-label">Escolha a forma de pagamento</span>
           <div class="pay-methods"><button class="pay-method ${selected==='pix'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','pix')">PIX</button><button class="pay-method ${selected==='card'?'active':''}" type="button" onclick="choosePaymentMethod('${id}','card')">Cartão</button></div>
           <div id="paymentChoiceStatus" class="pay-status">${selected?`Forma selecionada: <b>${methodLabel(selected)}</b>`:'Selecione PIX ou cartão para continuar.'}</div>
           <div id="paymentCheckoutWrap">${currentPix||(payment?.checkout_url&&selected!=='pix'?`<a class="pay-checkout" href="${esc(payment.checkout_url)}" target="_blank" rel="noopener">Continuar para pagamento</a>`:'')}</div>
-          <p class="pay-note">Sair da página não reinicia o prazo. O contador continua a partir do horário em que o leilão terminou.</p>`}
+          <p class="pay-note">Sair da página não reinicia o prazo. O contador continua a partir do horário em que o venda por ofertas terminou.</p>`}
       </div>`);
     if(!paid&&!expired){watchDeadline(id,deadline);watchPaymentApproval(id)}else{stopPaymentWatch();stopDeadlineWatch()}
   }
@@ -178,10 +178,10 @@
     const ended=!!(l.ends&&Date.now()>=new Date(l.ends));
     if(!ended){stopPaymentWatch();stopDeadlineWatch();await baseOpenLot(id);watchEnd(id,l.ends);return}
     stopEndWatch();if(!skipReturnSync)await syncReturnedPayment(id);
-    try{lastFinalization=await finalize(id)}catch(e){console.error('Finalização do lote:',e);lastFinalization=null}
+    try{lastFinalization=await finalize(id)}catch(e){console.error('Finalização do produto:',e);lastFinalization=null}
     await baseOpenLot(id);styleOnce();
     const box=document.querySelector('.bidbox');if(!box||!lastFinalization)return;
-    if(!lastFinalization.sold){stopPaymentWatch();stopDeadlineWatch();box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado sem arrematante.</div>');return}
+    if(!lastFinalization.sold){stopPaymentWatch();stopDeadlineWatch();box.insertAdjacentHTML('beforeend','<div class="pay-status">Venda por ofertas encerrado sem comprador.</div>');return}
     if(lastFinalization.isWinner===true){
       if(lastFinalization.payment?.status!=='paid'){
         try{
@@ -198,7 +198,7 @@
       }
       renderWinnerPayment(box,id,lastFinalization,l.ends);
     }else{
-      stopPaymentWatch();stopDeadlineWatch();box.insertAdjacentHTML('beforeend','<div class="pay-status">Leilão encerrado. A forma de pagamento aparece somente para o participante vencedor.</div>');
+      stopPaymentWatch();stopDeadlineWatch();box.insertAdjacentHTML('beforeend','<div class="pay-status">Venda por ofertas encerrado. A forma de pagamento aparece somente para o participante vencedor.</div>');
     }
   }
 
@@ -207,10 +207,10 @@
     try{
       if(!['pix','card'].includes(method))throw new Error('Escolha PIX ou cartão.');
       const checked=await checkPaymentStatus(id);
-      if(checked?.payment?.status==='cancelled'||checked?.expired)throw new Error('O prazo de 30 minutos contado desde o encerramento do leilão terminou. Este arremate foi cancelado.');
+      if(checked?.payment?.status==='cancelled'||checked?.expired)throw new Error('O prazo de 30 minutos contado desde o encerramento do venda por ofertas terminou. Este venda foi cancelado.');
       if(status)status.textContent=method==='pix'?'Gerando QR Code PIX...':'Preparando pagamento no Mercado Pago...';
       const session=await db.auth.getSession();const token=session?.data?.session?.access_token;
-      if(!token)throw new Error('Sua sessão expirou. Entre novamente com a conta usada para dar o lance.');
+      if(!token)throw new Error('Sua sessão expirou. Entre novamente com a conta usada para dar o oferta.');
       const response=await fetch('/api/select-payment-method',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id,method})});
       const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Não foi possível salvar a forma de pagamento.');
       document.querySelectorAll('.pay-method').forEach(b=>b.classList.remove('active'));
@@ -229,5 +229,5 @@
   };
 
   openLot=enhancedOpenLot;window.openLot=enhancedOpenLot;
-  const publicId=new URLSearchParams(location.search).get('lote');if(publicId)setTimeout(()=>enhancedOpenLot(publicId),350);
+  const publicId=new URLSearchParams(location.search).get('produto');if(publicId)setTimeout(()=>enhancedOpenLot(publicId),350);
 })();
