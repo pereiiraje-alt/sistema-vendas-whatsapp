@@ -256,3 +256,560 @@ body:not(.public-lot) #app{max-width:1500px}
  .dash-quick-grid{grid-template-columns:1fr}
  .dash-activity-item{grid-template-columns:34px 1fr}.dash-activity-item time{grid-column:2}
 }
+
+
+/* =========================================================
+   JP LEILÕES — SYSTEM UI V2
+   Padronização visual completa do painel
+   ========================================================= */
+:root{
+  --jp-v2-bg:#f6f8f7;
+  --jp-v2-surface:#ffffff;
+  --jp-v2-surface-soft:#f9fbfa;
+  --jp-v2-forest:#071d15;
+  --jp-v2-forest-2:#0b2b20;
+  --jp-v2-green:#18c86b;
+  --jp-v2-green-2:#12ad59;
+  --jp-v2-green-soft:#e9f9f0;
+  --jp-v2-text:#12231a;
+  --jp-v2-muted:#6d7f75;
+  --jp-v2-line:#e3ebe6;
+  --jp-v2-danger:#c2413b;
+  --jp-v2-warning:#a66b06;
+  --jp-v2-radius:18px;
+  --jp-v2-shadow:0 12px 32px rgba(11,48,32,.07);
+  --jp-v2-shadow-hover:0 18px 42px rgba(11,48,32,.11);
+}
+
+body:not(.public-lot){
+  background:
+    radial-gradient(circle at 78% -10%,rgba(24,200,107,.055),transparent 23%),
+    var(--jp-v2-bg);
+}
+
+/* Estrutura */
+body:not(.public-lot) .sidebar{
+  width:278px;
+  padding:18px 14px 16px;
+  background:linear-gradient(180deg,#061b13 0%,#09271c 72%,#0b2d20 100%);
+  border-right:1px solid rgba(255,255,255,.055);
+  box-shadow:18px 0 50px rgba(5,27,19,.09);
+}
+body:not(.public-lot) main{margin-left:278px}
+body:not(.public-lot) .sidebar .brand{
+  height:92px!important;
+  min-height:92px!important;
+  margin:0 6px 14px!important;
+  border-bottom:1px solid rgba(255,255,255,.075);
+}
+body:not(.public-lot) #nav{gap:4px}
+body:not(.public-lot) #nav button{
+  position:relative;
+  min-height:44px;
+  padding:11px 13px;
+  border-radius:12px;
+  font-size:13.5px;
+  font-weight:720;
+  letter-spacing:.005em;
+  color:#bfd0c7;
+}
+body:not(.public-lot) #nav button:before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:10px;
+  bottom:10px;
+  width:3px;
+  border-radius:99px;
+  background:transparent;
+}
+body:not(.public-lot) #nav button:hover{
+  background:rgba(255,255,255,.055);
+  color:#fff;
+  transform:none;
+}
+body:not(.public-lot) #nav button.active{
+  color:#fff;
+  background:linear-gradient(90deg,rgba(30,108,72,.54),rgba(22,69,48,.55));
+  box-shadow:inset 0 0 0 1px rgba(59,226,132,.08);
+}
+body:not(.public-lot) #nav button.active:before{background:var(--jp-v2-green)}
+body:not(.public-lot) .nav-parent .chev{opacity:.72}
+body:not(.public-lot) .nav-submenu{
+  margin:3px 0 6px 20px!important;
+  padding-left:11px!important;
+  border-left:1px solid rgba(49,214,117,.22)!important;
+}
+body:not(.public-lot) .nav-submenu button{
+  min-height:35px!important;
+  padding:8px 11px!important;
+  font-size:12.5px!important;
+  border-radius:10px!important;
+}
+body:not(.public-lot) .store{
+  margin-top:18px;
+  padding:14px;
+  border-radius:14px;
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.075);
+}
+body:not(.public-lot) .store small{letter-spacing:.12em;color:#799789}
+body:not(.public-lot) .store strong{font-size:13px}
+body:not(.public-lot) .store span{font-size:10.5px;color:#4bdd93}
+
+/* Topbar */
+body:not(.public-lot) header{
+  min-height:88px;
+  height:auto;
+  padding:17px 32px;
+  background:rgba(255,255,255,.93);
+  backdrop-filter:blur(18px);
+  border-bottom:1px solid rgba(220,231,225,.92);
+  box-shadow:0 4px 22px rgba(16,48,33,.025);
+}
+body:not(.public-lot) header>div:first-of-type{min-width:0}
+body:not(.public-lot) header h1{
+  color:#102219;
+  font-size:24px;
+  font-weight:850;
+  letter-spacing:-.035em;
+}
+body:not(.public-lot) header p{
+  margin-top:4px;
+  color:#75857c;
+  font-size:12.5px;
+}
+body:not(.public-lot) .user{
+  gap:8px;
+  margin-left:auto;
+}
+body:not(.public-lot) .user>span{
+  max-width:260px;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid #e5ece8;
+  background:#fafcfb;
+  color:#42564b;
+  font-size:12px;
+}
+body:not(.public-lot) .user>b{
+  width:36px;height:36px;
+  border-radius:12px;
+  background:linear-gradient(145deg,#d9f9e5,#c8f1d7);
+  color:#0c8144;
+}
+body:not(.public-lot) .logout-btn{
+  min-height:36px;
+  border-radius:10px;
+  font-size:12px;
+  padding:8px 11px;
+  color:#52655a;
+  background:#fff;
+}
+
+/* Conteúdo */
+body:not(.public-lot) #app{
+  max-width:1580px;
+  padding:28px 32px 52px;
+}
+body:not(.public-lot) .panel,
+body:not(.public-lot) .card,
+body:not(.public-lot) .auction-head,
+body:not(.public-lot) .lot-main,
+body:not(.public-lot) .bidbox,
+body:not(.public-lot) .wallet-card{
+  border:1px solid var(--jp-v2-line)!important;
+  background:var(--jp-v2-surface)!important;
+  border-radius:var(--jp-v2-radius)!important;
+  box-shadow:var(--jp-v2-shadow)!important;
+}
+body:not(.public-lot) .panel{
+  padding:22px;
+}
+body:not(.public-lot) .panel+.panel{margin-top:16px}
+body:not(.public-lot) .panel h2,
+body:not(.public-lot) .panel h3{
+  color:var(--jp-v2-text);
+  letter-spacing:-.025em;
+}
+body:not(.public-lot) .panel h2{font-size:24px}
+body:not(.public-lot) .panel h3{font-size:18px;margin:0 0 14px}
+body:not(.public-lot) .muted{color:var(--jp-v2-muted)!important;line-height:1.55}
+body:not(.public-lot) .row{
+  gap:18px;
+  padding:14px 0;
+  border-color:#edf2ef!important;
+}
+body:not(.public-lot) .row>span:first-child{color:#53665c}
+body:not(.public-lot) .row>b{color:#15271e}
+
+/* Cards e KPIs */
+body:not(.public-lot) .cards,
+body:not(.public-lot) .wallet-grid,
+body:not(.public-lot) .winner-summary,
+body:not(.public-lot) .history-summary{
+  gap:14px!important;
+}
+body:not(.public-lot) .card,
+body:not(.public-lot) .wallet-card{
+  min-height:124px;
+  padding:19px!important;
+}
+body:not(.public-lot) .card small,
+body:not(.public-lot) .wallet-card small{
+  color:#74847b!important;
+  font-size:10.5px!important;
+  font-weight:850!important;
+  text-transform:uppercase;
+  letter-spacing:.075em;
+}
+body:not(.public-lot) .card h2,
+body:not(.public-lot) .wallet-card h2{
+  margin:11px 0 5px!important;
+  font-size:28px!important;
+  line-height:1.05;
+  color:#102219!important;
+}
+body:not(.public-lot) .card:hover,
+body:not(.public-lot) .wallet-card:hover{
+  transform:translateY(-2px);
+  box-shadow:var(--jp-v2-shadow-hover)!important;
+}
+
+/* Botões */
+body:not(.public-lot) button,
+body:not(.public-lot) a{ -webkit-tap-highlight-color:transparent }
+body:not(.public-lot) .primary,
+body:not(.public-lot) .bidbtn{
+  min-height:42px;
+  padding:11px 16px;
+  border-radius:11px!important;
+  background:linear-gradient(135deg,var(--jp-v2-green),var(--jp-v2-green-2))!important;
+  color:#fff!important;
+  border:0!important;
+  font-weight:800;
+  box-shadow:0 8px 20px rgba(24,184,93,.18)!important;
+}
+body:not(.public-lot) .primary:hover,
+body:not(.public-lot) .bidbtn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 25px rgba(24,184,93,.24)!important;
+}
+body:not(.public-lot) .ghost{
+  min-height:42px;
+  padding:10px 15px;
+  border-radius:11px!important;
+  border:1px solid #dce6e0!important;
+  background:#fff!important;
+  color:#324b3f;
+  font-weight:750;
+  cursor:pointer;
+}
+body:not(.public-lot) .ghost:hover{background:#f8fbf9!important;border-color:#cbd9d1!important}
+body:not(.public-lot) .whatsapp{
+  border-radius:11px!important;
+  background:#21c866!important;
+  font-weight:800;
+  box-shadow:0 8px 18px rgba(37,211,102,.16);
+}
+body:not(.public-lot) .mini{min-height:34px;padding:7px 10px}
+
+/* Toolbars */
+body:not(.public-lot) .toolbar{
+  gap:14px;
+  margin-bottom:16px;
+  padding:14px;
+  background:#fff;
+  border:1px solid var(--jp-v2-line);
+  border-radius:15px;
+  box-shadow:0 8px 24px rgba(11,48,32,.04);
+}
+body:not(.public-lot) .search{flex:1;min-width:220px;max-width:480px}
+
+/* Inputs e formulários */
+body:not(.public-lot) input,
+body:not(.public-lot) select,
+body:not(.public-lot) textarea{
+  width:auto;
+  min-height:44px;
+  border:1px solid #dce6e0;
+  border-radius:11px;
+  padding:10px 13px;
+  background:#fff;
+  color:#16271f;
+  outline:none;
+  box-shadow:0 1px 0 rgba(0,0,0,.01);
+  transition:border-color .15s,box-shadow .15s,background .15s;
+}
+body:not(.public-lot) input:focus,
+body:not(.public-lot) select:focus,
+body:not(.public-lot) textarea:focus{
+  border-color:#6fd69a;
+  box-shadow:0 0 0 4px rgba(24,200,107,.09);
+  background:#fff;
+}
+body:not(.public-lot) label{
+  color:#344a3e;
+  font-size:12px;
+  font-weight:750;
+}
+body:not(.public-lot) label small{color:#7d8c84}
+body:not(.public-lot) .grid2{gap:14px}
+
+/* Tabelas */
+body:not(.public-lot) table{
+  border-collapse:separate!important;
+  border-spacing:0!important;
+  overflow:hidden;
+  border:1px solid var(--jp-v2-line)!important;
+  border-radius:15px!important;
+  background:#fff!important;
+  box-shadow:0 8px 24px rgba(11,48,32,.045)!important;
+}
+body:not(.public-lot) th{
+  padding:12px 14px!important;
+  background:#f7faf8!important;
+  border-bottom:1px solid #e7eee9!important;
+  color:#708077!important;
+  font-size:10px!important;
+  font-weight:900!important;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+body:not(.public-lot) td{
+  padding:14px!important;
+  border-bottom:1px solid #edf2ef!important;
+  color:#2d4237;
+  vertical-align:middle;
+}
+body:not(.public-lot) tbody tr:hover td{background:#fbfdfc}
+body:not(.public-lot) tbody tr:last-child td{border-bottom:0!important}
+body:not(.public-lot) .thumb{
+  width:58px;
+  height:46px;
+  border-radius:9px;
+  border:1px solid #e7ece9;
+  background:#f7faf8;
+}
+
+/* Badges */
+body:not(.public-lot) .badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  padding:5px 9px;
+  border-radius:999px!important;
+  background:var(--jp-v2-green-soft)!important;
+  color:#0e8043!important;
+  border:1px solid #d5f0df!important;
+  font-size:10.5px!important;
+  font-weight:850!important;
+}
+body:not(.public-lot) .warn,
+body:not(.public-lot) .badge.warn{
+  background:#fff6e8!important;
+  color:#956008!important;
+  border-color:#f2dfb7!important;
+}
+
+/* Catálogo / produtos */
+body:not(.public-lot) .catalog{
+  gap:14px;
+  margin-top:16px;
+}
+body:not(.public-lot) .product{
+  border-radius:16px!important;
+  border:1px solid var(--jp-v2-line)!important;
+  background:#fff;
+  box-shadow:0 8px 24px rgba(11,48,32,.055)!important;
+  transition:.18s ease;
+}
+body:not(.public-lot) .product:hover{
+  transform:translateY(-3px);
+  box-shadow:0 16px 34px rgba(11,48,32,.10)!important;
+}
+body:not(.public-lot) .product .photo,
+body:not(.public-lot) .product .lot-img{
+  height:145px;
+  background:#f6f9f7;
+}
+body:not(.public-lot) .product>div:last-child{padding:13px!important}
+body:not(.public-lot) .product small{
+  color:#6f8077;
+  font-size:9.5px;
+  font-weight:850;
+  letter-spacing:.06em;
+}
+body:not(.public-lot) .product h3{
+  margin:6px 0 8px;
+  color:#172920;
+  font-size:14px;
+}
+body:not(.public-lot) .product p{color:#74847b!important}
+body:not(.public-lot) .product .price{
+  color:#11884a;
+  font-size:20px;
+  letter-spacing:-.02em;
+}
+body:not(.public-lot) .product .timer{
+  padding:7px 9px;
+  border-radius:9px;
+  background:#f0f8f4;
+  color:#11864a;
+  text-align:center;
+}
+
+/* Modal */
+body:not(.public-lot) dialog{
+  width:min(560px,calc(100vw - 30px));
+  max-height:calc(100dvh - 30px);
+  padding:0;
+  border:1px solid #dfe8e3!important;
+  border-radius:20px!important;
+  overflow:auto;
+  box-shadow:0 26px 80px rgba(5,27,19,.28)!important;
+}
+body:not(.public-lot) dialog::backdrop{
+  background:rgba(4,26,18,.62)!important;
+  backdrop-filter:blur(4px);
+}
+body:not(.public-lot) #lotForm,
+body:not(.public-lot) #registerForm{
+  gap:15px;
+  padding:22px;
+}
+body:not(.public-lot) .modal-head{
+  align-items:center;
+  padding-bottom:12px;
+  border-bottom:1px solid #edf2ef;
+}
+body:not(.public-lot) .modal-head h2{
+  font-size:22px;
+  letter-spacing:-.03em;
+  color:#12241b;
+}
+body:not(.public-lot) .modal-head button{
+  width:34px;height:34px;
+  border-radius:10px;
+  display:grid;
+  place-items:center;
+  color:#607168;
+  background:#f6f9f7;
+  cursor:pointer;
+}
+
+/* Configurações, plano e carteira */
+body:not(.public-lot) #mpConnectionPanel,
+body:not(.public-lot) #clientFeePanel{
+  position:relative;
+  overflow:hidden;
+}
+body:not(.public-lot) #mpConnectionPanel:before,
+body:not(.public-lot) #clientFeePanel:before{
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;
+  height:3px;
+  background:linear-gradient(90deg,var(--jp-v2-green),#76e6a6);
+}
+body:not(.public-lot) .wallet-note{
+  border-radius:13px!important;
+  background:#f7faf8!important;
+  border:1px solid #e4ece7!important;
+  color:#5a6e63!important;
+}
+body:not(.public-lot) .wallet-table-wrap,
+body:not(.public-lot) .history-table-wrap,
+body:not(.public-lot) .winner-table-wrap{overflow:auto}
+
+/* Arrematantes/compradores */
+body:not(.public-lot) .winner-send-panel{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  background:linear-gradient(135deg,#f7fcf9,#eef9f3)!important;
+}
+body:not(.public-lot) .winner-send-main{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:42px;
+  padding:10px 14px;
+  border-radius:11px;
+  text-decoration:none;
+  background:#20c866;
+  color:#fff;
+  font-weight:850;
+  white-space:nowrap;
+}
+body:not(.public-lot) .winner-actions{display:flex;gap:7px;flex-wrap:wrap}
+body:not(.public-lot) .winner-notify{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:34px;
+  padding:7px 9px;
+  border-radius:9px;
+  text-decoration:none;
+  font-size:11px;
+  font-weight:800;
+  border:1px solid #dfe8e3;
+  background:#fff;
+}
+body:not(.public-lot) .winner-notify.whatsapp{background:#eafaf0;color:#158448;border-color:#d4efdf}
+
+/* Estado vazio */
+body:not(.public-lot) .panel>p:only-child,
+body:not(.public-lot) .dash-empty{
+  color:#75847c;
+}
+
+/* Mobile */
+@media(max-width:900px){
+  body:not(.public-lot) .sidebar{width:278px}
+  body:not(.public-lot) main{margin-left:278px}
+  body:not(.public-lot) .catalog{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+  body:not(.public-lot) .sidebar{
+    width:min(84vw,300px);
+    padding:12px;
+    z-index:30;
+  }
+  body:not(.public-lot) .sidebar .brand{
+    height:78px!important;
+    min-height:78px!important;
+  }
+  body:not(.public-lot) main{margin-left:0}
+  body:not(.public-lot) header{
+    min-height:72px;
+    padding:12px 14px;
+    gap:10px;
+  }
+  body:not(.public-lot) header h1{font-size:19px}
+  body:not(.public-lot) header p{font-size:11px}
+  body:not(.public-lot) #menu{
+    display:grid;
+    place-items:center;
+    width:38px;height:38px;
+    border-radius:11px;
+    background:#f3f7f5;
+    color:#18392a;
+  }
+  body:not(.public-lot) .logout-btn{display:none}
+  body:not(.public-lot) #app{padding:18px 12px 36px}
+  body:not(.public-lot) .toolbar{padding:11px}
+  body:not(.public-lot) .search{max-width:none;width:100%}
+  body:not(.public-lot) .catalog{grid-template-columns:1fr!important}
+  body:not(.public-lot) .product .photo,
+  body:not(.public-lot) .product .lot-img{height:190px}
+  body:not(.public-lot) .grid2{grid-template-columns:1fr!important}
+  body:not(.public-lot) .winner-send-panel{align-items:stretch;flex-direction:column}
+  body:not(.public-lot) .winner-send-main{width:100%}
+  body:not(.public-lot) table{min-width:720px}
+  body:not(.public-lot) dialog{width:calc(100vw - 18px)}
+  body:not(.public-lot) #lotForm,
+  body:not(.public-lot) #registerForm{padding:18px}
+}
