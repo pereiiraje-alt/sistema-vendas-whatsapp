@@ -1218,3 +1218,27 @@ body:not(.public-lot) .sidebar .brand img{
   }
   .dash-clean-activity{padding:16px!important}
 }
+
+
+/* Restaura logo do painel administrativo */
+.platform-admin-page .sidebar .brand{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  height:104px!important;
+  min-height:104px!important;
+  margin:0 6px 10px!important;
+  padding:4px 8px 12px!important;
+  overflow:visible!important;
+  background:transparent url('/jp-leiloes-logo.svg?v=20261010-1') center/178px auto no-repeat!important;
+  border-bottom:1px solid rgba(255,255,255,.08)!important;
+  filter:none!important;
+}
+.platform-admin-page .sidebar .brand span{display:none!important}
+@media(max-width:650px){
+  .platform-admin-page .sidebar .brand{
+    height:88px!important;
+    min-height:88px!important;
+    background-size:150px auto!important;
+  }
+}
