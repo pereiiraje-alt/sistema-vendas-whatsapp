@@ -1068,3 +1068,120 @@ body:not(.public-lot) .nav-submenu button{color:#afc1b7!important}
     box-sizing:border-box!important;
   }
 }
+
+
+/* Produtos: layout realmente responsivo no celular, sem zoom/horizontal */
+@media(max-width:650px){
+  html,body{max-width:100%;overflow-x:hidden!important}
+  body:not(.public-lot) main,
+  body:not(.public-lot) header,
+  body:not(.public-lot) #app{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+  body:not(.public-lot) #app{overflow-x:hidden!important}
+  body:not(.public-lot) .toolbar{
+    width:100%!important;
+    min-width:0!important;
+  }
+  body:not(.public-lot) .toolbar .search,
+  body:not(.public-lot) .toolbar button{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+
+  body:not(.public-lot) #ltable{
+    width:100%!important;
+    max-width:100%!important;
+    overflow:visible!important;
+  }
+  body:not(.public-lot) #ltable table{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    border:0!important;
+    box-shadow:none!important;
+    background:transparent!important;
+    overflow:visible!important;
+  }
+  body:not(.public-lot) #ltable thead{display:none!important}
+  body:not(.public-lot) #ltable tbody{
+    display:grid!important;
+    gap:12px!important;
+    width:100%!important;
+  }
+  body:not(.public-lot) #ltable tr{
+    display:grid!important;
+    grid-template-columns:68px minmax(0,1fr)!important;
+    gap:8px 12px!important;
+    width:100%!important;
+    padding:14px!important;
+    border:1px solid #e3ebe6!important;
+    border-radius:16px!important;
+    background:#fff!important;
+    box-shadow:0 8px 22px rgba(11,48,32,.05)!important;
+    box-sizing:border-box!important;
+  }
+  body:not(.public-lot) #ltable td{
+    display:block!important;
+    width:auto!important;
+    min-width:0!important;
+    padding:0!important;
+    border:0!important;
+    overflow-wrap:anywhere!important;
+  }
+  body:not(.public-lot) #ltable td:nth-child(1){
+    grid-row:1 / span 4!important;
+    grid-column:1!important;
+    display:flex!important;
+    align-items:flex-start!important;
+    justify-content:center!important;
+    font-size:28px!important;
+  }
+  body:not(.public-lot) #ltable td:nth-child(1) .thumb{
+    width:68px!important;
+    height:68px!important;
+    border-radius:12px!important;
+    object-fit:cover!important;
+  }
+  body:not(.public-lot) #ltable td:nth-child(2){
+    grid-column:2!important;
+    font-size:14px!important;
+    line-height:1.35!important;
+  }
+  body:not(.public-lot) #ltable td:nth-child(3),
+  body:not(.public-lot) #ltable td:nth-child(4){
+    grid-column:2!important;
+    display:grid!important;
+    grid-template-columns:110px minmax(0,1fr)!important;
+    gap:8px!important;
+    align-items:center!important;
+    font-size:13px!important;
+  }
+  body:not(.public-lot) #ltable td:nth-child(3)::before{
+    content:"Avaliação";
+    color:#738178;
+    font-size:11px;
+    font-weight:800;
+  }
+  body:not(.public-lot) #ltable td:nth-child(4)::before{
+    content:"Oferta atual";
+    color:#738178;
+    font-size:11px;
+    font-weight:800;
+  }
+  body:not(.public-lot) #ltable td:nth-child(5){
+    grid-column:2!important;
+  }
+  body:not(.public-lot) #ltable td:nth-child(6){
+    grid-column:1 / -1!important;
+    margin-top:4px!important;
+  }
+  body:not(.public-lot) #ltable td:nth-child(6) .whatsapp{
+    width:100%!important;
+    min-height:42px!important;
+  }
+}
