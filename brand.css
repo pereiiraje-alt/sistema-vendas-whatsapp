@@ -1019,3 +1019,52 @@ body:not(.public-lot) .nav-submenu button{color:#afc1b7!important}
     min-width:0!important;
   }
 }
+
+
+/* Correção definitiva dos modais no celular */
+@media(max-width:650px){
+  body:not(.public-lot) dialog[open]{
+    position:fixed!important;
+    inset:0!important;
+    transform:none!important;
+    width:calc(100vw - 24px)!important;
+    max-width:480px!important;
+    height:auto!important;
+    max-height:calc(100dvh - 24px)!important;
+    margin:auto!important;
+    padding:0!important;
+    box-sizing:border-box!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    border-radius:18px!important;
+  }
+  body:not(.public-lot) dialog[open] form{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:18px!important;
+    box-sizing:border-box!important;
+  }
+  body:not(.public-lot) dialog[open] .grid2{
+    grid-template-columns:1fr!important;
+    gap:14px!important;
+  }
+  body:not(.public-lot) dialog[open] label,
+  body:not(.public-lot) dialog[open] input,
+  body:not(.public-lot) dialog[open] select,
+  body:not(.public-lot) dialog[open] textarea{
+    min-width:0!important;
+    max-width:100%!important;
+    width:100%!important;
+    box-sizing:border-box!important;
+  }
+  body:not(.public-lot) dialog[open] input[type="file"]{
+    white-space:normal!important;
+    overflow:hidden!important;
+  }
+  body:not(.public-lot) dialog[open] .modal-head{
+    width:100%!important;
+    box-sizing:border-box!important;
+  }
+}
