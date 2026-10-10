@@ -272,7 +272,13 @@
       nav.appendChild(group);
       toggle=group.querySelector('.nav-secondary-toggle');
       body=group.querySelector('.nav-secondary-body');
-      toggle.onclick=()=>group.classList.toggle('open');
+      toggle.onclick=e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        group.classList.toggle('open');
+        document.querySelector('.sidebar')?.classList.add('open');
+      };
+      toggle.addEventListener('pointerup',e=>e.stopPropagation());
     }
     function regroup(){
       ensureGroup();
