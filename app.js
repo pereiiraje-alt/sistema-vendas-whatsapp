@@ -19,9 +19,9 @@ async function dashboard(){
   let bids=[],participants=[],wins=[],payments=[];
   if(currentCompany){
     const results=await Promise.all([
-      timeout(db.from('bids').select('id,amount,created_at,participant_id,lot_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(12),7000,'carregar lances recentes').catch(()=>({data:[]})),
-      timeout(db.from('participants').select('id,full_name,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(8),7000,'carregar participantes recentes').catch(()=>({data:[]})),
-      timeout(db.from('arremates').select('id,winning_bid,total_amount,created_at,participant_id,lot_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(12),7000,'carregar arremates recentes').catch(()=>({data:[]})),
+      timeout(db.from('bids').select('id,amount,created_at,participant_id,lot_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(12),7000,'carregar ofertas recentes').catch(()=>({data:[]})),
+      timeout(db.from('participants').select('id,full_name,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(8),7000,'carregar interessados recentes').catch(()=>({data:[]})),
+      timeout(db.from('arremates').select('id,winning_bid,total_amount,created_at,participant_id,lot_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(12),7000,'carregar vendas recentes').catch(()=>({data:[]})),
       timeout(db.from('payments').select('id,status,amount,created_at,arremate_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(12),7000,'carregar pagamentos recentes').catch(()=>({data:[]}))
     ]);
     bids=results[0]?.data||[];
@@ -32,91 +32,65 @@ async function dashboard(){
 
   const liveLots=lots.filter(x=>x.status==='live'&&(!x.ends||Date.now()<new Date(x.ends))).length;
   const highestBid=Math.max(0,...lots.map(x=>Number(x.current||0)),...bids.map(x=>Number(x.amount||0)));
-  const totalArrematado=wins.reduce((sum,x)=>sum+Number(x.total_amount||x.winning_bid||0),0);
+  const totalSold=wins.reduce((sum,x)=>sum+Number(x.total_amount||x.winning_bid||0),0);
   const pendingPayments=payments.filter(x=>!['paid','approved'].includes(String(x.status||'').toLowerCase())&&!['cancelled','canceled'].includes(String(x.status||'').toLowerCase())).length;
   const paidAmount=payments.filter(x=>['paid','approved'].includes(String(x.status||'').toLowerCase())).reduce((sum,x)=>sum+Number(x.amount||0),0);
   const uniqueParticipants=new Set(bids.map(x=>x.participant_id).filter(Boolean)).size;
-  const companyName=esc(currentCompany?.name||'sua empresa');
   const auctionTitle=esc(currentAuction?.title||'Nenhuma venda em andamento');
   const auctionEnds=currentAuction?.ends_at||lots.filter(x=>x.status==='live'&&x.ends).sort((a,b)=>new Date(a.ends)-new Date(b.ends))[0]?.ends||'';
   const shareLotId=(lots.find(x=>x.status==='live'&&(!x.ends||Date.now()<new Date(x.ends)))||lots[0])?.id||'';
   const recent=[];
-  const participantNames=new Map(participants.map(p=>[String(p.id),p.full_name||'Participante']));
-  bids.slice(0,4).forEach(x=>recent.push({date:x.created_at,icon:'↗',title:'Nova oferta',text:`${participantNames.get(String(x.participant_id))||'Participante'} fez uma oferta de ${money(x.amount)}`,kind:'bid'}));
-  participants.slice(0,3).forEach(x=>recent.push({date:x.created_at,icon:'♙',title:'Novo interessado',text:`${x.full_name||'Participante'} entrou na venda`,kind:'participant'}));
-  wins.slice(0,3).forEach(x=>recent.push({date:x.created_at,icon:'✓',title:'Produto vendido',text:`Venda concluída no valor de ${money(x.total_amount||x.winning_bid)}`,kind:'win'}));
-  payments.filter(x=>['paid','approved'].includes(String(x.status||'').toLowerCase())).slice(0,3).forEach(x=>recent.push({date:x.created_at,icon:'💳',title:'Pagamento aprovado',text:`${money(x.amount)} recebido`,kind:'paid'}));
+  const participantNames=new Map(participants.map(p=>[String(p.id),p.full_name||'Interessado']));
+  bids.slice(0,4).forEach(x=>recent.push({date:x.created_at,icon:'↗',title:'Nova oferta',text:`${participantNames.get(String(x.participant_id))||'Interessado'} ofereceu ${money(x.amount)}`,kind:'bid'}));
+  participants.slice(0,2).forEach(x=>recent.push({date:x.created_at,icon:'♙',title:'Novo interessado',text:`${x.full_name||'Interessado'} entrou na venda`,kind:'participant'}));
+  wins.slice(0,2).forEach(x=>recent.push({date:x.created_at,icon:'✓',title:'Produto vendido',text:`Venda concluída por ${money(x.total_amount||x.winning_bid)}`,kind:'win'}));
+  payments.filter(x=>['paid','approved'].includes(String(x.status||'').toLowerCase())).slice(0,2).forEach(x=>recent.push({date:x.created_at,icon:'💳',title:'Pagamento aprovado',text:`${money(x.amount)} recebido`,kind:'paid'}));
   recent.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
 
   title.textContent='Dashboard';
-  subtitle.textContent='Visão geral e desempenho das suas vendas';
+  subtitle.textContent='Resumo das suas vendas e ofertas';
 
   app.innerHTML=`
-    <section class="dash-welcome">
-      <div>
-        <span class="dash-eyebrow">PAINEL DA EMPRESA</span>
-        <h2>Bem-vindo, ${companyName}</h2>
-        <p>Acompanhe suas vendas, ofertas, interessados e pagamentos em um só lugar.</p>
+    <div class="dash-compact-metrics">
+      <article><small>Vendas ativas</small><b>${currentAuction?1:0}</b><span>${liveLots} produto(s) ao vivo</span></article>
+      <article><small>Ofertas</small><b>${bids.length}</b><span>Maior: ${money(highestBid)}</span></article>
+      <article><small>Total vendido</small><b>${money(totalSold)}</b><span>${wins.length} venda(s)</span></article>
+      <article><small>Recebido</small><b>${money(paidAmount)}</b><span>${pendingPayments?pendingPayments+' pendente(s)':'Tudo em dia'}</span></article>
+    </div>
+
+    <section class="panel dash-focus-sale">
+      <div class="dash-focus-head">
+        <div>
+          <span class="dash-live-pill">${currentAuction?'● AO VIVO':'SEM VENDA ATIVA'}</span>
+          <h2>${auctionTitle}</h2>
+          <p>${currentAuction?'Acompanhe o desempenho da venda e compartilhe com seus clientes.':'Crie uma venda para começar a receber ofertas.'}</p>
+        </div>
+        ${auctionEnds?`<div class="dash-countdown"><small>TERMINA EM</small><b class="timer" data-end="${auctionEnds}">${remaining(auctionEnds)}</b></div>`:''}
       </div>
-      <div class="dash-top-actions">
-        <button class="ghost" type="button" onclick="go('leiloes')">Ver vendas</button>
-        <button class="primary" type="button" onclick="go('lotes')">＋ Criar venda</button>
+
+      <div class="dash-focus-stats">
+        <div><span>Produtos</span><b>${lots.length}</b></div>
+        <div><span>Interessados</span><b>${Math.max(participants.length,uniqueParticipants)}</b></div>
+        <div><span>Ofertas recentes</span><b>${bids.length}</b></div>
+        <div><span>Maior oferta</span><b>${money(highestBid)}</b></div>
+      </div>
+
+      <div class="dash-focus-actions">
+        ${currentAuction?'<button class="primary" onclick="go(\'leiloes\')">Ver venda</button>':'<button class="primary" onclick="openFirstAuction()">＋ Criar venda</button>'}
+        <button class="ghost" onclick="go('lotes')">＋ Produto</button>
+        ${shareLotId?`<button class="whatsapp" onclick="shareWhats('${shareLotId}')">💬 WhatsApp</button><button class="ghost" onclick="copyOfferLink('${shareLotId}')">🔗 Copiar link</button>`:''}
       </div>
     </section>
 
-    <div class="dash-metrics">
-      <article class="dash-metric"><div class="dash-metric-icon">⚑</div><div><small>Vendas ativas</small><h3>${currentAuction?1:0}</h3><span>${liveLots} produto(s) ao vivo</span></div></article>
-      <article class="dash-metric"><div class="dash-metric-icon">↗</div><div><small>Ofertas registradas</small><h3>${bids.length}</h3><span>Maior oferta ${money(highestBid)}</span></div></article>
-      <article class="dash-metric"><div class="dash-metric-icon">✓</div><div><small>Total vendido</small><h3>${money(totalArrematado)}</h3><span>${wins.length} venda(s) concluída(s)</span></div></article>
-      <article class="dash-metric"><div class="dash-metric-icon">💳</div><div><small>Recebido</small><h3>${money(paidAmount)}</h3><span>${pendingPayments} pagamento(s) pendente(s)</span></div></article>
-    </div>
-
-    <div class="dash-main-grid">
-      <section class="panel dash-live-panel">
-        <div class="dash-panel-head">
-          <div><span class="dash-live-pill">${currentAuction?'● AO VIVO':'SEM VENDA ATIVA'}</span><h3>${auctionTitle}</h3></div>
-          ${auctionEnds?`<div class="dash-countdown"><small>TERMINA EM</small><b class="timer" data-end="${auctionEnds}">${remaining(auctionEnds)}</b></div>`:''}
-        </div>
-        <div class="dash-auction-stats">
-          <div><small>Produtos cadastrados</small><b>${lots.length}</b></div>
-          <div><small>Interessados</small><b>${Math.max(participants.length,uniqueParticipants)}</b></div>
-          <div><small>Ofertas recentes</small><b>${bids.length}</b></div>
-          <div><small>Maior oferta</small><b>${money(highestBid)}</b></div>
-        </div>
-        <div class="dash-actions">
-          <button class="primary" onclick="go('leiloes')">Abrir painel da venda</button>
-          <button class="ghost" onclick="go('lotes')">＋ Novo produto</button>
-          ${shareLotId?`<button class="whatsapp" onclick="shareWhats('${shareLotId}')">💬 Compartilhar</button><button class="ghost" onclick="copyOfferLink('${shareLotId}')">🔗 Copiar link</button>`:''}
-          <button class="ghost" onclick="go('arrematantes')">Ver compradores</button>
-        </div>
-      </section>
-
-      <section class="panel dash-quick-panel">
-        <div class="dash-panel-head"><div><span class="dash-eyebrow">ATALHOS</span><h3>Ações rápidas</h3></div></div>
-        <div class="dash-quick-grid">
-          <button onclick="go('lotes')"><span>＋</span><b>Criar venda</b><small>Cadastre produtos e publique</small></button>
-          <button onclick="go('lances')"><span>↗</span><b>Ver ofertas</b><small>Acompanhe as ofertas</small></button>
-          <button onclick="go('arrematantes')"><span>✓</span><b>Compradores</b><small>Compradores e pagamentos</small></button>
-          <button onclick="go('participantes')"><span>♙</span><b>Interessados</b><small>Cadastros da venda</small></button>
-        </div>
-      </section>
-    </div>
-
-    <div class="dash-bottom-grid">
-      <section class="panel dash-activity">
-        <div class="dash-panel-head"><div><span class="dash-eyebrow">EM TEMPO REAL</span><h3>Atividade recente</h3></div><button class="dash-text-btn" onclick="go('lances')">Ver histórico</button></div>
-        <div class="dash-activity-list">
-          ${recent.length?recent.slice(0,7).map(x=>`<div class="dash-activity-item"><span class="dash-activity-icon ${x.kind}">${x.icon}</span><div><b>${esc(x.title)}</b><p>${esc(x.text)}</p></div><time>${x.date?new Date(x.date).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</time></div>`).join(''):'<div class="dash-empty">Ainda não há atividades recentes. Quando houver ofertas, cadastros ou pagamentos, eles aparecerão aqui.</div>'}
-        </div>
-      </section>
-      <section class="panel dash-health">
-        <div class="dash-panel-head"><div><span class="dash-eyebrow">STATUS</span><h3>Operação</h3></div></div>
-        <div class="dash-health-row"><span><i></i> Banco de dados</span><b>Online</b></div>
-        <div class="dash-health-row"><span><i></i> Fotos e arquivos</span><b>Online</b></div>
-        <div class="dash-health-row"><span><i class="${pendingPayments?'warn':''}"></i> Pagamentos pendentes</span><b>${pendingPayments}</b></div>
-        <div class="dash-health-row"><span><i></i> Produtos publicados</span><b>${lots.length}</b></div>
-      </section>
-    </div>`;
+    <section class="panel dash-clean-activity">
+      <div class="dash-clean-head">
+        <div><small>ATIVIDADE RECENTE</small><h3>O que aconteceu por último</h3></div>
+        <button class="dash-text-btn" onclick="go('lances')">Ver todas as ofertas</button>
+      </div>
+      <div class="dash-activity-list">
+        ${recent.length?recent.slice(0,5).map(x=>`<div class="dash-activity-item"><span class="dash-activity-icon ${x.kind}">${x.icon}</span><div><b>${esc(x.title)}</b><p>${esc(x.text)}</p></div><time>${x.date?new Date(x.date).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</time></div>`).join(''):'<div class="dash-empty">Ainda não há atividade recente. Compartilhe uma venda no WhatsApp para começar a receber ofertas.</div>'}
+      </div>
+    </section>`;
   tick();
 }
 
