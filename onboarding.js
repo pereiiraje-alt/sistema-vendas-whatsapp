@@ -317,6 +317,22 @@
           if(isSecondary(btn))moveIfNeeded(btn,body);
         });
 
+        // Remove atalhos duplicados criados por módulos antigos.
+        const platformButtons=[...body.querySelectorAll('button')].filter(btn=>/plataforma/.test(textOf(btn))&&(/ofertas|vendas|leilões/.test(textOf(btn)))&&!/minhas ofertas/.test(textOf(btn)));
+        platformButtons.forEach((btn,index)=>{
+          if(index===0){
+            btn.textContent='🌐 Ofertas da plataforma';
+            btn.removeAttribute('data-page');
+            btn.onclick=e=>{e.preventDefault();e.stopPropagation();location.href='/explorar.html'};
+          }else btn.remove();
+        });
+
+        const seen=new Set();
+        [...body.querySelectorAll('button')].forEach(btn=>{
+          const key=btn.id||String(btn.dataset?.page||'')||textOf(btn);
+          if(seen.has(key))btn.remove();else seen.add(key);
+        });
+
         if(create)create.textContent='＋ Criar venda';
         if(sales)sales.textContent='• Minhas vendas';
         if(offers)offers.textContent='↗ Ofertas';
@@ -330,6 +346,7 @@
         [dashboard,auctions,buyers,wallet,config,group].filter(Boolean).forEach(el=>moveIfNeeded(el,nav));
 
         group.style.display=body.children.length?'':'none';
+      if(!group.dataset.initialized){group.classList.remove('open');group.dataset.initialized='1';}
       }finally{organizing=false}
     }
 
