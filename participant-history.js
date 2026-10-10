@@ -135,7 +135,7 @@
   if(!document.getElementById('myPlatformBidsScript')){
     const s=document.createElement('script');
     s.id='myPlatformBidsScript';
-    s.src='my-platform-bids.js?v=20260930-1';
+    s.src='my-platform-bids.js?v=20261010-1';
     document.body.appendChild(s);
   }
 })();
