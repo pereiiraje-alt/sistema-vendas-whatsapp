@@ -7,6 +7,10 @@
   ],
   "rewrites": [
     {
+      "source": "/oferta/:id",
+      "destination": "/api/share?l=:id"
+    },
+    {
       "source": "/share-image/:id.jpg",
       "destination": "/api/share-image?l=:id"
     }
