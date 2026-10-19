@@ -26,7 +26,7 @@ module.exports=async(req,res)=>{
     const bytes=Buffer.from(await upstream.arrayBuffer());
     res.setHeader('Content-Type',type);
     res.setHeader('Content-Length',String(bytes.length));
-    res.setHeader('Cache-Control','public, max-age=86400, s-maxage=86400, immutable');
+    res.setHeader('Cache-Control','public, max-age=300, s-maxage=300');
     res.setHeader('Access-Control-Allow-Origin','*');
     res.status(200).end(bytes);
   }catch(error){
