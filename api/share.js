@@ -34,7 +34,7 @@ module.exports=async(req,res)=>{
   const origin=`https://${req.headers.host}`;
   const target=`${origin}/?lote=${encodeURIComponent(lotId)}`;
   const version=encodeURIComponent(String(q.v||'4'));
-  const canonical=`${origin}/api/share?l=${encodeURIComponent(lotId)}&v=${version}`;
+  const canonical=`${origin}/oferta/${encodeURIComponent(lotId)}?v=${version}`;
 
   let image='https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80';
   try{
