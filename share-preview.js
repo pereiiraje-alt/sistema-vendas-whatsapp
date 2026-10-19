@@ -7,6 +7,7 @@
     const l=(typeof lots!=='undefined'&&lots.find(x=>x.id===id))||await loadPublicLot(id);
     const preview=new URL('/api/share','https://jpleiloes.com.br');
     preview.searchParams.set('l',l.id);
+    preview.searchParams.set('v',Date.now().toString());
 
     const starts=l.starts?endTime(l.starts):'agora';
     const ends=l.ends?endTime(l.ends):'a definir';
