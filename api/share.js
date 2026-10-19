@@ -33,7 +33,7 @@ module.exports=async(req,res)=>{
 
   const origin=`https://${req.headers.host}`;
   const target=`${origin}/?lote=${encodeURIComponent(lotId)}`;
-  const version=encodeURIComponent(String(q.v||'3'));
+  const version=encodeURIComponent(String(q.v||'4'));
   const canonical=`${origin}/api/share?l=${encodeURIComponent(lotId)}&v=${version}`;
 
   let image='https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80';
@@ -53,8 +53,9 @@ module.exports=async(req,res)=>{
   if(ends)details.push(`Termina ${ends}`);
   const desc=details.join(' • ');
 
-  const safeImage=esc(image);
+  const proxiedImage=rawImage?`${origin}/api/share-image?l=${encodeURIComponent(lotId)}&v=${version}`:image;
+  const safeImage=esc(proxiedImage);
   res.setHeader('Content-Type','text/html; charset=utf-8');
   res.setHeader('Cache-Control','public, max-age=30, s-maxage=60');
-  res.end(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><meta name="description" content="${desc}"><meta property="og:type" content="website"><meta property="og:site_name" content="JP Leilões"><meta property="og:title" content="${title}"><meta property="og:description" content="${desc}"><meta property="og:image" content="${safeImage}"><meta property="og:image:secure_url" content="${safeImage}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Foto do lote"><meta property="og:url" content="${esc(canonical)}"><link rel="image_src" href="${safeImage}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${title}"><meta name="twitter:description" content="${desc}"><meta name="twitter:image" content="${safeImage}"></head><body><p>Abrindo lote...</p><p><a href="${esc(target)}">Clique aqui se o lote não abrir automaticamente.</a></p><script>location.replace(${JSON.stringify(target)})<\/script></body></html>`);
+  res.end(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><meta name="description" content="${desc}"><meta property="og:type" content="website"><meta property="og:site_name" content="JP Leilões"><meta property="og:title" content="${title}"><meta property="og:description" content="${desc}"><meta property="og:image" content="${safeImage}"><meta property="og:image:secure_url" content="${safeImage}"><meta property="og:image:type" content="image/jpeg"><meta property="og:image:alt" content="Foto do produto ${title}"><meta property="og:url" content="${esc(canonical)}"><link rel="image_src" href="${safeImage}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${title}"><meta name="twitter:description" content="${desc}"><meta name="twitter:image" content="${safeImage}"></head><body><p>Abrindo lote...</p><p><a href="${esc(target)}">Clique aqui se o lote não abrir automaticamente.</a></p><script>location.replace(${JSON.stringify(target)})<\/script></body></html>`);
 };
