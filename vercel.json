@@ -7,6 +7,10 @@
   ],
   "rewrites": [
     {
+      "source": "/o/:id",
+      "destination": "/api/share?l=:id"
+    },
+    {
       "source": "/oferta/:id",
       "destination": "/api/share?l=:id"
     },
