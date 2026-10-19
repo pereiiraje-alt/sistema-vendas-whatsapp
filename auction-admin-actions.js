@@ -113,6 +113,39 @@
     }
   };
 
+  window.cancelAuction=async function(id){
+    try{
+      if(!currentCompany?.id)throw new Error('Empresa não identificada. Atualize a página e entre novamente.');
+      const {data:auction,error:auctionError}=await timeout(
+        db.from('auctions').select('id,title,status').eq('id',id).eq('company_id',currentCompany.id).maybeSingle(),
+        7000,
+        'verificar leilão'
+      );
+      if(auctionError)throw auctionError;
+      if(!auction)throw new Error('Este leilão não foi encontrado ou não pertence a esta empresa.');
+      if(auction.status!=='live')throw new Error('Somente leilão em andamento pode ser cancelado.');
+
+      if(!confirm(`Cancelar o leilão “${auction.title||'selecionado'}” agora?\n\nOs lances já registrados serão preservados no histórico, mas nenhum novo lance será aceito.`))return;
+      if(!confirm('Confirmar cancelamento imediato do leilão?'))return;
+
+      const {data,error}=await timeout(
+        db.rpc('cancel_company_auction',{p_auction_id:id}),
+        10000,
+        'cancelar leilão'
+      );
+      if(error)throw error;
+      if(data!==true)console.warn('Retorno do cancelamento:',data);
+
+      await restoreAuctionAfterAction(null);
+      alert('Leilão cancelado com sucesso.');
+      await leiloes();
+    }catch(e){
+      console.error('Erro ao cancelar leilão:',e);
+      alert('Não foi possível cancelar o leilão: '+(e?.message||e));
+    }
+  };
+
+
   async function restoreAuctionAfterAction(preferredId){
     if(!currentCompany)return;
     let q=db.from('auctions').select('*').eq('company_id',currentCompany.id).in('status',['draft','scheduled','live']).order('created_at',{ascending:false}).limit(1);
@@ -136,9 +169,10 @@
         const ended=a.status==='ended'||a.status==='cancelled'||(a.ends_at&&Date.now()>=new Date(a.ends_at).getTime());
         group.forEach(l=>{
           const reopen=ended?`<button class="primary auction-action-btn" type="button" onclick="reopenAuction('${a.id}')">↻ Abrir novamente</button>`:`<button class="primary auction-action-btn auction-action-placeholder" type="button" tabindex="-1" aria-hidden="true">↻ Abrir novamente</button>`;
+          const cancel=a.status==='live'?`<button class="ghost auction-cancel auction-action-btn" type="button" onclick="cancelAuction('${a.id}')">⏹ Cancelar leilão</button>`:'';
           const edit=`<button class="ghost auction-edit auction-action-btn" type="button" onclick="editLotValues('${l.id}')">✏ Editar lance inicial e acréscimo</button>`;
           const del=`<button class="ghost auction-delete auction-action-btn" type="button" onclick="deleteAuction('${a.id}')">🗑 Excluir leilão</button>`;
-          cards.push(`<div class="auction-lot-wrap"><div class="auction-mini-status ${ended?'is-ended':'is-live'}">● ${statusLabel(a.status)}</div>${lotCard(l)}<div class="auction-card-actions">${reopen}${edit}${del}</div></div>`);
+          cards.push(`<div class="auction-lot-wrap"><div class="auction-mini-status ${ended?'is-ended':'is-live'}">● ${statusLabel(a.status)}</div>${lotCard(l)}<div class="auction-card-actions">${reopen}${cancel}${edit}${del}</div></div>`);
         });
       });
       app.innerHTML=cards.length?`<div class="catalog auction-flat-catalog">${cards.join('')}</div>`:'<div class="panel"><h3>Leilões</h3><p class="muted">Nenhum leilão criado ainda.</p></div>';
@@ -162,7 +196,7 @@
     .auction-action-btn{width:100%;padding:9px 7px!important;font-size:11px!important;border-radius:9px!important}
     .auction-action-placeholder{visibility:hidden;pointer-events:none}
     .auction-edit{color:#075985;border-color:#bae6fd;background:#f0f9ff}.auction-edit:hover{background:#e0f2fe}
-    .auction-delete{color:#b42318;border-color:#f1c5c1;background:#fff7f6}.auction-delete:hover{background:#fff0ee}
+    .auction-cancel{color:#9a3412;border-color:#fdba74;background:#fff7ed}.auction-cancel:hover{background:#ffedd5}\n    .auction-delete{color:#b42318;border-color:#f1c5c1;background:#fff7f6}.auction-delete:hover{background:#fff0ee}
     @media(max-width:1450px){.auction-flat-catalog{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
     @media(max-width:1220px){.auction-flat-catalog{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
     @media(max-width:1050px){.auction-flat-catalog{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
