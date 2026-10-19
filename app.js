@@ -243,7 +243,35 @@ window.copyOfferLink=async function(id){
 }
 async function lotes(){await loadLots();app.innerHTML=`<div class="toolbar"><input class="search" id="search" placeholder="Buscar produto..."><button class="primary" id="new" ${currentCompany?'':'disabled'}>+ Novo produto</button></div><div id="ltable"></div>`;document.querySelector('#new').onclick=()=>{if(!currentAuction)return alert('Crie ou ative uma venda antes de cadastrar produtos.');modal.showModal()};document.querySelector('#search').oninput=e=>renderLots(e.target.value);renderLots()}
 function renderLots(q=''){let a=lots.filter(x=>x.name.toLowerCase().includes(q.toLowerCase()));document.querySelector('#ltable').innerHTML=`<table><thead><tr><th>FOTO</th><th>PRODUTO</th><th>AVALIAÇÃO</th><th>OFERTA ATUAL</th><th>STATUS</th><th>COMPARTILHAR</th></tr></thead><tbody>${a.map(l=>`<tr><td>${l.image?`<img class="thumb" src="${esc(l.image)}">`:'🔨'}</td><td><strong>#${l.number} · ${esc(l.name)}</strong></td><td>${money(l.valuation)}</td><td>${money(l.current)}</td><td><span class="badge">${esc(l.status)}</span></td><td><button class="whatsapp mini" onclick="shareWhats('${l.id}')">WhatsApp</button></td></tr>`).join('')}</tbody></table>`}
-async function lances(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('bids').select('amount,created_at,lot_id,participant_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(100),7000,'carregar lances');app.innerHTML=`<div class="panel"><h3>Histórico de ofertas</h3>${(data||[]).map(x=>`<div class="row"><span>${new Date(x.created_at).toLocaleString('pt-BR')}</span><b>${money(x.amount)}</b></div>`).join('')||'<p class="muted">Nenhuma oferta registrada.</p>'}</div>`}
+async function deleteBid(id){
+  if(!currentCompany)return;
+  if(!confirm('Excluir este lance? O valor atual do produto será recalculado automaticamente.'))return;
+  try{
+    const {error}=await timeout(db.rpc('delete_company_bid',{p_bid_id:Number(id)}),7000,'excluir lance');
+    if(error)throw error;
+    await lances();
+  }catch(e){alert('Não foi possível excluir o lance: '+(e.message||e))}
+}
+window.deleteBid=deleteBid;
+
+async function lances(){
+  if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';
+  let{data,error}=await timeout(db.from('bids').select('id,amount,created_at,lot_id,participant_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(100),7000,'carregar lances');
+  if(error)throw error;
+  const rows=data||[];
+  const lotIds=[...new Set(rows.map(x=>x.lot_id).filter(Boolean))];
+  const participantIds=[...new Set(rows.map(x=>x.participant_id).filter(Boolean))];
+  let lotsById={},participantsById={};
+  if(lotIds.length){
+    const {data:lotRows}=await timeout(db.from('lots').select('id,lot_number,title').in('id',lotIds),7000,'carregar produtos das ofertas');
+    (lotRows||[]).forEach(x=>lotsById[x.id]=x);
+  }
+  if(participantIds.length){
+    const {data:participantRows}=await timeout(db.from('participants').select('id,full_name').in('id',participantIds),7000,'carregar ofertantes');
+    (participantRows||[]).forEach(x=>participantsById[x.id]=x);
+  }
+  app.innerHTML=`<div class="panel bid-history-panel"><div class="bid-history-head"><div><h3>Histórico de ofertas</h3><p class="muted">Você pode excluir um lance incorreto. O valor atual do produto será recalculado.</p></div><span class="badge">${rows.length} oferta(s)</span></div>${rows.length?`<div class="bid-admin-list">${rows.map(x=>{const lot=lotsById[x.lot_id]||{};const person=participantsById[x.participant_id]||{};return `<div class="bid-admin-row"><div class="bid-admin-main"><strong>${esc(person.full_name||'Participante')}</strong><span>${esc(lot.title||'Produto')} ${lot.lot_number!=null?'· #'+lot.lot_number:''}</span><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></div><b class="bid-admin-value">${money(x.amount)}</b><button class="bid-delete-btn" type="button" onclick="deleteBid('${x.id}')">Excluir lance</button></div>`}).join('')}</div>`:'<p class="muted">Nenhuma oferta registrada.</p>'}</div>`;
+}
 async function participantes(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('participants').select('*').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar participantes');app.innerHTML=`<div class="panel"><h3>Interessados cadastrados</h3>${(data||[]).map(x=>`<div class="row"><span><b>${esc(x.full_name)}</b><br><small>${esc(x.email)} · ${esc(x.phone)}</small></span><b class="badge">${esc(x.status)}</b></div>`).join('')||'<p class="muted">Nenhum interessado cadastrado.</p>'}</div>`}
 async function arrematantes(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('arremates').select('winning_bid,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar arremates');app.innerHTML=`<div class="panel"><h3>Compradores</h3>${(data||[]).map(x=>`<div class="row"><span>Venda registrada<br><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></span><b>${money(x.winning_bid)}</b></div>`).join('')||'<p class="muted">Nenhuma venda finalizada.</p>'}</div>`}
 function config(){app.innerHTML=`<div class="panel"><h3>Configurações</h3><p>${currentCompany?`Empresa conectada: <b>${esc(currentCompany.name)}</b>`:'Nenhuma empresa vinculada ao usuário atual.'}</p><p class="muted">A configuração do Mercado Pago será conectada na próxima etapa.</p></div>`}
