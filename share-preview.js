@@ -3,7 +3,7 @@
 
   shareWhats=async function(id){
     const l=(typeof lots!=='undefined'&&lots.find(x=>x.id===id))||await loadPublicLot(id);
-    const preview=new URL('/oferta/'+encodeURIComponent(l.id),location.origin);
+    const preview=new URL('/o/'+encodeURIComponent(String(l.id||'').replace(/-/g,'')),location.origin);
 
     const starts=l.starts?endTime(l.starts):'agora';
     const ends=l.ends?endTime(l.ends):'a definir';
