@@ -19,10 +19,9 @@
       if(!blob.type.startsWith('image/'))throw new Error('Arquivo inválido');
       const file=new File([blob],safeFileName(l.name,blob.type),{type:blob.type});
       if(!navigator.canShare({files:[file]}))return false;
+      const fullText=msg+'\n'+previewUrl;
       await navigator.share({
-        title:l.name||'JP Leilões',
-        text:msg,
-        url:previewUrl,
+        text:fullText,
         files:[file]
       });
       return true;
@@ -43,10 +42,11 @@
     const ends=l.ends?endTime(l.ends):'a definir';
     const msg=`🔨 *${l.name||'JP Leilões'}*\n\n*Avaliação:* ${money(l.valuation)}\n*Lance inicial:* ${money(l.start)}\n*Acréscimo do lance:* ${money(l.step)}\n*Começa:* ${starts}\n*Termina:* ${ends}\n\n👉 Veja o produto e dê seu lance:`;
 
+    const fullMessage=msg+'\n'+preview.toString();
     const shared=await shareWithPhoto(l,msg,preview.toString());
     if(shared)return;
 
-    const fallback=msg+'\n'+preview.toString();
+    const fallback=fullMessage;
     window.open('https://wa.me/?text='+encodeURIComponent(fallback),'_blank');
   };
 
