@@ -1,5 +1,5 @@
 (()=>{
-  const navButton=document.querySelector('#nav button[data-page="produtos"]');
+  const navButton=document.querySelector('#nav button[data-page="lotes"],#nav button[data-page="produtos"],#nav button[data-page="criarleilao"]');
   if(!navButton)return;
 
   navButton.dataset.page='criarleilao';
@@ -164,18 +164,6 @@
 
   setTimeout(async()=>{try{await renumberCompanyLots();const activePage=document.querySelector('#nav button.active')?.dataset.page;if(activePage==='leiloes')await leiloes();}catch(error){console.warn('Não foi possível ajustar a numeração dos produtos:',error?.message||error);}},1600);
 
-  lances=async function(){
-    if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';
-    try{
-      const {data,error}=await timeout(db.from('bids').select('amount,created_at,lot_id,participant_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(100),7000,'carregar lances');
-      if(error)throw error;
-      const bids=data||[],participantIds=[...new Set(bids.map(x=>x.participant_id).filter(Boolean))],lotIds=[...new Set(bids.map(x=>x.lot_id).filter(Boolean))],names={},lotNames={};
-      if(participantIds.length){const {data:people}=await timeout(db.from('participants').select('id,full_name').in('id',participantIds),7000,'carregar nomes dos participantes');(people||[]).forEach(p=>names[p.id]=p.full_name||'Participante');}
-      if(lotIds.length){const {data:lotRows}=await timeout(db.from('lots').select('id,lot_number,title').in('id',lotIds),7000,'carregar produtos dos lances');(lotRows||[]).forEach(l=>lotNames[l.id]=`Produto #${l.lot_number} · ${l.title}`);}
-      app.innerHTML=`<div class="panel"><h3>Histórico de lances</h3>${bids.map(x=>`<div class="row"><span><b>${esc(names[x.participant_id]||'Participante')}</b><br><small>${esc(lotNames[x.lot_id]||'Produto')} · ${new Date(x.created_at).toLocaleString('pt-BR')}</small></span><b>${money(x.amount)}</b></div>`).join('')||'<p class="muted">Nenhum lance registrado.</p>'}</div>`;
-    }catch(error){app.innerHTML=`<div class="panel"><h3>Histórico de lances</h3><p>Não foi possível carregar os nomes dos participantes.</p><p class="muted">${esc(error.message||error)}</p></div>`;}
-  };
-  if(typeof pages!=='undefined'&&pages.lances)pages.lances[0]=lances;
 
   const expiryScript=document.createElement('script');expiryScript.src='auction-expiry-ui.js?v=20260927-2';document.body.appendChild(expiryScript);
   const adminActionsScript=document.createElement('script');adminActionsScript.src='auction-admin-actions.js?v=20261002-7';document.body.appendChild(adminActionsScript);
