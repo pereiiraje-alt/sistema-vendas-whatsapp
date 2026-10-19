@@ -166,5 +166,5 @@
 
 
   const expiryScript=document.createElement('script');expiryScript.src='auction-expiry-ui.js?v=20260927-2';document.body.appendChild(expiryScript);
-  const adminActionsScript=document.createElement('script');adminActionsScript.src='auction-admin-actions.js?v=20261002-7';document.body.appendChild(adminActionsScript);
+  const adminActionsScript=document.createElement('script');adminActionsScript.src='auction-admin-actions.js?v=20261019-1';document.body.appendChild(adminActionsScript);
 })();
