@@ -4,5 +4,40 @@
       "path": "/api/marketing-cron",
       "schedule": "0 13 * * 1,3,5"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/share-image/:id.jpg",
+      "destination": "/api/share-image?l=:id"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/share-preview.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    }
   ]
 }
