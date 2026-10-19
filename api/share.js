@@ -15,9 +15,17 @@ async function loadLot(id){
   return rows?.[0]||null;
 }
 
+function normalizeLotId(value){
+  const raw=String(value||'').trim();
+  if(/^[0-9a-f]{32}$/i.test(raw)){
+    return [raw.slice(0,8),raw.slice(8,12),raw.slice(12,16),raw.slice(16,20),raw.slice(20)].join('-');
+  }
+  return raw;
+}
+
 module.exports=async(req,res)=>{
   const q=req.query||{};
-  const lotId=String(q.l||q.lot||q.id||'');
+  const lotId=normalizeLotId(q.l||q.lot||q.id||'');
   if(!lotId)return res.status(400).send('Lote não informado.');
 
   let lot=null;
@@ -34,7 +42,8 @@ module.exports=async(req,res)=>{
   const origin=`https://${req.headers.host}`;
   const target=`${origin}/?lote=${encodeURIComponent(lotId)}`;
   const version=encodeURIComponent(String(lot?.updated_at||q.v||'1'));
-  const canonical=`${origin}/oferta/${encodeURIComponent(lotId)}`;
+  const shareToken=lotId.replace(/-/g,'');
+  const canonical=`${origin}/o/${encodeURIComponent(shareToken)}`;
 
   let image='https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80';
   try{
