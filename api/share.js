@@ -53,7 +53,7 @@ module.exports=async(req,res)=>{
   if(ends)details.push(`Termina ${ends}`);
   const desc=details.join(' • ');
 
-  const proxiedImage=rawImage?`${origin}/api/share-image?l=${encodeURIComponent(lotId)}&v=${version}`:image;
+  const proxiedImage=rawImage?`${origin}/share-image/${encodeURIComponent(lotId)}.jpg?v=${version}`:image;
   const safeImage=esc(proxiedImage);
   res.setHeader('Content-Type','text/html; charset=utf-8');
   res.setHeader('Cache-Control','public, max-age=30, s-maxage=60');
