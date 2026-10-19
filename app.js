@@ -227,8 +227,21 @@ function initSlideBid(){
 }
 
 async function bid(id){try{let l=await loadPublicLot(id);if(!participant){pendingBid=id;registerModal.showModal();return}if(participant.companyId!==l.companyId){participant=null;pendingBid=id;registerModal.showModal();return}let amount=l.current+l.step;let{error}=await timeout(db.rpc('place_bid',{p_lot_id:id,p_participant_id:participant.id,p_amount:amount}),7000,'registrar lance');if(error)throw error;await openLot(id)}catch(e){alert(e.message)}}
-async function shareWhats(id){let l=lots.find(x=>x.id===id)||await loadPublicLot(id);let shareUrl=location.origin+'/?lote='+encodeURIComponent(l.id),msg=`📲 *OFERTA AO VIVO: ${l.name}*\n\n*Produto:* #${l.number}\n*Valor de referência:* ${money(l.valuation)}\n*Oferta inicial:* ${money(l.start)}\n*Oferta atual:* ${money(l.current)}\n*Próxima oferta:* ${money(l.current+l.step)}\n*Termina:* ${l.ends?endTime(l.ends):'a definir'}\n\n👉 Veja o produto e participe:\n${shareUrl}`;window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank')}
-window.copyOfferLink=async function(id){const url=location.origin+'/?lote='+encodeURIComponent(id);try{await navigator.clipboard.writeText(url);alert('Link da oferta copiado. Agora é só enviar no WhatsApp.')}catch(_){prompt('Copie o link da oferta:',url)}}
+function offerShareUrl(id){
+  const u=new URL('/oferta/'+encodeURIComponent(id),location.origin);
+  u.searchParams.set('v',Date.now().toString());
+  return u.toString();
+}
+async function shareWhats(id){
+  const l=lots.find(x=>x.id===id)||await loadPublicLot(id);
+  const shareUrl=offerShareUrl(l.id);
+  const msg=`🔨 *${l.name||'JP Leilões'}*\n\n*Produto:* #${l.number||'-'}\n*Avaliação:* ${money(l.valuation)}\n*Lance inicial:* ${money(l.start)}\n*Oferta atual:* ${money(l.current)}\n*Próxima oferta:* ${money(l.current+l.step)}\n*Acréscimo:* ${money(l.step)}\n*Começa:* ${l.starts?endTime(l.starts):'agora'}\n*Termina:* ${l.ends?endTime(l.ends):'a definir'}\n\n👉 Veja o produto e participe:\n${shareUrl}`;
+  location.href='https://wa.me/?text='+encodeURIComponent(msg);
+}
+window.copyOfferLink=async function(id){
+  const url=offerShareUrl(id);
+  try{await navigator.clipboard.writeText(url);alert('Link da oferta copiado. Agora é só enviar no WhatsApp.')}catch(_){prompt('Copie o link da oferta:',url)}
+}
 async function lotes(){await loadLots();app.innerHTML=`<div class="toolbar"><input class="search" id="search" placeholder="Buscar produto..."><button class="primary" id="new" ${currentCompany?'':'disabled'}>+ Novo produto</button></div><div id="ltable"></div>`;document.querySelector('#new').onclick=()=>{if(!currentAuction)return alert('Crie ou ative uma venda antes de cadastrar produtos.');modal.showModal()};document.querySelector('#search').oninput=e=>renderLots(e.target.value);renderLots()}
 function renderLots(q=''){let a=lots.filter(x=>x.name.toLowerCase().includes(q.toLowerCase()));document.querySelector('#ltable').innerHTML=`<table><thead><tr><th>FOTO</th><th>PRODUTO</th><th>AVALIAÇÃO</th><th>OFERTA ATUAL</th><th>STATUS</th><th>COMPARTILHAR</th></tr></thead><tbody>${a.map(l=>`<tr><td>${l.image?`<img class="thumb" src="${esc(l.image)}">`:'🔨'}</td><td><strong>#${l.number} · ${esc(l.name)}</strong></td><td>${money(l.valuation)}</td><td>${money(l.current)}</td><td><span class="badge">${esc(l.status)}</span></td><td><button class="whatsapp mini" onclick="shareWhats('${l.id}')">WhatsApp</button></td></tr>`).join('')}</tbody></table>`}
 async function lances(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('bids').select('amount,created_at,lot_id,participant_id').eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(100),7000,'carregar lances');app.innerHTML=`<div class="panel"><h3>Histórico de ofertas</h3>${(data||[]).map(x=>`<div class="row"><span>${new Date(x.created_at).toLocaleString('pt-BR')}</span><b>${money(x.amount)}</b></div>`).join('')||'<p class="muted">Nenhuma oferta registrada.</p>'}</div>`}
