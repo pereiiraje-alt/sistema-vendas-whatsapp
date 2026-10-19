@@ -228,7 +228,8 @@ function initSlideBid(){
 
 async function bid(id){try{let l=await loadPublicLot(id);if(!participant){pendingBid=id;registerModal.showModal();return}if(participant.companyId!==l.companyId){participant=null;pendingBid=id;registerModal.showModal();return}let amount=l.current+l.step;let{error}=await timeout(db.rpc('place_bid',{p_lot_id:id,p_participant_id:participant.id,p_amount:amount}),7000,'registrar lance');if(error)throw error;await openLot(id)}catch(e){alert(e.message)}}
 function offerShareUrl(id){
-  return new URL('/oferta/'+encodeURIComponent(id),location.origin).toString();
+  const token=String(id||'').replace(/-/g,'');
+  return new URL('/o/'+encodeURIComponent(token),location.origin).toString();
 }
 async function shareWhats(id){
   const l=lots.find(x=>x.id===id)||await loadPublicLot(id);
