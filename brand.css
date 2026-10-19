@@ -1573,3 +1573,23 @@ body:not(.public-lot) .sidebar .brand img{
     grid-template-columns:1fr!important;
   }
 }
+
+
+/* Gestão de lances */
+.bid-history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.bid-history-head h3{margin:0 0 4px}
+.bid-admin-list{display:flex;flex-direction:column;border-top:1px solid #e8eeea}
+.bid-admin-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid #e8eeea}
+.bid-admin-main{min-width:0;display:flex;flex-direction:column;gap:3px}
+.bid-admin-main strong{font-size:14px;color:#102a20}
+.bid-admin-main span{font-size:13px;color:#536b5f;white-space:normal;overflow-wrap:anywhere}
+.bid-admin-main small{font-size:11px;color:#87968e}
+.bid-admin-value{font-size:16px;color:#0b8f4d;white-space:nowrap}
+.bid-delete-btn{border:1px solid #fecaca;background:#fff7f7;color:#b42318;border-radius:10px;padding:9px 12px;font-weight:800;cursor:pointer}
+.bid-delete-btn:hover{background:#fee2e2}
+@media(max-width:650px){
+  .bid-history-head{flex-direction:column;gap:8px}
+  .bid-admin-row{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:13px 0}
+  .bid-admin-value{align-self:start}
+  .bid-delete-btn{grid-column:1/-1;width:100%;min-height:42px}
+}
