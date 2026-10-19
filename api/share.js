@@ -6,7 +6,7 @@ const dateLabel=value=>value?new Date(value).toLocaleString('pt-BR',{day:'2-digi
 
 async function loadLot(id){
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY||PUBLIC_KEY;
-  const url=`${SUPABASE_URL}/rest/v1/lots?id=eq.${encodeURIComponent(id)}&select=id,title,image_url,starting_bid,valuation,min_increment,starts_at,ends_at`;
+  const url=`${SUPABASE_URL}/rest/v1/lots?id=eq.${encodeURIComponent(id)}&select=id,title,image_url,starting_bid,current_bid,valuation,min_increment,starts_at,ends_at,updated_at`;
   const headers={apikey:key};
   if(String(key).split('.').length===3)headers.Authorization=`Bearer ${key}`;
   const response=await fetch(url,{headers});
@@ -33,8 +33,8 @@ module.exports=async(req,res)=>{
 
   const origin=`https://${req.headers.host}`;
   const target=`${origin}/?lote=${encodeURIComponent(lotId)}`;
-  const version=encodeURIComponent(String(q.v||'4'));
-  const canonical=`${origin}/oferta/${encodeURIComponent(lotId)}?v=${version}`;
+  const version=encodeURIComponent(String(lot?.updated_at||q.v||'1'));
+  const canonical=`${origin}/oferta/${encodeURIComponent(lotId)}`;
 
   let image='https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80';
   try{
@@ -43,6 +43,15 @@ module.exports=async(req,res)=>{
       image=parsed.toString();
     }
   }catch{}
+
+  const ua=String(req.headers['user-agent']||'');
+  const isPreviewBot=/(WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Slackbot|Pinterestbot)/i.test(ua);
+  if(!isPreviewBot){
+    res.setHeader('Cache-Control','no-store, max-age=0');
+    res.statusCode=302;
+    res.setHeader('Location',target);
+    return res.end();
+  }
 
   const title=name;
   const details=[];
@@ -56,6 +65,6 @@ module.exports=async(req,res)=>{
   const proxiedImage=rawImage?`${origin}/share-image/${encodeURIComponent(lotId)}.jpg?v=${version}`:image;
   const safeImage=esc(proxiedImage);
   res.setHeader('Content-Type','text/html; charset=utf-8');
-  res.setHeader('Cache-Control','public, max-age=30, s-maxage=60');
-  res.end(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><meta name="description" content="${desc}"><meta property="og:type" content="website"><meta property="og:site_name" content="JP Leilões"><meta property="og:title" content="${title}"><meta property="og:description" content="${desc}"><meta property="og:image" content="${safeImage}"><meta property="og:image:secure_url" content="${safeImage}"><meta property="og:image:type" content="image/jpeg"><meta property="og:image:alt" content="Foto do produto ${title}"><meta property="og:url" content="${esc(canonical)}"><link rel="image_src" href="${safeImage}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${title}"><meta name="twitter:description" content="${desc}"><meta name="twitter:image" content="${safeImage}"></head><body><p>Abrindo lote...</p><p><a href="${esc(target)}">Clique aqui se o lote não abrir automaticamente.</a></p><script>location.replace(${JSON.stringify(target)})<\/script></body></html>`);
+  res.setHeader('Cache-Control','public, max-age=60, s-maxage=120');
+  res.end(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><meta name="description" content="${desc}"><meta property="og:type" content="website"><meta property="og:site_name" content="JP Leilões"><meta property="og:title" content="${title}"><meta property="og:description" content="${desc}"><meta property="og:image" content="${safeImage}"><meta property="og:image:secure_url" content="${safeImage}"><meta property="og:image:type" content="image/jpeg"><meta property="og:image:alt" content="Foto do produto ${title}"><meta property="og:url" content="${esc(canonical)}"><link rel="image_src" href="${safeImage}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${title}"><meta name="twitter:description" content="${desc}"><meta name="twitter:image" content="${safeImage}"></head><body><p><a href="${esc(target)}">Abrir produto na JP Leilões</a></p></body></html>`);
 };
