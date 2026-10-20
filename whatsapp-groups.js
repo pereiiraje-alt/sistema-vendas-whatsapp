@@ -122,6 +122,58 @@
     }
   };
 
+  window.jpWhatsappGetProductGroups=async function(){
+    if(!currentCompany?.id)return {online:false,groups:[],phone:null};
+    try{
+      let device=await getDevice();
+      if(getCloudToken()){
+        try{
+          const cloud=await cloudRequest('/api/status');
+          if(cloud){
+            device={
+              ...(device||{}),
+              status:cloud.status||device?.status,
+              phone:cloud.phone||device?.phone,
+              available_groups:Array.isArray(cloud.groups)?cloud.groups:(device?.available_groups||[])
+            };
+          }
+        }catch(e){console.warn('Grupos WhatsApp Cloud:',e)}
+      }
+      return {
+        online:device?.status==='ONLINE',
+        phone:device?.phone||null,
+        groups:Array.isArray(device?.available_groups)?device.available_groups:[]
+      };
+    }catch(e){
+      console.warn('Carregar grupos do produto:',e);
+      return {online:false,groups:[],phone:null,error:e.message||String(e)};
+    }
+  };
+
+  window.jpWhatsappSendLotToGroups=async function(lotId,groupIds,{silent=false}={}){
+    if(!currentCompany?.id||!lotId)return false;
+    const ids=[...new Set((groupIds||[]).map(String).filter(Boolean))];
+    if(!ids.length)return false;
+    try{
+      const {data,error}=await db.rpc('enqueue_company_whatsapp_lot_groups',{
+        p_lot_id:lotId,
+        p_group_ids:ids
+      });
+      if(error)throw error;
+      const count=Number(data||0);
+      if(!silent){
+        alert(count
+          ?'Produto enviado para os grupos selecionados.'
+          :'Este produto já estava na fila para estes grupos.');
+      }
+      return count>0;
+    }catch(e){
+      console.warn('WhatsApp por grupos:',e);
+      if(!silent)alert('Não foi possível enviar para os grupos: '+(e.message||e));
+      return false;
+    }
+  };
+
   function statusLabel(status){
     return ({ONLINE:'Conectado',OFFLINE:'Desconectado',CONECTANDO:'Conectando...',
       AGUARDANDO_QR:'Aguardando QR Code',AGUARDANDO_CODIGO:'Aguardando código no WhatsApp',ERRO:'Erro'})[status]||status||'Desconectado';
