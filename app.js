@@ -80,7 +80,8 @@ async function dashboard(){
       <div class="dash-focus-actions">
         ${currentAuction?'<button class="ghost" onclick="go(\'leiloes\')">Ver venda</button>':'<button class="primary" onclick="openFirstAuction()">＋ Criar venda</button>'}
         <button class="ghost" onclick="go('lotes')">＋ Produto</button>
-        ${shareLotId?`<button class="whatsapp" onclick="shareWhats('${shareLotId}')">💬 WhatsApp</button><button class="ghost" onclick="copyOfferLink('${shareLotId}')">🔗 Copiar link</button>`:''}
+        <button class="whatsapp" onclick="openWhatsappSettings()">💬 WhatsApp</button>
+        ${shareLotId?`<button class="ghost" onclick="copyOfferLink('${shareLotId}')">🔗 Copiar link</button>`:''}
       </div>
     </section>
 
@@ -90,7 +91,7 @@ async function dashboard(){
         <button class="dash-text-btn" onclick="go('lances')">Ver todas as ofertas</button>
       </div>
       <div class="dash-activity-list">
-        ${recent.length?recent.slice(0,5).map(x=>`<div class="dash-activity-item"><span class="dash-activity-icon ${x.kind}">${x.icon}</span><div><b>${esc(x.title)}</b><p>${esc(x.text)}</p></div><time>${x.date?new Date(x.date).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</time></div>`).join(''):'<div class="dash-empty">Ainda não há atividade recente. Compartilhe uma venda no WhatsApp para começar a receber ofertas.</div>'}
+        ${recent.length?recent.slice(0,5).map(x=>`<div class="dash-activity-item"><span class="dash-activity-icon ${x.kind}">${x.icon}</span><div><b>${esc(x.title)}</b><p>${esc(x.text)}</p></div><time>${x.date?new Date(x.date).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</time></div>`).join(''):'<div class="dash-empty">Ainda não há atividade recente. Conecte o WhatsApp e escolha os grupos para divulgar seus leilões.</div>'}
       </div>
     </section>`;
   tick();
@@ -275,7 +276,16 @@ async function lances(){
 async function participantes(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('participants').select('*').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar participantes');app.innerHTML=`<div class="panel"><h3>Interessados cadastrados</h3>${(data||[]).map(x=>`<div class="row"><span><b>${esc(x.full_name)}</b><br><small>${esc(x.email)} · ${esc(x.phone)}</small></span><b class="badge">${esc(x.status)}</b></div>`).join('')||'<p class="muted">Nenhum interessado cadastrado.</p>'}</div>`}
 async function arrematantes(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('arremates').select('winning_bid,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar arremates');app.innerHTML=`<div class="panel"><h3>Compradores</h3>${(data||[]).map(x=>`<div class="row"><span>Venda registrada<br><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></span><b>${money(x.winning_bid)}</b></div>`).join('')||'<p class="muted">Nenhuma venda finalizada.</p>'}</div>`}
 function config(){app.innerHTML=`<div class="panel"><h3>Configurações</h3><p>${currentCompany?`Empresa conectada: <b>${esc(currentCompany.name)}</b>`:'Nenhuma empresa vinculada ao usuário atual.'}</p><p class="muted">A configuração do Mercado Pago será conectada na próxima etapa.</p></div>`}
-function tick(){clearInterval(window._timer);window._timer=setInterval(()=>document.querySelectorAll('.timer').forEach(e=>{if(e.dataset.end)e.textContent=remaining(e.dataset.end)}),1000)}function go(name){document.querySelector(`[data-page="${name}"]`).click()}
+function tick(){clearInterval(window._timer);window._timer=setInterval(()=>document.querySelectorAll('.timer').forEach(e=>{if(e.dataset.end)e.textContent=remaining(e.dataset.end)}),1000)}function go(name){document.querySelector(`[data-page="${name}"]`)?.click()}
+async function openWhatsappSettings(){
+  for(let i=0;i<12;i++){
+    const btn=document.querySelector('[data-page="whatsapp"]');
+    if(btn){btn.click();return}
+    if(typeof window.jpWhatsappPage==='function'){await window.jpWhatsappPage();return}
+    await new Promise(r=>setTimeout(r,100));
+  }
+  alert('A opção do WhatsApp ainda está carregando. Tente novamente em instantes.');
+}
 const pages={dashboard:[dashboard,'Dashboard','Visão geral das suas vendas por lances'],leiloes:[leiloes,'Minhas vendas','Vendas publicadas e em andamento'],lotes:[lotes,'Produtos','Cadastre e gerencie os produtos'],lances:[lances,'Ofertas','Histórico de ofertas registradas'],participantes:[participantes,'Interessados','Cadastros e interessados'],arrematantes:[arrematantes,'Compradores','Compradores e pós-venda'],config:[config,'Configurações','Regras e dados da plataforma']};
 const sidebar=document.querySelector('.sidebar');
 let mobileMenuBackdrop=document.querySelector('#mobileMenuBackdrop');
