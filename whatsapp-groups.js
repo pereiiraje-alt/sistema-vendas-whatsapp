@@ -387,11 +387,25 @@
     .wa-simple-options small{display:block;color:#849188;margin-top:3px}
     .wa-simple-actions{display:flex;gap:9px;flex-wrap:wrap}
     .wa-help{margin-top:20px;color:#617267}.wa-help summary{cursor:pointer;font-weight:800}
+    .wa-connect-options{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+    .wa-connect-options .wa-connect-card{margin-top:0;display:flex;flex-direction:column;align-items:stretch;text-align:left}
+    .wa-connect-options .wa-connect-card>button{margin-top:auto}
+    .wa-connect-options .wa-connect-card small,.wa-code-wrap>small,.wa-cloud-status-row small{font-size:10px;font-weight:900;letter-spacing:.08em;color:#7a8a80}
+    .wa-phone-input{display:flex;align-items:center;border:1px solid #ccd9d1;border-radius:11px;background:#fff;margin-top:12px;overflow:hidden}
+    .wa-phone-input span{padding:11px 10px;background:#eef4f0;font-weight:800}.wa-phone-input input{border:0!important;outline:0;flex:1;min-width:0;padding:11px}
+    .wa-cloud-state{margin-top:14px;border:1px solid #dce7e1;border-radius:17px;padding:18px;background:#f8fbf9}
+    .wa-cloud-status-row{display:flex;gap:10px;align-items:center}.wa-cloud-status-row small,.wa-cloud-status-row b{display:block}.wa-cloud-status-row b{margin-top:2px}
+    .wa-cloud-dot{width:11px;height:11px;border-radius:50%;background:#0b8148;box-shadow:0 0 0 5px #dff4e8}
+    .wa-qr-wrap{text-align:center;margin-top:18px}.wa-qr-wrap img{display:block;max-width:320px;width:100%;margin:12px auto;border-radius:12px}
+    .wa-code-wrap{margin-top:18px;text-align:center}.wa-pair-code{font:900 36px/1.1 monospace;letter-spacing:.12em;color:#173c2b;background:#fff;border:1px dashed #aac0b3;border-radius:14px;padding:18px;margin:7px auto 10px;max-width:380px}
+    .wa-code-wrap ol{text-align:left;max-width:520px;margin:18px auto 0;color:#53645a;line-height:1.7}
     @media(max-width:650px){
       .wa-simple-head{flex-direction:column}.wa-connect-card{grid-template-columns:1fr;text-align:center}.wa-connect-icon{margin:auto}
       .wa-connect-main,.wa-download,.wa-setup>button{width:100%;justify-content:center}
       .wa-token-row{flex-direction:column}.wa-simple-options{grid-template-columns:1fr}.wa-simple-actions>*{width:100%}
       .wa-connected{align-items:flex-start;flex-direction:column}.wa-connected button{width:100%}
+      .wa-connect-options{grid-template-columns:1fr}.wa-connect-options .wa-connect-card{text-align:left}.wa-connect-options .wa-connect-icon{margin:0}
+      .wa-connect-options .wa-connect-card>button{width:100%}.wa-pair-code{font-size:29px}.wa-code-wrap ol{padding-left:22px}
     }
   `;
   document.head.appendChild(style);
