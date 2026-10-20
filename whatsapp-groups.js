@@ -235,7 +235,7 @@
   async function renderWhatsappPage(){
     if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';
     title.textContent='WhatsApp';
-    subtitle.textContent='Conecte uma vez, escolha os grupos e deixe o JP Leilões enviar';
+    subtitle.textContent='Conecte uma vez e escolha os grupos ao criar cada produto';
 
     let settings,device;
     try{
@@ -288,26 +288,15 @@
         </div>
 
         <div class="wa-section">
-          <small>GRUPOS</small>
-          <h3>Onde você quer divulgar?</h3>
-          <p class="muted">Marque somente os grupos autorizados para receber os leilões.</p>
+          <small>GRUPOS DISPONÍVEIS</small>
+          <h3>Escolha os grupos ao criar cada produto</h3>
+          <p class="muted">Não existe mais grupo automático. Ao tocar em “Criar produto”, você decide em quais grupos aquele produto será publicado.</p>
           <div class="wa-group-list" data-wa-groups>
             ${groups.length?groups.map(g=>{
-              const id=String(g.id||'');
-              const name=String(g.name||id);
-              return `<label class="wa-group-item"><input type="checkbox" value="${esc(id)}" ${selected.has(id)?'checked':''}><span><b>${esc(name)}</b></span></label>`;
+              const name=String(g.name||g.id||'Grupo');
+              return `<div class="wa-group-item wa-group-readonly"><span>💬</span><b>${esc(name)}</b></div>`;
             }).join(''):'<p class="muted">Nenhum grupo encontrado ainda. Clique em “Atualizar grupos”.</p>'}
           </div>
-        </div>
-
-        <div class="wa-simple-options">
-          <label><input type="checkbox" data-wa-enabled ${settings.enabled?'checked':''}> <span><b>WhatsApp ativo</b><small>Permite os envios do JP Leilões</small></span></label>
-          <label><input type="checkbox" data-wa-auto ${settings.auto_send_on_publish?'checked':''}> <span><b>Enviar ao publicar</b><small>Dispara automaticamente os produtos do leilão</small></span></label>
-        </div>
-
-        <div class="wa-simple-actions">
-          <button class="primary" type="button" data-wa-save>Salvar</button>
-          <button class="whatsapp" type="button" data-wa-send-now ${currentAuction?.id?'':'disabled'}>Enviar leilão atual</button>
         </div>
       `:`
         <div class="wa-connect-options">
