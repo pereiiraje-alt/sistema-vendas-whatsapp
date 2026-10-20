@@ -101,8 +101,8 @@
   };
 
   function statusLabel(status){
-    return ({ONLINE:'Conectado',OFFLINE:'Desconectado',CONECTANDO:'Conectando',
-      AGUARDANDO_QR:'Aguardando QR Code',ERRO:'Erro'})[status]||status||'Desconectado';
+    return ({ONLINE:'Conectado',OFFLINE:'Desconectado',CONECTANDO:'Conectando...',
+      AGUARDANDO_QR:'Aguardando QR Code',AGUARDANDO_CODIGO:'Aguardando código no WhatsApp',ERRO:'Erro'})[status]||status||'Desconectado';
   }
 
   async function renderWhatsappPage(){
