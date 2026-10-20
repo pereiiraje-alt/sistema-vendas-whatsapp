@@ -272,25 +272,45 @@
 
     const root=app.querySelector('.wa-simple');
 
-    root.querySelector('[data-wa-start]')?.addEventListener('click',async e=>{
+    root.querySelector('[data-wa-qr-start]')?.addEventListener('click',async e=>{
       const btn=e.currentTarget;
       btn.disabled=true;
       try{
-        const token=await createDeviceToken();
-        root.querySelector('[data-wa-token-value]').value=token;
-        root.querySelector('[data-wa-setup]').hidden=false;
-        btn.closest('.wa-connect-card').classList.add('wa-connect-started');
+        await ensureCloudToken();
+        const state=await cloudRequest('/api/connect',{method:'POST'});
+        renderCloudState(root,state);
+        watchCloud(root);
       }catch(err){alert('Não foi possível iniciar a conexão: '+(err.message||err))}
       finally{btn.disabled=false}
     });
 
-    root.querySelector('[data-wa-copy]')?.addEventListener('click',async()=>{
-      const value=root.querySelector('[data-wa-token-value]')?.value||'';
+    root.querySelector('[data-wa-phone-start]')?.addEventListener('click',async e=>{
+      const btn=e.currentTarget;
+      const phone=String(root.querySelector('[data-wa-phone-input]')?.value||'').trim();
+      if(!phone)return alert('Informe o número do WhatsApp com DDD.');
+      btn.disabled=true;
+      try{
+        await ensureCloudToken();
+        const state=await cloudRequest('/api/pairing-code',{method:'POST',body:{phone}});
+        renderCloudState(root,state);
+        watchCloud(root);
+      }catch(err){alert('Não foi possível gerar o código: '+(err.message||err))}
+      finally{btn.disabled=false}
+    });
+
+    root.querySelector('[data-wa-copy-code]')?.addEventListener('click',async()=>{
+      const el=root.querySelector('[data-wa-code]');
+      const value=el?.dataset.value||el?.textContent||'';
       if(!value)return;
       try{await navigator.clipboard.writeText(value);alert('Código copiado.')}catch{prompt('Copie o código:',value)}
     });
 
-    root.querySelectorAll('[data-wa-refresh]').forEach(btn=>btn.addEventListener('click',()=>renderWhatsappPage()));
+    root.querySelectorAll('[data-wa-refresh]').forEach(btn=>btn.addEventListener('click',async()=>{
+      try{
+        if(getCloudToken())await cloudRequest('/api/groups/refresh',{method:'POST'});
+        await renderWhatsappPage();
+      }catch(err){alert('Não foi possível atualizar os grupos: '+(err.message||err))}
+    }));
 
     root.querySelector('[data-wa-save]')?.addEventListener('click',async()=>{
       const chosen=[...root.querySelectorAll('[data-wa-groups] input[type="checkbox"]:checked')].map(x=>x.value);
