@@ -157,6 +157,9 @@
         document.querySelector('#title').textContent='Vendas';
         document.querySelector('#subtitle').textContent='Vendas publicados e em andamento';
         await leiloes();
+        if(typeof window.jpWhatsappSendAuction==='function'){
+          window.jpWhatsappSendAuction(currentAuction.id,{silent:true}).catch(error=>console.warn('WhatsApp automático:',error));
+        }
       }catch(error){alert('O produto foi criado, mas não foi possível publicar o venda: '+(error.message||error));}
       finally{savingQuickLot=false;}
     };
