@@ -164,28 +164,56 @@
           <button class="whatsapp" type="button" data-wa-send-now ${currentAuction?.id?'':'disabled'}>Enviar leilão atual</button>
         </div>
       `:`
-        <div class="wa-connect-card">
-          <div class="wa-connect-icon">◉</div>
-          <div>
-            <h3>Conectar WhatsApp</h3>
-            <p>O JP Leilões prepara a conexão e mostra o passo a passo. Depois de conectado, seus grupos aparecem aqui automaticamente.</p>
+        <div class="wa-connect-options">
+          <div class="wa-connect-card">
+            <div class="wa-connect-icon">▣</div>
+            <div>
+              <small>NO COMPUTADOR</small>
+              <h3>Conectar por QR Code</h3>
+              <p>Mostre o QR nesta tela e escaneie com o WhatsApp do celular.</p>
+            </div>
+            <button class="primary" type="button" data-wa-qr-start>Mostrar QR Code</button>
           </div>
-          <button class="primary wa-connect-main" type="button" data-wa-start>Conectar WhatsApp</button>
+
+          <div class="wa-connect-card">
+            <div class="wa-connect-icon">#</div>
+            <div>
+              <small>NO CELULAR</small>
+              <h3>Conectar pelo número</h3>
+              <p>Informe seu WhatsApp com DDD para gerar um código de vinculação.</p>
+              <div class="wa-phone-input"><span>+55</span><input type="tel" inputmode="numeric" autocomplete="tel" placeholder="41 99999-9999" data-wa-phone-input></div>
+            </div>
+            <button class="primary" type="button" data-wa-phone-start>Gerar código</button>
+          </div>
         </div>
 
-        <div class="wa-setup" data-wa-setup hidden>
-          <div class="wa-step"><b>1</b><span>Baixe e abra o conector uma única vez neste computador.</span></div>
-          <a class="ghost wa-download" href="/instalar-jp-whatsapp.cmd" download>Baixar conector</a>
-          <div class="wa-step"><b>2</b><span>Copie o código abaixo e cole no conector.</span></div>
-          <div class="wa-token-row"><input readonly data-wa-token-value><button class="ghost" type="button" data-wa-copy>Copiar</button></div>
-          <div class="wa-step"><b>3</b><span>Escaneie o QR Code que aparecer e volte para esta tela.</span></div>
-          <button class="primary" type="button" data-wa-refresh>Já conectei · atualizar</button>
+        <div class="wa-cloud-state" data-wa-cloud-state hidden>
+          <div class="wa-cloud-status-row"><span class="wa-cloud-dot"></span><div><small>STATUS DA CONEXÃO</small><b data-wa-cloud-status>Conectando...</b></div></div>
+          <div class="wa-error" data-wa-cloud-error hidden></div>
+
+          <div class="wa-qr-wrap" data-wa-qr-wrap hidden>
+            <h3>Escaneie este QR Code</h3>
+            <img data-wa-qr-img alt="QR Code do WhatsApp">
+            <p class="muted">WhatsApp → Aparelhos conectados → Conectar um aparelho.</p>
+          </div>
+
+          <div class="wa-code-wrap" data-wa-code-wrap hidden>
+            <small>SEU CÓDIGO</small>
+            <div class="wa-pair-code" data-wa-code></div>
+            <button class="ghost mini" type="button" data-wa-copy-code>Copiar código</button>
+            <ol>
+              <li>Abra o WhatsApp neste celular.</li>
+              <li>Entre em <b>Aparelhos conectados</b>.</li>
+              <li>Toque em <b>Conectar um aparelho</b>.</li>
+              <li>Escolha <b>Conectar com número de telefone</b> e digite o código acima.</li>
+            </ol>
+          </div>
         </div>
       `}
 
       <details class="wa-help">
         <summary>Ajuda e conexão</summary>
-        <p>Hoje a conexão usa uma sessão do WhatsApp Web. Depois de conectado, o uso normal é feito direto pelo painel.</p>
+        <p>A conexão fica salva na nuvem. Depois de conectar, o cliente não precisa instalar programa nem manter computador ligado.</p>
       </details>
     </section>`;
 
