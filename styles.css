@@ -5,14 +5,16 @@
 .lot-wa-head b{display:block;font-size:14px;color:#173c2b}
 .lot-wa-head small{display:block;margin-top:3px;color:#74867c;font-size:11px}
 #lotWhatsappStatus{font-size:10px;font-weight:800;color:#08783f;background:#eaf8ef;border-radius:999px;padding:5px 8px;white-space:nowrap}
-.lot-wa-list{display:grid;gap:7px;max-height:190px;overflow:auto}
-.lot-wa-group{display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid #dce7e1;border-radius:11px;background:#fff;font-size:13px;font-weight:700;color:#203c30;cursor:pointer}
-.lot-wa-group input{width:18px!important;height:18px!important;margin:0!important;flex:0 0 auto}
+.lot-wa-list{display:flex;flex-direction:column;gap:8px;max-height:180px;overflow:auto}
+.lot-wa-group{display:flex;align-items:center;gap:10px;padding:10px 12px;min-height:52px;border:1px solid #dce7e1;border-radius:12px;background:#fff;font-size:14px;font-weight:600;color:#203c30;cursor:pointer;box-sizing:border-box}
+.lot-wa-group input{width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;margin:0!important;padding:0!important;flex:0 0 18px!important;appearance:auto!important}
+.lot-wa-group span{display:block;font-size:14px;line-height:1.25;font-weight:600;color:#243c33;min-width:0}
 .lot-wa-group:has(input:checked){border-color:#18b85d;background:#eefaf3}
 .wa-group-readonly{cursor:default}
 @media(max-width:650px){
   .lot-whatsapp-groups{padding:12px;margin-top:12px}
   .lot-wa-head{flex-direction:column;gap:6px}
-  .lot-wa-list{max-height:170px}
-  .lot-wa-group{padding:11px}
+  .lot-wa-list{max-height:160px;gap:6px}
+  .lot-wa-group{padding:8px 10px;min-height:44px;gap:8px}
+  .lot-wa-group span{font-size:13px}
 }
