@@ -116,8 +116,11 @@
       ${device?.last_error?`<div class="wa-error">${esc(device.last_error)}</div>`:''}
 
       <div class="wa-setup-box">
-        <div><small>PASSO 1</small><h3>Conectar o computador</h3><p>Gere um código e use-o no programa “JP Leilões WhatsApp” instalado no computador que ficará ligado.</p></div>
-        <button class="primary" type="button" data-wa-generate>Gerar código do computador</button>
+        <div><small>PASSO 1</small><h3>Conectar o computador</h3><p>Instale o conector no computador que ficará ligado, depois gere o código e conecte o WhatsApp pelo QR Code.</p></div>
+        <div class="wa-auto-actions">
+          <a class="ghost wa-download" href="/instalar-jp-whatsapp.cmd" download>⬇ Baixar instalador do computador</a>
+          <button class="primary" type="button" data-wa-generate>Gerar código do computador</button>
+        </div>
         <div class="wa-token-box" data-wa-token hidden>
           <label>Código de conexão</label>
           <div><input readonly data-wa-token-value><button class="ghost" type="button" data-wa-copy>Copiar</button></div>
@@ -247,7 +250,7 @@
     .wa-group-list{display:grid;gap:8px;margin:12px 0 18px}
     .wa-group-item{display:flex;gap:10px;align-items:center;border:1px solid #e1e9e4;background:#fff;padding:11px 12px;border-radius:12px}
     .wa-group-item span{display:flex;flex-direction:column;min-width:0}.wa-group-item small{color:#849188;overflow-wrap:anywhere}
-    .wa-auto-actions{display:flex;flex-wrap:wrap;gap:9px;margin:14px 0}
+    .wa-auto-actions{display:flex;flex-wrap:wrap;gap:9px;margin:14px 0}\n    .wa-download{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-height:42px;box-sizing:border-box}
     .wa-queue-note{padding:12px 14px;border:1px solid #bbdfca;background:#f0faf4;border-radius:12px;color:#245f3e;margin-top:16px}
     .wa-auto-note{margin-top:12px}
     @media(max-width:650px){
