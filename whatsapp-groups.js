@@ -100,6 +100,28 @@
     }
   };
 
+  window.jpWhatsappSendLot=async function(lotId,{silent=false,force=true}={}){
+    if(!currentCompany?.id||!lotId)return false;
+    try{
+      const {data,error}=await db.rpc('enqueue_company_whatsapp_lot',{
+        p_lot_id:lotId,
+        p_force:!!force
+      });
+      if(error)throw error;
+      const count=Number(data||0);
+      if(!silent){
+        alert(count
+          ?'Produto enviado para a fila do WhatsApp.'
+          :'Este produto já estava na fila ou já foi enviado.');
+      }
+      return count>0;
+    }catch(e){
+      console.warn('WhatsApp produto:',e);
+      if(!silent)alert('Não foi possível enviar para o WhatsApp: '+(e.message||e));
+      return false;
+    }
+  };
+
   function statusLabel(status){
     return ({ONLINE:'Conectado',OFFLINE:'Desconectado',CONECTANDO:'Conectando...',
       AGUARDANDO_QR:'Aguardando QR Code',AGUARDANDO_CODIGO:'Aguardando código no WhatsApp',ERRO:'Erro'})[status]||status||'Desconectado';
