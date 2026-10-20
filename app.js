@@ -272,7 +272,38 @@ window.copyOfferLink=async function(id){
   const url=offerShareUrl(id);
   try{await navigator.clipboard.writeText(url);alert('Link da oferta copiado. Agora é só enviar no WhatsApp.')}catch(_){prompt('Copie o link da oferta:',url)}
 }
-async function lotes(){await loadLots();app.innerHTML=`<div class="toolbar"><input class="search" id="search" placeholder="Buscar produto..."><button class="primary" id="new" ${currentCompany?'':'disabled'}>+ Novo produto</button></div><div id="ltable"></div>`;document.querySelector('#new').onclick=()=>{if(!currentAuction)return alert('Crie ou ative uma venda antes de cadastrar produtos.');modal.showModal()};document.querySelector('#search').oninput=e=>renderLots(e.target.value);renderLots()}
+async function loadLotWhatsappGroups(){
+  const box=document.getElementById('lotWhatsappGroups');
+  const status=document.getElementById('lotWhatsappStatus');
+  if(!box||!status)return;
+  box.innerHTML='<p class="muted">Carregando grupos...</p>';
+  status.textContent='Carregando...';
+  if(typeof window.jpWhatsappGetProductGroups!=='function'){
+    box.innerHTML='<p class="muted">A integração do WhatsApp ainda está carregando.</p>';
+    status.textContent='Indisponível';
+    return;
+  }
+  const data=await window.jpWhatsappGetProductGroups();
+  if(!data?.online){
+    status.textContent='WhatsApp desconectado';
+    box.innerHTML='<p class="muted">Conecte o WhatsApp no menu para escolher grupos. Você ainda pode criar o produto sem publicar no WhatsApp.</p>';
+    return;
+  }
+  const groups=Array.isArray(data.groups)?data.groups:[];
+  status.textContent=groups.length?groups.length+' grupo(s)':'Nenhum grupo';
+  box.innerHTML=groups.length
+    ?groups.map(g=>`<label class="lot-wa-group"><input type="checkbox" value="${esc(String(g.id||''))}"><span>${esc(String(g.name||g.id||'Grupo'))}</span></label>`).join('')
+    :'<p class="muted">Nenhum grupo encontrado. Atualize os grupos na opção WhatsApp.</p>';
+}
+async function openNewLotModal(){
+  if(!currentAuction)return alert('Crie ou ative uma venda antes de cadastrar produtos.');
+  lotForm.reset();
+  document.querySelectorAll('#lotWhatsappGroups input[type="checkbox"]').forEach(x=>x.checked=false);
+  modal.showModal();
+  await loadLotWhatsappGroups();
+}
+window.openNewLotModal=openNewLotModal;
+async function lotes(){await loadLots();app.innerHTML=`<div class="toolbar"><input class="search" id="search" placeholder="Buscar produto..."><button class="primary" id="new" ${currentCompany?'':'disabled'}>+ Novo produto</button></div><div id="ltable"></div>`;document.querySelector('#new').onclick=openNewLotModal;document.querySelector('#search').oninput=e=>renderLots(e.target.value);renderLots()}
 function renderLots(q=''){let a=lots.filter(x=>x.name.toLowerCase().includes(q.toLowerCase()));document.querySelector('#ltable').innerHTML=`<table><thead><tr><th>FOTO</th><th>PRODUTO</th><th>AVALIAÇÃO</th><th>OFERTA ATUAL</th><th>STATUS</th><th>COMPARTILHAR</th></tr></thead><tbody>${a.map(l=>`<tr><td>${l.image?`<img class="thumb" src="${esc(l.image)}">`:'🔨'}</td><td><strong>#${l.number} · ${esc(l.name)}</strong></td><td>${money(l.valuation)}</td><td>${money(l.current)}</td><td><span class="badge">${esc(l.status)}</span></td><td><button class="whatsapp mini" onclick="shareWhats('${l.id}')">WhatsApp</button></td></tr>`).join('')}</tbody></table>`}
 async function deleteBid(id){
   if(!currentCompany)return;
@@ -390,7 +421,15 @@ document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();if(!lotF
   let{data:last}=await timeout(db.from('lots').select('lot_number').eq('auction_id',currentAuction.id).order('lot_number',{ascending:false}).limit(1).maybeSingle(),7000,'buscar último lote'),number=(last?.lot_number||0)+1,start=+lstart.value,ends=new Date(Date.now()+60000*(+lduration.value)).toISOString();
   let{data:created,error}=await timeout(db.from('lots').insert({company_id:currentCompany.id,auction_id:currentAuction.id,lot_number:number,title:lname.value,description:ldesc.value||'',image_url:image,image_urls:images,valuation:+lvalue.value,starting_bid:start,current_bid:start,min_increment:+lstep.value,status:'live',starts_at:new Date().toISOString(),ends_at:ends}).select('id').single(),7000,'salvar lote');
   if(error)throw error;
-  if(created?.id&&typeof window.jpWhatsappSendLot==='function'){await window.jpWhatsappSendLot(created.id,{silent:true,force:false})}
+  const selectedWhatsappGroups=[...document.querySelectorAll('#lotWhatsappGroups input[type="checkbox"]:checked')].map(x=>x.value);
+  if(created?.id&&selectedWhatsappGroups.length){
+    if(typeof window.jpWhatsappSendLotToGroups==='function'){
+      const sent=await window.jpWhatsappSendLotToGroups(created.id,selectedWhatsappGroups,{silent:true});
+      if(!sent)alert('Produto criado, mas não foi possível colocá-lo na fila do WhatsApp.');
+    }else{
+      alert('Produto criado, mas a integração do WhatsApp ainda não estava pronta para enviar.');
+    }
+  }
   modal.close();lotForm.reset();await lotes()
 }catch(e){alert('Erro ao salvar lote: '+e.message)}};
 document.querySelector('#registerForm').onsubmit=async e=>{e.preventDefault();let id=pendingBid;if(!id)return;try{let l=await loadPublicLot(id);let email=remail.value.trim().toLowerCase(),password=rpassword.value;let{data,error}=await timeout(db.auth.signUp({email,password,options:{data:{full_name:rname.value.trim()}}}),7000,'criar cadastro');if(error)throw error;if(!data.user)throw new Error('Não foi possível criar o usuário.');let{data:p,error:pe}=await timeout(db.from('participants').insert({company_id:l.companyId,auth_user_id:data.user.id,full_name:rname.value.trim(),cpf:rcpf.value.trim(),phone:rphone.value.trim(),email,status:'approved'}).select().single(),7000,'salvar participante');if(pe)throw pe;participant={id:p.id,name:p.full_name,cpf:p.cpf,phone:p.phone,email:p.email,companyId:p.company_id};registerModal.close();pendingBid=null;await bid(id)}catch(e){alert('Cadastro: '+e.message)}};
