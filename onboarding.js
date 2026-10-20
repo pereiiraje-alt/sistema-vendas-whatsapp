@@ -396,14 +396,10 @@
           if(isSecondary(btn))moveIfNeeded(btn,body);
         });
 
-        // Remove atalhos duplicados criados por módulos antigos.
-        const platformButtons=[...body.querySelectorAll('button')].filter(btn=>/plataforma/.test(textOf(btn))&&(/ofertas|vendas|leilões/.test(textOf(btn)))&&!/minhas ofertas/.test(textOf(btn)));
-        platformButtons.forEach((btn,index)=>{
-          if(index===0){
-            btn.textContent='🌐 Ofertas da plataforma';
-            btn.removeAttribute('data-page');
-            btn.onclick=e=>{e.preventDefault();e.stopPropagation();location.href='/explorar.html'};
-          }else btn.remove();
+        // Menu "Mais" enxuto: mantém apenas WhatsApp, Meu plano, Suporte e Histórico.
+        const removeFromMore=/mensalidade|instalar aplicativo|minhas ofertas na plataforma|ofertas da plataforma|vendas da plataforma|leilões da plataforma|cadastros p\/ oferta/;
+        [...body.querySelectorAll('button')].forEach(btn=>{
+          if(removeFromMore.test(textOf(btn)))btn.remove();
         });
 
         const seen=new Set();
