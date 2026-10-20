@@ -1,0 +1,15 @@
+JP LEILÕES - WHATSAPP AUTOMÁTICO
+
+1. Execute instalar.bat uma vez.
+2. Abra o JP Leilões > Mais > WhatsApp automático.
+3. Gere o código do computador.
+4. Execute iniciar.bat.
+5. Cole o código na página que abrir no navegador.
+6. Clique em Conectar WhatsApp e escaneie o QR Code.
+7. Volte ao JP Leilões, atualize a lista de grupos, selecione os grupos autorizados e ative o envio automático.
+
+IMPORTANTE
+- Este conector usa uma sessão do WhatsApp Web, sem a API oficial.
+- O computador precisa permanecer ligado e o programa precisa ficar aberto para enviar automaticamente.
+- O WhatsApp pode encerrar a sessão e pedir novo QR Code.
+- Use somente grupos em que sua empresa tenha autorização para publicar.
