@@ -258,16 +258,110 @@ async function shareWhats(id){
   location.href='https://wa.me/?text='+encodeURIComponent(msg);
 }
 async function sendLotToConfiguredWhatsapp(id){
-  if(typeof window.jpWhatsappSendLot!=='function'){
+  await openLotWhatsappGroupsModal(id);
+}
+window.sendLotToConfiguredWhatsapp=sendLotToConfiguredWhatsapp;
+
+async function openLotWhatsappGroupsModal(lotId){
+  if(typeof window.jpWhatsappGetProductGroups!=='function'){
     alert('A integração do WhatsApp ainda está carregando. Tente novamente em instantes.');
     return;
   }
-  const ok=await window.jpWhatsappSendLot(id,{silent:false,force:true});
-  if(ok){
-    setTimeout(()=>{const btn=[...document.querySelectorAll('button.whatsapp')].find(b=>b.getAttribute('onclick')?.includes(id));if(btn){btn.textContent='✓ Enviado ao WhatsApp';setTimeout(()=>btn.textContent='WhatsApp',2500)}},100);
+
+  let dialog=document.getElementById('lotWhatsappResendModal');
+  if(!dialog){
+    dialog=document.createElement('dialog');
+    dialog.id='lotWhatsappResendModal';
+    dialog.className='lot-wa-resend-modal';
+    document.body.appendChild(dialog);
+  }
+
+  dialog.dataset.lotId=lotId;
+  dialog.innerHTML=`
+    <form method="dialog" class="lot-wa-resend-card">
+      <div class="lot-wa-resend-head">
+        <div><small>WHATSAPP</small><h3>Escolha os grupos</h3><p>Marque onde deseja publicar este produto novamente.</p></div>
+        <button type="button" class="lot-wa-resend-close" onclick="closeLotWhatsappGroupsModal()" aria-label="Fechar">×</button>
+      </div>
+      <div class="lot-wa-resend-status" data-wa-resend-status>Carregando grupos...</div>
+      <div class="lot-wa-resend-list" data-wa-resend-list><p class="muted">Aguarde...</p></div>
+      <div class="lot-wa-resend-actions">
+        <button type="button" class="ghost" onclick="closeLotWhatsappGroupsModal()">Cancelar</button>
+        <button type="button" class="whatsapp" data-wa-resend-send onclick="confirmLotWhatsappGroups()">Enviar agora</button>
+      </div>
+    </form>`;
+
+  if(!dialog.open)dialog.showModal();
+
+  const status=dialog.querySelector('[data-wa-resend-status]');
+  const list=dialog.querySelector('[data-wa-resend-list]');
+  const send=dialog.querySelector('[data-wa-resend-send]');
+  send.disabled=true;
+
+  try{
+    const data=await window.jpWhatsappGetProductGroups();
+    if(!data?.online){
+      status.textContent='WhatsApp desconectado';
+      list.innerHTML='<p class="muted">Conecte o WhatsApp no menu para carregar os grupos.</p>';
+      return;
+    }
+    const groups=Array.isArray(data.groups)?data.groups:[];
+    status.textContent=groups.length?groups.length+' grupo(s) disponível(is)':'Nenhum grupo encontrado';
+    list.innerHTML=groups.length
+      ?groups.map(g=>`<label class="lot-wa-resend-group"><input type="checkbox" value="${esc(String(g.id||''))}"><span>${esc(String(g.name||g.id||'Grupo'))}</span></label>`).join('')
+      :'<p class="muted">Nenhum grupo encontrado. Atualize os grupos na opção WhatsApp.</p>';
+    send.disabled=!groups.length;
+  }catch(e){
+    status.textContent='Não foi possível carregar os grupos';
+    list.innerHTML=`<p class="muted">${esc(e.message||String(e))}</p>`;
   }
 }
-window.sendLotToConfiguredWhatsapp=sendLotToConfiguredWhatsapp;
+window.openLotWhatsappGroupsModal=openLotWhatsappGroupsModal;
+
+function closeLotWhatsappGroupsModal(){
+  const dialog=document.getElementById('lotWhatsappResendModal');
+  if(dialog?.open)dialog.close();
+}
+window.closeLotWhatsappGroupsModal=closeLotWhatsappGroupsModal;
+
+async function confirmLotWhatsappGroups(){
+  const dialog=document.getElementById('lotWhatsappResendModal');
+  if(!dialog)return;
+  const lotId=dialog.dataset.lotId;
+  const selected=[...dialog.querySelectorAll('input[type="checkbox"]:checked')].map(x=>x.value);
+  if(!selected.length){
+    alert('Selecione pelo menos um grupo do WhatsApp.');
+    return;
+  }
+  if(typeof window.jpWhatsappSendLotToGroups!=='function'){
+    alert('A integração do WhatsApp ainda está carregando.');
+    return;
+  }
+  const send=dialog.querySelector('[data-wa-resend-send]');
+  send.disabled=true;
+  const oldText=send.textContent;
+  send.textContent='Enviando...';
+  try{
+    const ok=await window.jpWhatsappSendLotToGroups(lotId,selected,{silent:true});
+    if(!ok){
+      alert('Este produto já estava na fila para os grupos selecionados ou não pôde ser reenviado.');
+      return;
+    }
+    closeLotWhatsappGroupsModal();
+    const btn=[...document.querySelectorAll('button.whatsapp')].find(b=>b.getAttribute('onclick')?.includes(lotId));
+    if(btn){
+      const previous=btn.textContent;
+      btn.textContent='✓ Enviado';
+      setTimeout(()=>btn.textContent=previous||'WhatsApp',2500);
+    }
+  }catch(e){
+    alert('Não foi possível enviar para o WhatsApp: '+(e.message||e));
+  }finally{
+    send.disabled=false;
+    send.textContent=oldText;
+  }
+}
+window.confirmLotWhatsappGroups=confirmLotWhatsappGroups;
 window.copyOfferLink=async function(id){
   const url=offerShareUrl(id);
   try{await navigator.clipboard.writeText(url);alert('Link da oferta copiado. Agora é só enviar no WhatsApp.')}catch(_){prompt('Copie o link da oferta:',url)}
@@ -304,7 +398,7 @@ async function openNewLotModal(){
 }
 window.openNewLotModal=openNewLotModal;
 async function lotes(){await loadLots();app.innerHTML=`<div class="toolbar"><input class="search" id="search" placeholder="Buscar produto..."><button class="primary" id="new" ${currentCompany?'':'disabled'}>+ Novo produto</button></div><div id="ltable"></div>`;document.querySelector('#new').onclick=openNewLotModal;document.querySelector('#search').oninput=e=>renderLots(e.target.value);renderLots()}
-function renderLots(q=''){let a=lots.filter(x=>x.name.toLowerCase().includes(q.toLowerCase()));document.querySelector('#ltable').innerHTML=`<table><thead><tr><th>FOTO</th><th>PRODUTO</th><th>AVALIAÇÃO</th><th>OFERTA ATUAL</th><th>STATUS</th><th>COMPARTILHAR</th></tr></thead><tbody>${a.map(l=>`<tr><td>${l.image?`<img class="thumb" src="${esc(l.image)}">`:'🔨'}</td><td><strong>#${l.number} · ${esc(l.name)}</strong></td><td>${money(l.valuation)}</td><td>${money(l.current)}</td><td><span class="badge">${esc(l.status)}</span></td><td><button class="whatsapp mini" onclick="shareWhats('${l.id}')">WhatsApp</button></td></tr>`).join('')}</tbody></table>`}
+function renderLots(q=''){let a=lots.filter(x=>x.name.toLowerCase().includes(q.toLowerCase()));document.querySelector('#ltable').innerHTML=`<table><thead><tr><th>FOTO</th><th>PRODUTO</th><th>AVALIAÇÃO</th><th>OFERTA ATUAL</th><th>STATUS</th><th>COMPARTILHAR</th></tr></thead><tbody>${a.map(l=>`<tr><td>${l.image?`<img class="thumb" src="${esc(l.image)}">`:'🔨'}</td><td><strong>#${l.number} · ${esc(l.name)}</strong></td><td>${money(l.valuation)}</td><td>${money(l.current)}</td><td><span class="badge">${esc(l.status)}</span></td><td><button class="whatsapp mini" onclick="sendLotToConfiguredWhatsapp('${l.id}')">WhatsApp</button></td></tr>`).join('')}</tbody></table>`}
 async function deleteBid(id){
   if(!currentCompany)return;
   if(!confirm('Excluir este lance? O valor atual do produto será recalculado automaticamente.'))return;
