@@ -191,7 +191,10 @@
       ${online?`
         <div class="wa-connected">
           <div class="wa-phone"><span>✓</span><div><small>NÚMERO CONECTADO</small><b>${esc(device?.phone||'WhatsApp conectado')}</b></div></div>
-          <button class="ghost mini" type="button" data-wa-refresh>Atualizar grupos</button>
+          <div class="wa-connected-actions">
+            <button class="ghost mini" type="button" data-wa-refresh>Atualizar grupos</button>
+            <button class="ghost mini" type="button" data-wa-disconnect>Desconectar</button>
+          </div>
         </div>
 
         <div class="wa-section">
@@ -312,6 +315,18 @@
       }catch(err){alert('Não foi possível atualizar os grupos: '+(err.message||err))}
     }));
 
+    root.querySelector('[data-wa-disconnect]')?.addEventListener('click',async e=>{
+      if(!confirm('Desconectar este WhatsApp do JP Leilões?'))return;
+      const btn=e.currentTarget;
+      btn.disabled=true;
+      try{
+        if(!getCloudToken())throw new Error('Esta conexão foi feita pelo conector antigo.');
+        await cloudRequest('/api/disconnect',{method:'POST'});
+        await renderWhatsappPage();
+      }catch(err){alert('Não foi possível desconectar: '+(err.message||err))}
+      finally{btn.disabled=false}
+    });
+
     root.querySelector('[data-wa-save]')?.addEventListener('click',async()=>{
       const chosen=[...root.querySelectorAll('[data-wa-groups] input[type="checkbox"]:checked')].map(x=>x.value);
       try{
@@ -377,6 +392,7 @@
     .wa-download{display:inline-flex;align-items:center;text-decoration:none;margin:0 0 8px;padding:10px 14px;border-radius:10px}
     .wa-token-row{display:flex;gap:8px}.wa-token-row input{flex:1;min-width:0;font-family:monospace}
     .wa-connected{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0;padding:14px;border:1px solid #cfe8d9;background:#f2fbf5;border-radius:14px}
+    .wa-connected-actions{display:flex;gap:7px;flex-wrap:wrap}
     .wa-phone{display:flex;gap:10px;align-items:center}.wa-phone>span{width:32px;height:32px;border-radius:50%;background:#0a8147;color:#fff;display:grid;place-items:center;font-weight:900}
     .wa-phone small{display:block;color:#75867c;font-size:9px;font-weight:900}.wa-phone b{display:block;margin-top:2px}
     .wa-section{margin-top:20px}.wa-section h3{margin:4px 0}.wa-section p{margin:0 0 12px}
