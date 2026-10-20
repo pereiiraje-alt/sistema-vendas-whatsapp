@@ -1,4 +1,42 @@
 (()=>{
+  const CLOUD_API='https://whatsapp-cloud-production-b8c1.up.railway.app';
+  let cloudPollTimer=null;
+
+  function cloudTokenKey(){
+    return currentCompany?.id?'jp_whatsapp_cloud_'+currentCompany.id:'jp_whatsapp_cloud';
+  }
+  function getCloudToken(){
+    try{return localStorage.getItem(cloudTokenKey())||''}catch{return ''}
+  }
+  function setCloudToken(token){
+    try{localStorage.setItem(cloudTokenKey(),token)}catch{}
+  }
+  async function ensureCloudToken(){
+    let token=getCloudToken();
+    if(token)return token;
+    token=await createDeviceToken();
+    setCloudToken(token);
+    return token;
+  }
+  async function cloudRequest(path,{method='GET',body}={}){
+    const token=getCloudToken();
+    if(!token)throw new Error('Inicie a conexão do WhatsApp primeiro.');
+    const response=await fetch(CLOUD_API+path,{
+      method,
+      headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},
+      body:body?JSON.stringify(body):undefined,
+      cache:'no-store'
+    });
+    const raw=await response.text();
+    let data={};
+    try{data=raw?JSON.parse(raw):{}}catch{data={error:raw}}
+    if(!response.ok)throw new Error(data?.error||'Falha na conexão com o WhatsApp.');
+    return data;
+  }
+  function stopCloudPolling(){
+    if(cloudPollTimer){clearInterval(cloudPollTimer);cloudPollTimer=null}
+  }
+
   async function getSettings(){
     if(!currentCompany?.id)return null;
     let {data,error}=await db.from('company_whatsapp_settings').select('*').eq('company_id',currentCompany.id).maybeSingle();
