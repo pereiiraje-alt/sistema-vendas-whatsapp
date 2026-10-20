@@ -200,6 +200,39 @@
   }
 
   window.openFirstAuction=()=>ensureDialog().showModal();
+
+  // Atalho móvel permanente para iniciar outra venda.
+  (function setupMobileNewSaleFab(){
+    let fab=document.getElementById('mobileNewSaleFab');
+    if(!fab){
+      fab=document.createElement('button');
+      fab.id='mobileNewSaleFab';
+      fab.type='button';
+      fab.className='mobile-new-sale-fab';
+      fab.innerHTML='<span>＋</span><small>Nova venda</small>';
+      fab.setAttribute('aria-label','Criar nova venda');
+      fab.onclick=e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        window.openFirstAuction?.();
+      };
+      document.body.appendChild(fab);
+    }
+
+    function updateFab(){
+      const mobile=window.matchMedia('(max-width:650px)').matches;
+      const isPublic=document.body.classList.contains('public-lot');
+      const pageTitle=(document.getElementById('title')?.textContent||'').trim().toLowerCase();
+      const allowed=pageTitle==='criar venda'||pageTitle==='dashboard'||pageTitle==='minhas vendas'||pageTitle==='vendas';
+      fab.classList.toggle('show',mobile&&!isPublic&&allowed);
+    }
+
+    const observer=new MutationObserver(()=>requestAnimationFrame(updateFab));
+    observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+    window.addEventListener('resize',updateFab);
+    setInterval(updateFab,1200);
+    updateFab();
+  })();
   window.alert=(message)=>{
     const text=String(message||'');
     if(text.includes('Crie ou ative uma venda antes de cadastrar produtos')||text.includes('ter uma venda ativa')){
@@ -207,6 +240,52 @@
     }
     originalAlert(message);
   };
+  // Visual do atalho móvel de nova venda.
+  if(!document.getElementById('mobileNewSaleFabStyle')){
+    const style=document.createElement('style');
+    style.id='mobileNewSaleFabStyle';
+    style.textContent=`
+      .mobile-new-sale-fab{display:none}
+      @media(max-width:650px){
+        .mobile-new-sale-fab.show{
+          position:fixed;
+          right:18px;
+          bottom:calc(22px + env(safe-area-inset-bottom,0px));
+          z-index:1200;
+          width:68px;
+          height:68px;
+          border:0;
+          border-radius:50%;
+          background:#18c766;
+          color:#fff;
+          box-shadow:0 12px 30px rgba(10,107,57,.32);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          flex-direction:column;
+          gap:0;
+          cursor:pointer;
+        }
+        .mobile-new-sale-fab span{
+          font-size:34px;
+          line-height:28px;
+          font-weight:800;
+          margin-top:-2px;
+        }
+        .mobile-new-sale-fab small{
+          font-size:8px;
+          line-height:1;
+          margin-top:4px;
+          font-weight:800;
+          white-space:nowrap;
+        }
+        .mobile-new-sale-fab:active{transform:scale(.96)}
+        dialog[open]~.mobile-new-sale-fab{display:none!important}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   // Guia simples para novos vendedores: aparece somente até ser dispensado.
   (function setupSellerGuide(){
     if(!client)return;
