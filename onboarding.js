@@ -209,11 +209,21 @@
       fab.id='mobileNewSaleFab';
       fab.type='button';
       fab.className='mobile-new-sale-fab';
-      fab.innerHTML='<span>＋</span><small>Nova venda</small>';
-      fab.setAttribute('aria-label','Criar nova venda');
-      fab.onclick=e=>{
+      fab.innerHTML='<span>＋</span><small>Novo produto</small>';
+      fab.setAttribute('aria-label','Criar novo produto');
+      fab.onclick=async e=>{
         e.preventDefault();
         e.stopPropagation();
+        if(typeof window.openNewLotModal==='function'&&window.currentAuction){
+          await window.openNewLotModal();
+          return;
+        }
+        if(typeof window.openNewLotModal==='function'){
+          try{
+            await window.openNewLotModal();
+            return;
+          }catch(_){}
+        }
         window.openFirstAuction?.();
       };
       document.body.appendChild(fab);
