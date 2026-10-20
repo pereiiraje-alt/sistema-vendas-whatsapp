@@ -172,6 +172,22 @@
       return;
     }
 
+    let cloudState=null;
+    if(getCloudToken()){
+      try{
+        cloudState=await cloudRequest('/api/status');
+        device={
+          ...(device||{}),
+          status:cloudState?.status||device?.status,
+          phone:cloudState?.phone||device?.phone,
+          available_groups:Array.isArray(cloudState?.groups)&&cloudState.groups.length?cloudState.groups:(device?.available_groups||[]),
+          last_error:cloudState?.lastError||device?.last_error
+        };
+      }catch(e){
+        console.warn('Status WhatsApp Cloud:',e);
+      }
+    }
+
     const groups=Array.isArray(device?.available_groups)?device.available_groups:[];
     const selected=new Set(Array.isArray(settings?.selected_groups)?settings.selected_groups:[]);
     const online=device?.status==='ONLINE';
@@ -180,8 +196,8 @@
       <div class="wa-simple-head">
         <div>
           <small>WHATSAPP AUTOMÁTICO</small>
-          <h2>${online?'WhatsApp conectado':'Conecte seu WhatsApp'}</h2>
-          <p>${online?'Pronto. Escolha abaixo os grupos que receberão seus leilões.':'Faça a conexão uma vez e depois use tudo pelo painel do JP Leilões.'}</p>
+          <h2>${online?'✅ WhatsApp conectado':'Conecte seu WhatsApp'}</h2>
+          <p>${online?'Conectado e pronto para enviar seus leilões. Escolha abaixo os grupos que receberão as divulgações.':'Faça a conexão uma vez e depois use tudo pelo painel do JP Leilões.'}</p>
         </div>
         <span class="badge ${online?'wa-online':'wa-offline'}">${statusLabel(device?.status)}</span>
       </div>
@@ -190,7 +206,7 @@
 
       ${online?`
         <div class="wa-connected">
-          <div class="wa-phone"><span>✓</span><div><small>NÚMERO CONECTADO</small><b>${esc(device?.phone||'WhatsApp conectado')}</b></div></div>
+          <div class="wa-phone"><span>✓</span><div><small>WHATSAPP CONECTADO E PRONTO</small><b>${esc(device?.phone||'Conta conectada')}</b><em>Envios de leilões disponíveis</em></div></div>
           <div class="wa-connected-actions">
             <button class="ghost mini" type="button" data-wa-refresh>Atualizar grupos</button>
             <button class="ghost mini" type="button" data-wa-disconnect>Desconectar</button>
@@ -394,7 +410,7 @@
     .wa-connected{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0;padding:14px;border:1px solid #cfe8d9;background:#f2fbf5;border-radius:14px}
     .wa-connected-actions{display:flex;gap:7px;flex-wrap:wrap}
     .wa-phone{display:flex;gap:10px;align-items:center}.wa-phone>span{width:32px;height:32px;border-radius:50%;background:#0a8147;color:#fff;display:grid;place-items:center;font-weight:900}
-    .wa-phone small{display:block;color:#75867c;font-size:9px;font-weight:900}.wa-phone b{display:block;margin-top:2px}
+    .wa-phone small{display:block;color:#75867c;font-size:9px;font-weight:900}.wa-phone b{display:block;margin-top:2px}.wa-phone em{display:block;margin-top:3px;color:#08783f;font-size:11px;font-style:normal;font-weight:750}
     .wa-section{margin-top:20px}.wa-section h3{margin:4px 0}.wa-section p{margin:0 0 12px}
     .wa-group-list{display:grid;gap:8px;margin:10px 0 18px}
     .wa-group-item{display:flex;gap:10px;align-items:center;border:1px solid #e1e9e4;background:#fff;padding:12px;border-radius:12px}
