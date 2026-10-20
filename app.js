@@ -10,7 +10,26 @@ const money=n=>(+n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})
 function remaining(t){let s=Math.max(0,Math.floor((new Date(t)-Date.now())/1000)),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}`}
 function endTime(t){return new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
 function img(l,cls='lot-img'){return l.image?`<img class="${cls}" src="${esc(l.image)}" alt="${esc(l.name)}">`:`<div class="photo">🔨</div>`}
-function normalize(l){return{id:l.id,companyId:l.company_id,auctionId:l.auction_id,number:l.lot_number,name:l.title,desc:l.description||'',image:l.image_url||'',valuation:+l.valuation,start:+l.starting_bid,current:+l.current_bid,step:+l.min_increment,status:l.status,starts:l.starts_at,ends:l.ends_at,winnerId:l.winner_participant_id,bids:[]}}
+function normalize(l){
+  const urls=Array.isArray(l.image_urls)?l.image_urls.filter(Boolean):[];
+  const cover=l.image_url||urls[0]||'';
+  const images=[...new Set([cover,...urls].filter(Boolean))];
+  return{id:l.id,companyId:l.company_id,auctionId:l.auction_id,number:l.lot_number,name:l.title,desc:l.description||'',image:cover,images,valuation:+l.valuation,start:+l.starting_bid,current:+l.current_bid,step:+l.min_increment,status:l.status,starts:l.starts_at,ends:l.ends_at,winnerId:l.winner_participant_id,bids:[]}
+}
+function productGallery(l){
+  if(!l.images?.length)return '<div class="photo">🔨</div>';
+  const main=l.images[0];
+  const thumbs=l.images.length>1?`<div class="product-thumbs">${l.images.map((url,i)=>`<button type="button" class="product-thumb ${i===0?'active':''}" onclick="changeLotPhoto(this)" data-photo="${esc(url)}" aria-label="Ver foto ${i+1}"><img src="${esc(url)}" alt="Foto ${i+1} de ${esc(l.name)}"></button>`).join('')}</div>`:'';
+  return `<div class="product-gallery"><img class="hero-img product-main-photo" src="${esc(main)}" alt="${esc(l.name)}"><span class="product-photo-count">${l.images.length} foto${l.images.length>1?'s':''}</span>${thumbs}</div>`;
+}
+window.changeLotPhoto=function(btn){
+  const gallery=btn?.closest('.product-gallery');
+  const main=gallery?.querySelector('.product-main-photo');
+  const src=btn?.dataset?.photo;
+  if(!main||!src)return;
+  main.src=src;
+  gallery.querySelectorAll('.product-thumb').forEach(x=>x.classList.toggle('active',x===btn));
+};
 async function loadLots(){let q=db.from('lots').select('*').order('lot_number');if(currentCompany)q=q.eq('company_id',currentCompany.id);let{data,error}=await timeout(q,7000,'carregar lotes');if(error)throw error;lots=(data||[]).map(normalize);return lots}
 async function loadPublicLot(id){let{data,error}=await timeout(db.from('lots').select('*').eq('id',id).single(),7000,'carregar produto');if(error)throw error;let l=normalize(data);let{data:a}=await timeout(db.from('auctions').select('*').eq('id',l.auctionId).single(),7000,'carregar venda');currentAuction=a||null;let{data:s}=await timeout(db.from('companies').select('id,name,city,state').eq('id',l.companyId).limit(1).maybeSingle(),7000,'carregar vendedor').catch(()=>({data:null}));currentSeller=s||null;return l}
 async function loadMyContext(){let result=await timeout(db.auth.getSession(),5000,'verificar sessão');let user=result?.data?.session?.user;if(!user)return;document.querySelector('#userName').textContent=user.user_metadata?.full_name||user.email;let{data:m,error:me}=await timeout(db.from('company_members').select('company_id,role').eq('user_id',user.id).limit(1).maybeSingle(),7000,'buscar empresa');if(me)throw me;if(m){let{data:c,error:ce}=await timeout(db.from('companies').select('*').eq('id',m.company_id).single(),7000,'carregar empresa');if(ce)throw ce;currentCompany=c;document.querySelector('#companyName').textContent=c.name;let{data:a}=await timeout(db.from('auctions').select('*').eq('company_id',c.id).in('status',['draft','scheduled','live']).order('created_at',{ascending:false}).limit(1).maybeSingle(),7000,'carregar venda');currentAuction=a||null}let{data:p}=await timeout(db.from('participants').select('*').eq('auth_user_id',user.id).limit(1).maybeSingle(),7000,'buscar participante');if(p)participant={id:p.id,name:p.full_name,cpf:p.cpf,phone:p.phone,email:p.email,companyId:p.company_id}}
@@ -116,7 +135,7 @@ async function openLot(id){try{
   <div class="lot-layout public-auction-layout">
     <div class="lot-main public-lot-card">
       <div class="public-live-badge">${ended?'ENCERRADO':'● AO VIVO'}</div>
-      <div class="public-media-shell">${img(l,'hero-img')}</div>
+      <div class="public-media-shell">${productGallery(l)}</div>
       <div class="public-lot-info">
         <div class="public-lot-heading"><div><small>PRODUTO #${l.number}</small><h2>${esc(l.name)}</h2></div><div class="public-valuation"><span>Valor de referência</span><b>${money(l.valuation)}</b></div></div>
         <div class="public-seller-card"><div class="public-seller-icon">✓</div><div><small>VENDEDOR</small><b>${sellerName}</b><span>${sellerLocation?esc(sellerLocation):'Venda publicada na JP Leilões'}</span></div><strong>Identificado</strong></div>
@@ -357,6 +376,22 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileMenu()});
 window.addEventListener('resize',()=>{if(!isMobileMenu())closeMobileMenu()});
-document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();if(!lotForm.checkValidity())return lotForm.reportValidity();if(!currentCompany||!currentAuction)return alert('É necessário estar vinculado a uma empresa e ter um venda ativo.');try{let image='';let file=limage.files[0];if(file){let path=`${currentCompany.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;let{error:u}=await timeout(db.storage.from('lot-images').upload(path,file),10000,'enviar foto');if(u)throw u;image=db.storage.from('lot-images').getPublicUrl(path).data.publicUrl}let{data:last}=await timeout(db.from('lots').select('lot_number').eq('auction_id',currentAuction.id).order('lot_number',{ascending:false}).limit(1).maybeSingle(),7000,'buscar último lote'),number=(last?.lot_number||0)+1,start=+lstart.value,ends=new Date(Date.now()+60000*(+lduration.value)).toISOString();let{data:created,error}=await timeout(db.from('lots').insert({company_id:currentCompany.id,auction_id:currentAuction.id,lot_number:number,title:lname.value,description:ldesc.value||'',image_url:image,valuation:+lvalue.value,starting_bid:start,current_bid:start,min_increment:+lstep.value,status:'live',starts_at:new Date().toISOString(),ends_at:ends}).select('id').single(),7000,'salvar lote');if(error)throw error;if(created?.id&&typeof window.jpWhatsappSendLot==='function'){await window.jpWhatsappSendLot(created.id,{silent:true,force:false})}modal.close();lotForm.reset();await lotes()}catch(e){alert('Erro ao salvar lote: '+e.message)}};
+document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();if(!lotForm.checkValidity())return lotForm.reportValidity();if(!currentCompany||!currentAuction)return alert('É necessário estar vinculado a uma empresa e ter um venda ativo.');try{
+  const files=[...(limage.files||[])];
+  if(files.length>8)return alert('Você pode adicionar no máximo 8 fotos por produto.');
+  const images=[];
+  for(const file of files){
+    let path=`${currentCompany.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+    let{error:u}=await timeout(db.storage.from('lot-images').upload(path,file),12000,'enviar foto');
+    if(u)throw u;
+    images.push(db.storage.from('lot-images').getPublicUrl(path).data.publicUrl);
+  }
+  const image=images[0]||'';
+  let{data:last}=await timeout(db.from('lots').select('lot_number').eq('auction_id',currentAuction.id).order('lot_number',{ascending:false}).limit(1).maybeSingle(),7000,'buscar último lote'),number=(last?.lot_number||0)+1,start=+lstart.value,ends=new Date(Date.now()+60000*(+lduration.value)).toISOString();
+  let{data:created,error}=await timeout(db.from('lots').insert({company_id:currentCompany.id,auction_id:currentAuction.id,lot_number:number,title:lname.value,description:ldesc.value||'',image_url:image,image_urls:images,valuation:+lvalue.value,starting_bid:start,current_bid:start,min_increment:+lstep.value,status:'live',starts_at:new Date().toISOString(),ends_at:ends}).select('id').single(),7000,'salvar lote');
+  if(error)throw error;
+  if(created?.id&&typeof window.jpWhatsappSendLot==='function'){await window.jpWhatsappSendLot(created.id,{silent:true,force:false})}
+  modal.close();lotForm.reset();await lotes()
+}catch(e){alert('Erro ao salvar lote: '+e.message)}};
 document.querySelector('#registerForm').onsubmit=async e=>{e.preventDefault();let id=pendingBid;if(!id)return;try{let l=await loadPublicLot(id);let email=remail.value.trim().toLowerCase(),password=rpassword.value;let{data,error}=await timeout(db.auth.signUp({email,password,options:{data:{full_name:rname.value.trim()}}}),7000,'criar cadastro');if(error)throw error;if(!data.user)throw new Error('Não foi possível criar o usuário.');let{data:p,error:pe}=await timeout(db.from('participants').insert({company_id:l.companyId,auth_user_id:data.user.id,full_name:rname.value.trim(),cpf:rcpf.value.trim(),phone:rphone.value.trim(),email,status:'approved'}).select().single(),7000,'salvar participante');if(pe)throw pe;participant={id:p.id,name:p.full_name,cpf:p.cpf,phone:p.phone,email:p.email,companyId:p.company_id};registerModal.close();pendingBid=null;await bid(id)}catch(e){alert('Cadastro: '+e.message)}};
 (async()=>{try{app.innerHTML='<div class="panel"><p>Conectando ao banco...</p></div>';await loadMyContext();let requestedLot=new URLSearchParams(location.search).get('lote');if(requestedLot){title.textContent='Oferta do produto';subtitle.textContent='Acompanhe e faça sua oferta';await openLot(requestedLot)}else await dashboard();window.lanceCertoBootDone=true;if(statusEl){statusEl.textContent='● Banco online';statusEl.style.color=''}}catch(e){console.error(e);bootError(e.message)}})();
