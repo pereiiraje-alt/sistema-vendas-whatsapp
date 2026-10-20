@@ -80,7 +80,7 @@ async function dashboard(){
       <div class="dash-focus-actions">
         ${currentAuction?'<button class="ghost" onclick="go(\'leiloes\')">Ver venda</button>':'<button class="primary" onclick="openFirstAuction()">＋ Criar venda</button>'}
         <button class="ghost" onclick="go('lotes')">＋ Produto</button>
-        <button class="whatsapp" onclick="openWhatsappSettings()">💬 WhatsApp</button>
+        <button class="whatsapp" onclick="openWhatsappSettings()">💬 Conectar WhatsApp</button>
         ${shareLotId?`<button class="ghost" onclick="copyOfferLink('${shareLotId}')">🔗 Copiar link</button>`:''}
       </div>
     </section>
