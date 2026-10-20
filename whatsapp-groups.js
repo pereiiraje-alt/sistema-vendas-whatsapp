@@ -105,6 +105,59 @@
       AGUARDANDO_QR:'Aguardando QR Code',AGUARDANDO_CODIGO:'Aguardando código no WhatsApp',ERRO:'Erro'})[status]||status||'Desconectado';
   }
 
+  function renderCloudState(root,state){
+    const box=root.querySelector('[data-wa-cloud-state]');
+    if(!box)return;
+    box.hidden=false;
+    const status=box.querySelector('[data-wa-cloud-status]');
+    if(status)status.textContent=statusLabel(state?.status);
+
+    const qrWrap=box.querySelector('[data-wa-qr-wrap]');
+    const qrImg=box.querySelector('[data-wa-qr-img]');
+    if(qrWrap){
+      qrWrap.hidden=!state?.qr;
+      if(state?.qr&&qrImg)qrImg.src=state.qr;
+    }
+
+    const codeWrap=box.querySelector('[data-wa-code-wrap]');
+    const codeEl=box.querySelector('[data-wa-code]');
+    if(codeWrap){
+      codeWrap.hidden=!state?.pairingCode;
+      if(state?.pairingCode&&codeEl){
+        const value=String(state.pairingCode);
+        codeEl.textContent=value.replace(/(.{4})/g,'$1 ').trim();
+        codeEl.dataset.value=value;
+      }
+    }
+
+    const err=box.querySelector('[data-wa-cloud-error]');
+    if(err){
+      err.hidden=!state?.lastError;
+      err.textContent=state?.lastError||'';
+    }
+  }
+
+  function watchCloud(root){
+    stopCloudPolling();
+    let failures=0;
+    cloudPollTimer=setInterval(async()=>{
+      try{
+        const state=await cloudRequest('/api/status');
+        failures=0;
+        renderCloudState(root,state);
+        if(state.status==='ONLINE'){
+          stopCloudPolling();
+          setTimeout(()=>renderWhatsappPage(),600);
+        }
+      }catch(e){
+        failures++;
+        const err=root.querySelector('[data-wa-cloud-error]');
+        if(err){err.hidden=false;err.textContent=e.message||e}
+        if(failures>=4)stopCloudPolling();
+      }
+    },1500);
+  }
+
   async function renderWhatsappPage(){
     if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';
     title.textContent='WhatsApp';
