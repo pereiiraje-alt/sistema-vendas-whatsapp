@@ -273,7 +273,7 @@ function initSlideBid(){
   });
 }
 
-async function bid(id){try{let l=await loadPublicLot(id);if(!participant){pendingBid=id;registerModal.showModal();return}if(participant.companyId!==l.companyId){participant=null;pendingBid=id;registerModal.showModal();return}let amount=l.current+l.step;let{error}=await timeout(db.rpc('place_bid',{p_lot_id:id,p_participant_id:participant.id,p_amount:amount}),7000,'registrar lance');if(error)throw error;await openLot(id)}catch(e){alert(e.message)}}
+async function bid(id){try{let l=await loadPublicLot(id);if(!participant){pendingBid=id;registerModal.showModal();return}if(participant.companyId!==l.companyId){participant=null;pendingBid=id;registerModal.showModal();return}let amount=l.current+l.step;const bidClient=window.jpQuickBidClient||db;let{error}=await timeout(bidClient.rpc('place_bid',{p_lot_id:id,p_participant_id:participant.id,p_amount:amount}),7000,'registrar lance');if(error)throw error;await openLot(id)}catch(e){alert(e.message)}}
 function offerShareUrl(id){
   const token=String(id||'').replace(/-/g,'');
   return new URL('/o/'+encodeURIComponent(token),location.origin).toString();
