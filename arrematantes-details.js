@@ -81,7 +81,7 @@
       app.innerHTML='<div class="panel"><h3>Compradores</h3><p class="muted">Sincronizando pagamentos e carregando compradores...</p></div>';
       await reconcilePayments();
 
-      const {data:wins,error:winsError}=await timeout(db.from('vendas').select('id,lot_id,participant_id,winning_bid,total_amount,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar compradores');
+      const {data:wins,error:winsError}=await timeout(db.from('arremates').select('id,lot_id,participant_id,winning_bid,total_amount,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar compradores');
       if(winsError)throw winsError;
       if(!wins?.length){app.innerHTML='<div class="panel"><h3>Compradores</h3><p class="muted">Nenhum venda finalizado.</p></div>';return}
 
@@ -89,7 +89,7 @@
       const vendaIds=wins.map(row=>row.id).filter(Boolean);
       const lotIds=[...new Set(wins.map(row=>row.lot_id).filter(Boolean))];
       const [{data:payments,error:paymentsError},{data:bids,error:bidsError},{data:lots,error:lotsError}]=await Promise.all([
-        vendaIds.length?timeout(db.from('payments').select('venda_id,status,amount,paid_at,checkout_url').in('venda_id',vendaIds),7000,'carregar pagamentos'):Promise.resolve({data:[],error:null}),
+        vendaIds.length?timeout(db.from('payments').select('arremate_id,status,amount,paid_at,checkout_url').in('arremate_id',vendaIds),7000,'carregar pagamentos'):Promise.resolve({data:[],error:null}),
         lotIds.length?timeout(db.from('bids').select('lot_id,participant_id,amount,created_at').in('lot_id',lotIds).order('amount',{ascending:false}),7000,'carregar ofertas anteriores'):Promise.resolve({data:[],error:null}),
         lotIds.length?timeout(db.from('lots').select('id,title').in('id',lotIds),7000,'carregar produtos'):Promise.resolve({data:[],error:null})
       ]);
@@ -106,7 +106,7 @@
       if(participantsError)throw participantsError;
 
       const participantMap=new Map((participants||[]).map(row=>[String(row.id),row]));
-      const paymentMap=new Map((payments||[]).map(row=>[String(row.venda_id),row]));
+      const paymentMap=new Map((payments||[]).map(row=>[String(row.arremate_id),row]));
       const lotMap=new Map((lots||[]).map(row=>[String(row.id),row]));
       const grouped=new Map();
 
