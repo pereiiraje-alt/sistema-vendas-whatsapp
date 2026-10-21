@@ -41,3 +41,8 @@
   .lot-wa-resend-list{max-height:240px}
   .lot-wa-resend-actions{grid-template-columns:1fr}
 }
+
+.quick-participant-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0 16px}
+.quick-participant-tabs button{min-height:44px;border:1px solid #d7e3dd;border-radius:11px;background:#f6f9f7;color:#375347;font-weight:800;font-family:inherit;cursor:pointer}
+.quick-participant-tabs button.active{background:#16c765;border-color:#16c765;color:#fff}
+@media(max-width:520px){.quick-participant-tabs{gap:6px}.quick-participant-tabs button{font-size:13px;padding:8px}}
