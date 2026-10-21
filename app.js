@@ -377,17 +377,26 @@ async function loadLotWhatsappGroups(){
     status.textContent='Indisponível';
     return;
   }
-  const data=await window.jpWhatsappGetProductGroups();
-  if(!data?.online){
-    status.textContent='WhatsApp desconectado';
-    box.innerHTML='<p class="muted">Conecte o WhatsApp no menu para escolher grupos. Você ainda pode criar o produto sem publicar no WhatsApp.</p>';
-    return;
+  try{
+    const data=await Promise.race([
+      window.jpWhatsappGetProductGroups(),
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error('A consulta demorou mais de 12 segundos.')),12000))
+    ]);
+    if(!data?.online){
+      status.textContent='WhatsApp indisponível';
+      box.innerHTML='<p class="muted">Não foi possível confirmar a conexão. Confira o WhatsApp no menu ou tente novamente.</p><button type="button" class="ghost mini" onclick="loadLotWhatsappGroups()">Tentar novamente</button>';
+      return;
+    }
+    const groups=Array.isArray(data.groups)?data.groups.filter(g=>g&&g.id):[];
+    status.textContent=groups.length?groups.length+' grupo(s)':'Nenhum grupo';
+    box.innerHTML=groups.length
+      ?groups.map(g=>`<label class="lot-wa-group"><input type="checkbox" value="${esc(String(g.id))}"><span>${esc(String(g.name||g.id||'Grupo'))}</span></label>`).join('')
+      :'<p class="muted">Nenhum grupo encontrado. Atualize os grupos na opção WhatsApp.</p><button type="button" class="ghost mini" onclick="loadLotWhatsappGroups()">Tentar novamente</button>';
+  }catch(e){
+    console.warn('Grupos do WhatsApp no cadastro:',e);
+    status.textContent='Não foi possível carregar os grupos';
+    box.innerHTML='<p class="muted">'+esc(e.message||String(e))+'</p><button type="button" class="ghost mini" onclick="loadLotWhatsappGroups()">Tentar novamente</button>';
   }
-  const groups=Array.isArray(data.groups)?data.groups:[];
-  status.textContent=groups.length?groups.length+' grupo(s)':'Nenhum grupo';
-  box.innerHTML=groups.length
-    ?groups.map(g=>`<label class="lot-wa-group"><input type="checkbox" value="${esc(String(g.id||''))}"><span>${esc(String(g.name||g.id||'Grupo'))}</span></label>`).join('')
-    :'<p class="muted">Nenhum grupo encontrado. Atualize os grupos na opção WhatsApp.</p>';
 }
 async function openNewLotModal(){
   if(!currentAuction)return alert('Crie ou ative uma venda antes de cadastrar produtos.');
