@@ -403,7 +403,8 @@ async function openNewLotModal(){
   lotForm.reset();
   document.querySelectorAll('#lotWhatsappGroups input[type="checkbox"]').forEach(x=>x.checked=false);
   modal.showModal();
-  await loadLotWhatsappGroups();
+  // Abrir o formulario imediatamente; a lista de grupos e carregada em paralelo.
+  void loadLotWhatsappGroups();
 }
 window.openNewLotModal=openNewLotModal;
 async function lotes(){await loadLots();app.innerHTML=`<div class="toolbar"><input class="search" id="search" placeholder="Buscar produto..."><button class="primary" id="new" ${currentCompany?'':'disabled'}>+ Novo produto</button></div><div id="ltable"></div>`;document.querySelector('#new').onclick=openNewLotModal;document.querySelector('#search').oninput=e=>renderLots(e.target.value);renderLots()}
