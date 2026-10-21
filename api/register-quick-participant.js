@@ -1,6 +1,8 @@
 const crypto=require('node:crypto');
 const SUPABASE_URL='https://dsgnyfnddyxilakjwavu.supabase.co';
 async function readJson(response){return response.json().catch(()=>({}));}
+function hashAccessKey(value){return crypto.createHash('sha256').update(String(value||'')).digest('hex');}
+function normalizeName(value){return String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('pt-BR');}
 function validCpf(raw){
   const digits=String(raw||'').replace(/\D/g,'');
   if(digits.length!==11||/^(\d)\1{10}$/.test(digits))return false;
@@ -27,21 +29,35 @@ module.exports=async(req,res)=>{
     const lotResponse=await fetch(SUPABASE_URL+'/rest/v1/lots?id=eq.'+encodeURIComponent(lotId)+'&company_id=eq.'+encodeURIComponent(companyId)+'&select=id,status,ends_at&limit=1',{headers});
     const lots=await readJson(lotResponse);
     if(!lotResponse.ok||!Array.isArray(lots)||lots[0]?.status!=='live'||!lots[0]?.ends_at||Date.now()>=Date.parse(lots[0].ends_at))return res.status(403).json({error:'Leilão encerrado ou indisponível.'});
-    const existingResponse=await fetch(SUPABASE_URL+'/rest/v1/participants?company_id=eq.'+encodeURIComponent(companyId)+'&cpf=eq.'+document+'&select=id&limit=1',{headers});
+    const existingResponse=await fetch(SUPABASE_URL+'/rest/v1/participants?company_id=eq.'+encodeURIComponent(companyId)+'&cpf=eq.'+document+'&select=id,company_id,auth_user_id,full_name,cpf,phone,email,status&limit=1',{headers});
     const existing=await readJson(existingResponse);
     if(!existingResponse.ok)return res.status(502).json({error:'Não foi possível conferir seu cadastro.'});
-    if(existing.length)return res.status(409).json({error:'Este CPF já está cadastrado. Para proteger seus lances, procure o organizador para recuperar seu acesso.'});
-    const email='participante-'+crypto.randomUUID()+'@jpleiloes.com.br';
+    const accessKey=crypto.randomBytes(32).toString('base64url');
+    const accessHash=hashAccessKey(accessKey);
     const password=crypto.randomBytes(36).toString('base64url');
+    if(existing.length){
+      const p=existing[0];
+      const sameName=normalizeName(p.full_name)===normalizeName(name);
+      const samePhone=String(p.phone||'').replace(/\D/g,'')===mobile;
+      if(!sameName||!samePhone)return res.status(409).json({error:'Este CPF já possui cadastro. Confira o nome e telefone informados ou use “Já participei”.'});
+      if(!p.auth_user_id)return res.status(409).json({error:'Cadastro antigo sem acesso rápido. Procure o organizador.'});
+      const authUpdate=await fetch(SUPABASE_URL+'/auth/v1/admin/users/'+encodeURIComponent(p.auth_user_id),{method:'PUT',headers,body:JSON.stringify({password})});
+      if(!authUpdate.ok)return res.status(502).json({error:'Não foi possível renovar seu acesso.'});
+      const updated=await fetch(SUPABASE_URL+'/rest/v1/participants?id=eq.'+encodeURIComponent(p.id),{method:'PATCH',headers:{...headers,Prefer:'return=representation'},body:JSON.stringify({quick_access_hash:accessHash,phone:mobile,full_name:name})});
+      const rows=await readJson(updated);
+      if(!updated.ok||!Array.isArray(rows)||!rows[0])return res.status(502).json({error:'Não foi possível atualizar seu acesso.'});
+      return res.status(200).json({participant:rows[0],credentials:{email:p.email,password},accessKey,recovered:true});
+    }
+    const email='participante-'+crypto.randomUUID()+'@jpleiloes.com.br';
     const create=await fetch(SUPABASE_URL+'/auth/v1/admin/users',{method:'POST',headers,body:JSON.stringify({email,password,email_confirm:true,user_metadata:{full_name:name,account_type:'quick_participant'}})});
     const user=await readJson(create);
     if(!create.ok||!user.id)return res.status(502).json({error:'Não foi possível iniciar o cadastro.'});
-    const created=await fetch(SUPABASE_URL+'/rest/v1/participants',{method:'POST',headers:{...headers,Prefer:'return=representation'},body:JSON.stringify({company_id:companyId,auth_user_id:user.id,full_name:name,cpf:document,phone:mobile,email,status:'approved'})});
+    const created=await fetch(SUPABASE_URL+'/rest/v1/participants',{method:'POST',headers:{...headers,Prefer:'return=representation'},body:JSON.stringify({company_id:companyId,auth_user_id:user.id,full_name:name,cpf:document,phone:mobile,email,status:'approved',quick_access_hash:accessHash})});
     const rows=await readJson(created);
     if(!created.ok||!Array.isArray(rows)||!rows[0]){
       await fetch(SUPABASE_URL+'/auth/v1/admin/users/'+user.id,{method:'DELETE',headers}).catch(()=>{});
       return res.status(400).json({error:'Não foi possível salvar o participante. Verifique se o CPF já foi utilizado.'});
     }
-    return res.status(201).json({participant:rows[0],credentials:{email,password}});
+    return res.status(201).json({participant:rows[0],credentials:{email,password},accessKey});
   }catch(e){console.error('quick participant error',e.message);return res.status(500).json({error:'Falha temporária no cadastro.'});}
 };
