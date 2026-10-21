@@ -113,12 +113,12 @@
       for(const win of wins){
         const person=participantMap.get(String(win.participant_id))||{};
         const key=win.participant_id||win.id;
-        if(!grouped.has(key))grouped.set(key,{id:key,name:person.full_name||'Comprador',phone:person.phone||'',email:person.email||'',count:0,totalArrematado:0,totalPago:0,latest:null,pending:0,paymentLinks:[]});
+        if(!grouped.has(key))grouped.set(key,{id:key,name:person.full_name||'Comprador',phone:person.phone||'',email:person.email||'',count:0,totalArrematado:0,totalPago:0,paidCount:0,lastPaidAt:null,latest:null,pending:0,paymentLinks:[]});
         const item=grouped.get(key);item.count+=1;
         const amount=Number(win.total_amount||win.winning_bid||0);item.totalArrematado+=amount;
         if(!item.latest||new Date(win.created_at)>new Date(item.latest))item.latest=win.created_at;
         const payment=paymentMap.get(String(win.id));
-        if(payment?.status==='paid')item.totalPago+=Number(payment.amount||amount||0);
+        if(payment?.status==='paid'){item.totalPago+=Number(payment.amount||amount||0);item.paidCount++;if(payment.paid_at&&(!item.lastPaidAt||new Date(payment.paid_at)>new Date(item.lastPaidAt)))item.lastPaidAt=payment.paid_at;}
         else if(payment?.status!=='cancelled'){
           item.pending+=1;
           if(payment?.checkout_url&&!item.paymentLinks.includes(payment.checkout_url))item.paymentLinks.push(payment.checkout_url);
@@ -147,7 +147,7 @@
         const wa=notifyUrl?`<a class="winner-notify whatsapp" href="${notifyUrl}" target="_blank" rel="noopener">💬 Enviar WhatsApp</a>`:`<span class="winner-notify whatsapp disabled">WhatsApp indisponível</span>`;
         const subject=encodeURIComponent('Parabéns! Você arrematou no JP Leilões');
         const email=row.email?`<a class="winner-notify email" href="mailto:${encodeURIComponent(row.email)}?subject=${subject}&body=${encodeURIComponent(message)}">E-mail</a>`:`<span class="winner-notify email disabled">E-mail</span>`;
-        return `<tr><td><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td><td><strong>${currency(row.totalArrematado)}</strong></td><td class="winner-paid">${currency(row.totalPago)}</td><td>${dateLabel(row.latest)}</td><td><div class="winner-actions">${wa}${email}</div></td></tr>`;
+        return `<tr><td><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td><td><strong>${currency(row.totalArrematado)}</strong></td><td class="winner-paid">${currency(row.totalPago)}${row.paidCount?`<br><span class="winner-paid">✅ ${row.pending?"Pagamento confirmado ("+row.paidCount+")":"Pagamento confirmado"}${row.lastPaidAt?` · ${dateLabel(row.lastPaidAt)}`:""}</span>`:""}${!row.paidCount&&row.pending?'<br><span class="winner-pending">Aguardando pagamento</span>':""}</td><td>${dateLabel(row.latest)}</td><td><div class="winner-actions">${wa}${email}</div></td></tr>`;
       }).join('');
 
       app.innerHTML=`${quickNotify}${expiredHtml}<div class="winner-summary"><div class="card"><small>Compradores</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Produtos arrematados</small><h2>${totalProdutos}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos compradores</h3><p class="muted">Clique em “Enviar WhatsApp” e o WhatsApp abrirá com a mensagem pronta. Por segurança do próprio WhatsApp, o envio final precisa ser confirmado por você.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
