@@ -478,7 +478,66 @@ async function openWhatsappSettings(){
   }
   alert('A opção do WhatsApp ainda está carregando. Tente novamente em instantes.');
 }
-const pages={dashboard:[dashboard,'Dashboard','Visão geral das suas vendas por lances'],leiloes:[leiloes,'Minhas vendas','Vendas publicadas e em andamento'],lotes:[lotes,'Produtos','Cadastre e gerencie os produtos'],lances:[lances,'Ofertas','Histórico de ofertas registradas'],participantes:[participantes,'Interessados','Cadastros e interessados'],arrematantes:[arrematantes,'Compradores','Compradores e pós-venda'],config:[config,'Configurações','Regras e dados da plataforma']};
+
+async function pagamentos(){
+  if(!currentCompany?.id){app.innerHTML='<div class="panel">Entre como empresa para consultar pagamentos.</div>';return;}
+  app.innerHTML='<div class="panel"><h3>Pagamentos</h3><p class="muted">Consultando pagamentos...</p></div>';
+  const {data:payments,error}=await timeout(db.from('payments')
+    .select('id,arremate_id,status,method,amount,paid_at,created_at,updated_at')
+    .eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(500),
+    10000,'carregar pagamentos');
+  if(error)throw error;
+  const items=payments||[];
+  const saleIds=[...new Set(items.map(x=>x.arremate_id).filter(Boolean))];
+  let sales=[];
+  if(saleIds.length){
+    const result=await timeout(db.from('arremates').select('id,lot_id,participant_id').eq('company_id',currentCompany.id).in('id',saleIds),10000,'carregar arremates');
+    if(result.error)throw result.error;sales=result.data||[];
+  }
+  const participantIds=[...new Set(sales.map(x=>x.participant_id).filter(Boolean))];
+  const lotIds=[...new Set(sales.map(x=>x.lot_id).filter(Boolean))];
+  const [peopleResponse,lotsResponse]=await Promise.all([
+    participantIds.length?timeout(db.from('participants').select('id,full_name,phone').eq('company_id',currentCompany.id).in('id',participantIds),10000,'carregar compradores'):Promise.resolve({data:[],error:null}),
+    lotIds.length?timeout(db.from('lots').select('id,title,lot_number').eq('company_id',currentCompany.id).in('id',lotIds),10000,'carregar produtos'):Promise.resolve({data:[],error:null})
+  ]);
+  if(peopleResponse.error)throw peopleResponse.error;
+  if(lotsResponse.error)throw lotsResponse.error;
+  const saleById=new Map(sales.map(x=>[x.id,x]));
+  const peopleById=new Map((peopleResponse.data||[]).map(x=>[x.id,x]));
+  const lotById=new Map((lotsResponse.data||[]).map(x=>[x.id,x]));
+  const moneyPay=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const datePay=value=>value?new Date(value).toLocaleString('pt-BR'):'—';
+  const confirmed=items.filter(x=>x.status==='paid');
+  const pending=items.filter(x=>['pending','processing'].includes(x.status));
+  const cancelled=items.filter(x=>['cancelled','failed','refunded'].includes(x.status));
+  const sum=rows=>rows.reduce((n,x)=>n+Number(x.amount||0),0);
+  app.innerHTML=`<section class="panel"><h2>💰 Pagamentos</h2><p class="muted">Acompanhe os pagamentos registrados pelo Mercado Pago. Apenas o status aprovado aparece como confirmado.</p>
+    <div class="stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:16px 0">
+      <article><small>Confirmados</small><b>${confirmed.length}</b><span>${moneyPay(sum(confirmed))}</span></article>
+      <article><small>Pendentes</small><b>${pending.length}</b><span>${moneyPay(sum(pending))}</span></article>
+      <article><small>Cancelados / outros</small><b>${cancelled.length}</b><span>${moneyPay(sum(cancelled))}</span></article>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0">
+      <label for="paymentFilter" style="font-weight:700">Filtrar</label>
+      <select id="paymentFilter" style="max-width:240px"><option value="all">Todos</option><option value="paid">Confirmados</option><option value="pending">Pendentes</option><option value="cancelled">Cancelados / outros</option></select>
+      <button type="button" class="ghost" id="reloadPayments">Atualizar pagamentos</button>
+    </div>
+    <div id="paymentsTable" style="overflow-x:auto"></div>
+  </section>`;
+  const table=document.getElementById('paymentsTable');
+  const show=filter=>{
+    const filtered=items.filter(x=>filter==='all'||(filter==='paid'?x.status==='paid':filter==='pending'?['pending','processing'].includes(x.status):['cancelled','failed','refunded'].includes(x.status)));
+    table.innerHTML=filtered.length?`<table><thead><tr><th>Comprador</th><th>Produto</th><th>Valor</th><th>Status</th><th>Data</th></tr></thead><tbody>${filtered.map(p=>{
+      const sale=saleById.get(p.arremate_id),person=peopleById.get(sale?.participant_id),lot=lotById.get(sale?.lot_id);
+      const label=p.status==='paid'?'✅ Pagamento confirmado':p.status==='pending'?'⏳ Pendente':p.status==='processing'?'⏳ Em análise':p.status==='cancelled'?'❌ Cancelado':p.status==='refunded'?'↩ Reembolsado':'⚠ Não aprovado';
+      return `<tr><td><strong>${esc(person?.full_name||'Comprador não identificado')}</strong><br><small>${esc(person?.phone||'')}</small></td><td>${esc(lot?.title||'Produto não identificado')}${lot?.lot_number!=null?' #'+esc(lot.lot_number):''}</td><td><strong>${moneyPay(p.amount)}</strong></td><td>${label}</td><td>${datePay(p.status==='paid'?p.paid_at||p.updated_at:p.updated_at||p.created_at)}</td></tr>`;
+    }).join('')}</tbody></table>`:'<p class="muted">Nenhum pagamento encontrado para este filtro.</p>';
+  };
+  show('all');
+  document.getElementById('paymentFilter').onchange=e=>show(e.target.value);
+  document.getElementById('reloadPayments').onclick=pagamentos;
+}
+\nconst pages={dashboard:[dashboard,'Dashboard','Visão geral das suas vendas por lances'],leiloes:[leiloes,'Minhas vendas','Vendas publicadas e em andamento'],lotes:[lotes,'Produtos','Cadastre e gerencie os produtos'],lances:[lances,'Ofertas','Histórico de ofertas registradas'],participantes:[participantes,'Interessados','Cadastros e interessados'],arrematantes:[arrematantes,'Compradores','Compradores e pós-venda'],pagamentos:[pagamentos,'Pagamentos','Pagamentos confirmados, pendentes e cancelados'],config:[config,'Configurações','Regras e dados da plataforma']};
 const sidebar=document.querySelector('.sidebar');
 let mobileMenuBackdrop=document.querySelector('#mobileMenuBackdrop');
 if(!mobileMenuBackdrop){
