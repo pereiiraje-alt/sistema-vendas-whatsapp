@@ -151,7 +151,9 @@
   };
 
   function renderWinnerPayment(box,id,data,lotEnds){
-    const a=data.venda;const payment=data.payment;const amount=Number(a.total_amount||a.winning_bid||0);
+    const a=data.arremate||data.venda;const payment=data.payment;
+    if(!a){box.insertAdjacentHTML('beforeend','<div class="pay-status">Não foi possível carregar os dados do arremate. Atualize a página.</div>');return}
+    const amount=Number(a.total_amount||a.winning_bid||0);
     const paid=payment?.status==='paid';
     const expired=payment?.status==='cancelled';
     const selected=['pix','card'].includes(payment?.method)?payment.method:'';
