@@ -74,13 +74,13 @@
     if(!returned||!providerPaymentId)return;
     syncingReturn=true;
     try{
-      const session=await db.auth.getSession();const token=session?.data?.session?.access_token;if(!token)return;
+      const authClient=window.jpQuickBidClient||db;const session=await authClient.auth.getSession();const token=session?.data?.session?.access_token;if(!token)return;
       await fetch('/api/payment-status',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id,providerPaymentId})});
     }catch(e){console.error('Sincronização do pagamento:',e)}finally{syncingReturn=false}
   }
 
   async function checkPaymentStatus(id){
-    const session=await db.auth.getSession();const token=session?.data?.session?.access_token;if(!token)return null;
+    const authClient=window.jpQuickBidClient||db;const session=await authClient.auth.getSession();const token=session?.data?.session?.access_token;if(!token)return null;
     const response=await fetch('/api/payment-status',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id})});
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.error||'Não foi possível verificar o pagamento.');
@@ -211,8 +211,8 @@
       const checked=await checkPaymentStatus(id);
       if(checked?.payment?.status==='cancelled'||checked?.expired)throw new Error('O prazo de 30 minutos contado desde o encerramento do venda por ofertas terminou. Este venda foi cancelado.');
       if(status)status.textContent=method==='pix'?'Gerando QR Code PIX...':'Preparando pagamento no Mercado Pago...';
-      const session=await db.auth.getSession();const token=session?.data?.session?.access_token;
-      if(!token)throw new Error('Sua sessão expirou. Entre novamente com a conta usada para dar o oferta.');
+      const authClient=window.jpQuickBidClient||db;const session=await authClient.auth.getSession();const token=session?.data?.session?.access_token;
+      if(!token)throw new Error('Não foi possível recuperar sua sessão de participante. Atualize a página e tente novamente.');
       const response=await fetch('/api/select-payment-method',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id,method})});
       const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Não foi possível salvar a forma de pagamento.');
       document.querySelectorAll('.pay-method').forEach(b=>b.classList.remove('active'));
