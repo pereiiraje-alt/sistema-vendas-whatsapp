@@ -31,7 +31,7 @@ module.exports=async(req,res)=>{
     const existing=await readJson(existingResponse);
     if(!existingResponse.ok)return res.status(502).json({error:'Não foi possível conferir seu cadastro.'});
     if(existing.length)return res.status(409).json({error:'Este CPF já está cadastrado. Para proteger seus lances, procure o organizador para recuperar seu acesso.'});
-    const email='participante-'+crypto.randomUUID()+'@login.jpleiloes.invalid';
+    const email='participante-'+crypto.randomUUID()+'@jpleiloes.com.br';
     const password=crypto.randomBytes(36).toString('base64url');
     const create=await fetch(SUPABASE_URL+'/auth/v1/admin/users',{method:'POST',headers,body:JSON.stringify({email,password,email_confirm:true,user_metadata:{full_name:name,account_type:'quick_participant'}})});
     const user=await readJson(create);
