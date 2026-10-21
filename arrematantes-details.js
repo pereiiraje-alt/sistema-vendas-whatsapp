@@ -35,6 +35,38 @@
     return `Olá ${row.name}! 🎉\n\nParabéns! Você foi o comprador de ${row.count} produto(s) no leilão da ${empresa}.\n\n🔨 Valor total arrematado: ${currency(row.totalArrematado)}.${pendente}${paymentBlock}\n\nApós a confirmação do pagamento, você receberá as informações para seguir com a retirada/entrega do produto.\n\nJP Leilões`;
   }
 
+  const dataEncode=value=>encodeURIComponent(String(value||'')).replace(/'/g,'%27');
+  function cloudWhatsappButton(phone,message,label,className='winner-notify whatsapp'){
+    const number=whatsappNumber(phone);
+    if(!number)return `<span class="${className} disabled">Telefone indisponível</span>`;
+    return `<button type="button" class="${className} cloud-wa-send" data-phone="${safe(dataEncode(number))}" data-message="${safe(dataEncode(message))}">${label}</button>`;
+  }
+
+  async function sendCloudWhatsappButton(button){
+    if(!button||button.disabled)return;
+    if(typeof window.jpWhatsappSendDirect!=='function'){
+      alert('A integração do WhatsApp ainda está carregando. Tente novamente em instantes.');
+      return;
+    }
+    const phone=decodeURIComponent(button.dataset.phone||'');
+    const message=decodeURIComponent(button.dataset.message||'');
+    if(!phone||!message)return alert('Telefone ou mensagem indisponível.');
+    if(!confirm('Enviar esta mensagem pelo WhatsApp conectado da empresa?'))return;
+    const old=button.textContent;
+    button.disabled=true;
+    button.textContent='Enviando...';
+    try{
+      const ok=await window.jpWhatsappSendDirect(phone,message,{silent:true});
+      if(!ok)throw new Error('O WhatsApp não confirmou o envio.');
+      button.textContent='✓ Enviado';
+      setTimeout(()=>{if(button.isConnected){button.textContent=old;button.disabled=false}},2500);
+    }catch(e){
+      button.disabled=false;
+      button.textContent=old;
+      alert('Não foi possível enviar pelo WhatsApp conectado: '+(e.message||e));
+    }
+  }
+
   function ensureStyles(){
     if(document.getElementById('winner-details-style'))return;
     const style=document.createElement('style');
@@ -45,12 +77,12 @@
       .winner-name{display:flex;flex-direction:column;gap:3px}.winner-name strong{font-size:15px}
       .winner-contact{color:#64748b;font-size:13px}.winner-phone{color:#15803d;text-decoration:none;font-weight:700}
       .winner-paid{color:#15803d;font-weight:800}.winner-pending{color:#92400e;font-size:12px}
-      .winner-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:230px}.winner-notify{display:inline-flex;align-items:center;justify-content:center;padding:9px 11px;border-radius:9px;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap;border:1px solid transparent}
+      .winner-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:230px}.winner-notify{display:inline-flex;align-items:center;justify-content:center;padding:9px 11px;border-radius:9px;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap;border:1px solid transparent;cursor:pointer;font-family:inherit}
       .winner-notify.whatsapp{background:#16a34a;color:#fff}.winner-notify.whatsapp:hover{background:#15803d}
       .winner-notify.email{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}.winner-notify.email:hover{background:#dbeafe}
       .winner-notify.disabled{opacity:.45;pointer-events:none}
       .winner-send-panel{margin-bottom:16px;border:1px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);display:flex;align-items:center;justify-content:space-between;gap:18px}
-      .winner-send-panel h3{margin-bottom:6px!important}.winner-send-panel p{margin:0;color:#52645a;line-height:1.5}.winner-send-main{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:50px;padding:12px 18px;border-radius:13px;background:#16a34a;color:#fff;text-decoration:none;font-weight:900;white-space:nowrap;box-shadow:0 10px 24px rgba(22,163,74,.2)}.winner-send-main:hover{background:#15803d}.winner-send-main.disabled{opacity:.45;pointer-events:none;box-shadow:none}
+      .winner-send-panel h3{margin-bottom:6px!important}.winner-send-panel p{margin:0;color:#52645a;line-height:1.5}.winner-send-main{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:50px;padding:12px 18px;border:0;border-radius:13px;background:#16a34a;color:#fff;text-decoration:none;font-weight:900;white-space:nowrap;box-shadow:0 10px 24px rgba(22,163,74,.2);cursor:pointer;font-family:inherit}.winner-send-main:hover{background:#15803d}.winner-send-main.disabled{opacity:.45;pointer-events:none;box-shadow:none}
       .expired-panel{margin-bottom:16px;border:1px solid #fecaca;background:#fff7f7}
       .expired-row{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #fee2e2}
       .expired-row:first-of-type{border-top:0}.expired-badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:12px;font-weight:800}
@@ -138,28 +170,30 @@
       const rows=[...grouped.values()].sort((a,b)=>new Date(b.latest||0)-new Date(a.latest||0));
       const totalArrematado=rows.reduce((sum,row)=>sum+row.totalArrematado,0),totalPago=rows.reduce((sum,row)=>sum+row.totalPago,0),totalProdutos=rows.reduce((sum,row)=>sum+row.count,0);
       const latestWinner=rows[0];
-      const latestNotifyUrl=latestWinner?whatsappUrl(latestWinner.phone,winnerMessage(latestWinner)):'';
-      const quickNotify=latestWinner?`<div class="panel winner-send-panel"><div><h3>🏆 Novo comprador: ${safe(latestWinner.name)}</h3><p>A mensagem já está pronta com o valor do venda${latestWinner.paymentLinks?.length?', prazo e link de pagamento':''}. Abra o WhatsApp e apenas confirme o envio.</p></div>${latestNotifyUrl?`<a class="winner-send-main" href="${latestNotifyUrl}" target="_blank" rel="noopener">💬 Enviar WhatsApp ao comprador</a>`:`<span class="winner-send-main disabled">Telefone não cadastrado</span>`}</div>`:'';
+      const quickNotify=latestWinner?`<div class="panel winner-send-panel"><div><h3>🏆 Novo comprador: ${safe(latestWinner.name)}</h3><p>A mensagem será enviada diretamente pelo WhatsApp conectado da empresa${latestWinner.paymentLinks?.length?', com prazo e link de pagamento':''}.</p></div>${cloudWhatsappButton(latestWinner.phone,winnerMessage(latestWinner),'💬 Enviar WhatsApp ao comprador','winner-send-main')}</div>`:'';
 
       const bodyRows=rows.map(row=>{
         const directUrl=whatsappUrl(row.phone);
         const phone=directUrl?`<a class="winner-phone" href="${directUrl}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';
         const message=winnerMessage(row);
-        const notifyUrl=whatsappUrl(row.phone,message);
         const reminderText='Olá, '+row.name+'! Aqui é da JP Leilões. Seu pagamento referente a '+row.pendingProducts.join(', ')+' no valor pendente de '+currency(row.pendingAmount)+' ainda não consta como confirmado. Por favor, verifique o pagamento. Se já realizou, desconsidere esta mensagem e nos avise para conferirmos. Obrigado!';
-        const reminderUrl=row.pending>0?whatsappUrl(row.phone,reminderText):'';
-        const reminderButton=row.pending>0?(reminderUrl?`<a class="winner-notify whatsapp" href="${safe(reminderUrl)}" target="_blank" rel="noopener noreferrer">💬 Lembrar pagamento</a>`:'<span class="winner-notify disabled">Telefone indisponível</span>'):'';
+        const reminderButton=row.pending>0?cloudWhatsappButton(row.phone,reminderText,'💬 Lembrar pagamento'):'';
 
-        const wa=notifyUrl?`<a class="winner-notify whatsapp" href="${notifyUrl}" target="_blank" rel="noopener">💬 Enviar WhatsApp</a>`:`<span class="winner-notify whatsapp disabled">WhatsApp indisponível</span>`;
+        const wa=cloudWhatsappButton(row.phone,message,'💬 Enviar WhatsApp');
         const subject=encodeURIComponent('Parabéns! Você arrematou no JP Leilões');
         const email=row.email?`<a class="winner-notify email" href="mailto:${encodeURIComponent(row.email)}?subject=${subject}&body=${encodeURIComponent(message)}">E-mail</a>`:`<span class="winner-notify email disabled">E-mail</span>`;
         return `<tr><td><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td><td><strong>${currency(row.totalArrematado)}</strong></td><td class="winner-paid">${currency(row.totalPago)}${row.paidCount?`<br><span class="winner-paid">✅ ${row.pending?"Pagamento confirmado ("+row.paidCount+")":"Pagamento confirmado"}${row.lastPaidAt?` · ${dateLabel(row.lastPaidAt)}`:""}</span>`:""}${!row.paidCount&&row.pending?'<br><span class="winner-pending">Aguardando pagamento</span>':""}</td><td>${dateLabel(row.latest)}</td><td><div class="winner-actions">${reminderButton}${wa}${email}</div></td></tr>`;
       }).join('');
 
-      app.innerHTML=`${quickNotify}${expiredHtml}<div class="winner-summary"><div class="card"><small>Compradores</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Produtos arrematados</small><h2>${totalProdutos}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos compradores</h3><p class="muted">Clique em “Enviar WhatsApp” e o WhatsApp abrirá com a mensagem pronta. Por segurança do próprio WhatsApp, o envio final precisa ser confirmado por você.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
+      app.innerHTML=`${quickNotify}${expiredHtml}<div class="winner-summary"><div class="card"><small>Compradores</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Produtos arrematados</small><h2>${totalProdutos}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos compradores</h3><p class="muted">“Lembrar pagamento” e “Enviar WhatsApp” usam diretamente o WhatsApp conectado no JP Leilões. Você confirma antes de cada envio.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
     }catch(error){app.innerHTML=`<div class="panel"><h3>Compradores</h3><p>Não foi possível carregar os dados: ${safe(error.message||error)}</p></div>`}
     finally{rendering=false}
   }
+
+  app.addEventListener('click',e=>{
+    const button=e.target.closest?.('.cloud-wa-send');
+    if(button)sendCloudWhatsappButton(button);
+  });
 
   navButton.addEventListener('click',()=>{armed=true;setTimeout(()=>{if(armed&&navButton.classList.contains('active'))renderDetails()},350)});
   const observer=new MutationObserver(()=>{if(!armed||rendering||!navButton.classList.contains('active'))return;const text=app.textContent||'';if(text.includes('Compradores'))renderDetails()});
