@@ -538,7 +538,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileMenu()});
 window.addEventListener('resize',()=>{if(!isMobileMenu())closeMobileMenu()});
-document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();if(!lotForm.checkValidity())return lotForm.reportValidity();if(!currentCompany||!currentAuction)return alert('É necessário estar vinculado a uma empresa e ter um venda ativo.');try{
+document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();const invalid=[...lotForm.querySelectorAll('input:invalid')][0];if(invalid){invalid.scrollIntoView({behavior:'smooth',block:'center'});invalid.focus({preventScroll:true});invalid.reportValidity();alert('Confira o campo: '+(invalid.closest('label')?.childNodes[0]?.textContent?.trim()||'obrigatório')+'.');return;}if(!currentCompany||!currentAuction)return alert('É necessário estar vinculado a uma empresa e ter um venda ativo.');try{
   const files=[...(limage.files||[])];
   if(files.length>8)return alert('Você pode adicionar no máximo 8 fotos por produto.');
   const images=[];

@@ -84,6 +84,8 @@
   function resetLotForm(){
     if(!window.lotForm)return;
     lotForm.reset();
+    const step=document.querySelector('#lstep');
+    if(step)step.value='5.00';
     const display=document.querySelector('#ldurationDisplay');
     const hidden=document.querySelector('#lduration');
     if(display)display.value='03h00m';
