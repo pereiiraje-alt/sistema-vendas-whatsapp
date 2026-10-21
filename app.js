@@ -524,13 +524,25 @@ async function pagamentos(){
     </div>
     <div id="paymentsTable" style="overflow-x:auto"></div>
   </section>`;
+  const reminderUrl=p=>{
+    const sale=saleById.get(p.arremate_id);
+    const person=peopleById.get(sale?.participant_id);
+    const lot=lotById.get(sale?.lot_id);
+    let phone=String(person?.phone||'').replace(/\D/g,'');
+    if(phone.length===10||phone.length===11)phone='55'+phone;
+    if(!/^\d{12,13}$/.test(phone)||!phone.startsWith('55'))return '';
+    const name=String(person?.full_name||'').trim().split(/\s+/)[0]||'tudo bem';
+    const title=String(lot?.title||'seu produto arrematado');
+    const message='Olá, '+name+'! Tudo bem? Aqui é da JP Leilões. Verificamos que o pagamento do produto '+title+' no valor de '+moneyPay(p.amount)+' ainda consta como pendente em nosso sistema. Quando possível, confira o pagamento pelo link recebido após o arremate. Se você já pagou, desconsidere esta mensagem e nos avise para conferirmos. Obrigado!';
+    return 'https://wa.me/'+phone+'?text='+encodeURIComponent(message);
+  };
   const table=document.getElementById('paymentsTable');
   const show=filter=>{
     const filtered=items.filter(x=>filter==='all'||(filter==='paid'?x.status==='paid':filter==='pending'?['pending','processing'].includes(x.status):['cancelled','failed','refunded'].includes(x.status)));
-    table.innerHTML=filtered.length?`<table><thead><tr><th>Comprador</th><th>Produto</th><th>Valor</th><th>Status</th><th>Data</th></tr></thead><tbody>${filtered.map(p=>{
+    table.innerHTML=filtered.length?`<table><thead><tr><th>Comprador</th><th>Produto</th><th>Valor</th><th>Status</th><th>Data</th><th>Ação</th></tr></thead><tbody>${filtered.map(p=>{
       const sale=saleById.get(p.arremate_id),person=peopleById.get(sale?.participant_id),lot=lotById.get(sale?.lot_id);
       const label=p.status==='paid'?'✅ Pagamento confirmado':p.status==='pending'?'⏳ Pendente':p.status==='processing'?'⏳ Em análise':p.status==='cancelled'?'❌ Cancelado':p.status==='refunded'?'↩ Reembolsado':'⚠ Não aprovado';
-      return `<tr><td><strong>${esc(person?.full_name||'Comprador não identificado')}</strong><br><small>${esc(person?.phone||'')}</small></td><td>${esc(lot?.title||'Produto não identificado')}${lot?.lot_number!=null?' #'+esc(lot.lot_number):''}</td><td><strong>${moneyPay(p.amount)}</strong></td><td>${label}</td><td>${datePay(p.status==='paid'?p.paid_at||p.updated_at:p.updated_at||p.created_at)}</td></tr>`;
+      return `<tr><td><strong>${esc(person?.full_name||'Comprador não identificado')}</strong><br><small>${esc(person?.phone||'')}</small></td><td>${esc(lot?.title||'Produto não identificado')}${lot?.lot_number!=null?' #'+esc(lot.lot_number):''}</td><td><strong>${moneyPay(p.amount)}</strong></td><td>${label}</td><td>${datePay(p.status==='paid'?p.paid_at||p.updated_at:p.updated_at||p.created_at)}</td><td>${['pending','processing'].includes(p.status)?(reminderUrl(p)?`<a class="whatsapp mini" href="${esc(reminderUrl(p))}" target="_blank" rel="noopener noreferrer">💬 Lembrar pagamento</a>`:'<small>Sem WhatsApp válido</small>'):'—'}</td></tr>`;
     }).join('')}</tbody></table>`:'<p class="muted">Nenhum pagamento encontrado para este filtro.</p>';
   };
   show('all');
