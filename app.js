@@ -235,10 +235,37 @@ function initSlideBid(){
       e.preventDefault();
     };
 
-    thumb.addEventListener('pointerdown',begin);
-    thumb.addEventListener('pointermove',move);
-    thumb.addEventListener('pointerup',end);
-    thumb.addEventListener('pointercancel',end);
+    // No Safari/iOS, o gesto de toque pode ser cancelado antes do pointerup.
+    // Tratar touch diretamente e manter pointer para mouse/caneta, sem duplicar.
+    const touchBegin=e=>{
+      if(confirmed||!e.touches.length)return;
+      const t=e.touches[0];
+      dragging=true;pointerId='touch';slider.classList.add('dragging');
+      maxX=Math.max(0,slider.clientWidth-thumb.offsetWidth-leftPad*2);
+      startX=t.clientX-currentX;
+      thumb.style.transition='none';
+      if(fill)fill.style.transition='none';
+      e.preventDefault();
+    };
+    const touchMove=e=>{
+      if(!dragging||confirmed||pointerId!=='touch'||!e.touches.length)return;
+      setPosition(e.touches[0].clientX-startX);
+      e.preventDefault();
+    };
+    const touchEnd=e=>{
+      if(!dragging||confirmed||pointerId!=='touch')return;
+      dragging=false;pointerId=null;slider.classList.remove('dragging');
+      if(maxX&&currentX/maxX>=.82)void finish();else reset();
+      e.preventDefault();
+    };
+    thumb.addEventListener('touchstart',touchBegin,{passive:false});
+    slider.addEventListener('touchmove',touchMove,{passive:false});
+    slider.addEventListener('touchend',touchEnd,{passive:false});
+    slider.addEventListener('touchcancel',()=>{if(pointerId==='touch')reset();});
+    thumb.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch')begin(e);});
+    thumb.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')move(e);});
+    thumb.addEventListener('pointerup',e=>{if(e.pointerType!=='touch')end(e);});
+    thumb.addEventListener('pointercancel',e=>{if(e.pointerType!=='touch'&&dragging)reset();});
     slider.addEventListener('click',e=>e.preventDefault());
     window.addEventListener('resize',()=>{if(!dragging&&!confirmed){maxX=Math.max(0,slider.clientWidth-thumb.offsetWidth-leftPad*2);setPosition(0);}});
     maxX=Math.max(0,slider.clientWidth-thumb.offsetWidth-leftPad*2);
