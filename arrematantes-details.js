@@ -1,5 +1,5 @@
 (()=>{
-  const navButton=document.querySelector('#nav button[data-page="compradores"]');
+  const navButton=document.querySelector('#nav button[data-page="arrematantes"]');
   if(!navButton)return;
 
   let rendering=false;
