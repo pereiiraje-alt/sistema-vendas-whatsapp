@@ -177,6 +177,23 @@
     }
   };
 
+  window.jpWhatsappSendDirect=async function(phone,message,{silent=false}={}){
+    try{
+      const text=String(message||'').trim();
+      if(!text)throw new Error('Mensagem vazia.');
+      const result=await cloudRequest('/api/send-direct',{
+        method:'POST',
+        body:{phone:String(phone||''),message:text}
+      });
+      if(!silent)alert('Mensagem enviada pelo WhatsApp conectado.');
+      return !!result?.ok;
+    }catch(e){
+      console.warn('WhatsApp direto:',e);
+      if(!silent)alert('Não foi possível enviar pelo WhatsApp conectado: '+(e.message||e));
+      return false;
+    }
+  };
+
   function statusLabel(status){
     return ({ONLINE:'Conectado',OFFLINE:'Desconectado',CONECTANDO:'Conectando...',
       AGUARDANDO_QR:'Aguardando QR Code',AGUARDANDO_CODIGO:'Aguardando código no WhatsApp',ERRO:'Erro'})[status]||status||'Desconectado';
