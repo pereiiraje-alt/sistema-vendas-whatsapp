@@ -128,13 +128,16 @@
       let device=await getDevice();
       if(getCloudToken()){
         try{
-          const cloud=await cloudRequest('/api/status');
+          const cloud=await Promise.race([
+            cloudRequest('/api/status'),
+            new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tempo limite da nuvem WhatsApp')),5000))
+          ]);
           if(cloud){
             device={
               ...(device||{}),
               status:cloud.status||device?.status,
               phone:cloud.phone||device?.phone,
-              available_groups:Array.isArray(cloud.groups)?cloud.groups:(device?.available_groups||[])
+              available_groups:Array.isArray(cloud.groups)&&cloud.groups.length?cloud.groups:(device?.available_groups||[])
             };
           }
         }catch(e){console.warn('Grupos WhatsApp Cloud:',e)}
