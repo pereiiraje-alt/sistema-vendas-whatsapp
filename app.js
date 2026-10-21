@@ -549,7 +549,8 @@ async function pagamentos(){
   document.getElementById('paymentFilter').onchange=e=>show(e.target.value);
   document.getElementById('reloadPayments').onclick=pagamentos;
 }
-\nconst pages={dashboard:[dashboard,'Dashboard','Visão geral das suas vendas por lances'],leiloes:[leiloes,'Minhas vendas','Vendas publicadas e em andamento'],lotes:[lotes,'Produtos','Cadastre e gerencie os produtos'],lances:[lances,'Ofertas','Histórico de ofertas registradas'],participantes:[participantes,'Interessados','Cadastros e interessados'],arrematantes:[arrematantes,'Compradores','Compradores e pós-venda'],pagamentos:[pagamentos,'Pagamentos','Pagamentos confirmados, pendentes e cancelados'],config:[config,'Configurações','Regras e dados da plataforma']};
+
+const pages={dashboard:[dashboard,'Dashboard','Visão geral das suas vendas por lances'],leiloes:[leiloes,'Minhas vendas','Vendas publicadas e em andamento'],lotes:[lotes,'Produtos','Cadastre e gerencie os produtos'],lances:[lances,'Ofertas','Histórico de ofertas registradas'],participantes:[participantes,'Interessados','Cadastros e interessados'],arrematantes:[arrematantes,'Compradores','Compradores e pós-venda'],pagamentos:[pagamentos,'Pagamentos','Pagamentos confirmados, pendentes e cancelados'],config:[config,'Configurações','Regras e dados da plataforma']};
 const sidebar=document.querySelector('.sidebar');
 let mobileMenuBackdrop=document.querySelector('#mobileMenuBackdrop');
 if(!mobileMenuBackdrop){
