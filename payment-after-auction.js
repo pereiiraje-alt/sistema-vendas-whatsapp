@@ -46,7 +46,7 @@
   }
 
   async function finalize(id){
-    const session=await db.auth.getSession();
+    const session=await (window.jpQuickBidClient||db).auth.getSession();
     const token=session?.data?.session?.access_token;
     if(!token)return null;
     const response=await fetch('/api/finalize-lot',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id})});
@@ -124,7 +124,7 @@
 
   function pixHtml(qrCode,qrCodeBase64){
     if(!qrCode&&!qrCodeBase64)return '';
-    return `<div class="pix-box"><h4>PIX pronto para pagamento</h4><p>Abra o aplicativo de qualquer banco, escolha pagar com PIX e escaneie o QR Code.</p>${qrCodeBase64?`<img class="pix-qr" src="data:image/png;base64,${qrCodeBase64}" alt="QR Code PIX">`:''}${qrCode?`<textarea class="pix-code" id="pixCopyCode" readonly>${esc(qrCode)}</textarea><button class="pix-copy" type="button" onclick="copyPixCode()">Copiar código PIX</button>`:''}</div>`;
+    return `<div class="pix-box"><h4>💠 PIX Copia e Cola</h4><p>Copie o código abaixo, abra o aplicativo do seu banco, escolha PIX → Copia e Cola e confirme os dados antes de pagar.</p>${qrCode?`<label class="pay-label" for="pixCopyCode">Código PIX</label><textarea class="pix-code" id="pixCopyCode" readonly>${esc(qrCode)}</textarea><button class="pix-copy" type="button" onclick="copyPixCode()">📋 Copiar PIX Copia e Cola</button>`:''}${qrCodeBase64?`<p>Ou escaneie o QR Code:</p><img class="pix-qr" src="data:image/png;base64,${qrCodeBase64}" alt="QR Code PIX">`:''}</div>`;
   }
 
   function sellerWhatsHtml(data,amount){
@@ -146,7 +146,7 @@
 
   window.copyPixCode=async function(){
     const el=document.getElementById('pixCopyCode');if(!el)return;
-    try{await navigator.clipboard.writeText(el.value)}catch(_){el.select();document.execCommand('copy')}
+    try{await navigator.clipboard.writeText(el.value)}catch(_){el.focus();el.select();el.setSelectionRange(0,el.value.length);if(!document.execCommand('copy')){alert('Selecione e copie o código PIX exibido.');return}}
     const btn=document.querySelector('.pix-copy');if(btn){const old=btn.textContent;btn.textContent='Código PIX copiado ✓';setTimeout(()=>btn.textContent=old,1800)}
   };
 
