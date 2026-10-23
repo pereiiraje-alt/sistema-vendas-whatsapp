@@ -193,3 +193,5 @@
   .lot-whatsapp-groups.compact{padding:12px}
   .lot-success-card{padding:22px 18px}
 }
+
+.product-style-modal [hidden]{display:none!important}
