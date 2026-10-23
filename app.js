@@ -426,12 +426,41 @@ async function loadLotWhatsappGroups(){
     box.innerHTML='<p class="muted">'+esc(e.message||String(e))+'</p><button type="button" class="ghost mini" onclick="loadLotWhatsappGroups()">Tentar novamente</button>';
   }
 }
+function setLotScheduleMode(mode){
+  const startInput=document.getElementById('lotStartAt');
+  const startLabel=document.getElementById('lotStartAtLabel');
+  const choice=document.getElementById('lotScheduleChoice');
+  if(!startInput||!startLabel||!choice)return;
+  const auctionStarts=currentAuction?.starts_at?new Date(currentAuction.starts_at):null;
+  const auctionScheduled=String(currentAuction?.status||'').toLowerCase()==='scheduled'&&auctionStarts&&auctionStarts>new Date();
+  const effectiveMode=mode==='scheduled'||auctionScheduled?'scheduled':'now';
+  lotForm.dataset.scheduleMode=effectiveMode;
+  choice.querySelectorAll('[data-lot-mode]').forEach(b=>b.classList.toggle('active',b.dataset.lotMode===effectiveMode));
+  startLabel.hidden=effectiveMode!=='scheduled';
+  startInput.required=effectiveMode==='scheduled';
+  const local=v=>new Date(v.getTime()-v.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  if(effectiveMode==='scheduled'){
+    const minDate=auctionScheduled?auctionStarts:new Date(Date.now()+5*60*1000);
+    startInput.min=local(minDate);
+    if(!startInput.value||new Date(startInput.value)<minDate)startInput.value=local(minDate);
+  }else{
+    startInput.value='';
+    startInput.removeAttribute('min');
+  }
+}
+window.setLotScheduleMode=setLotScheduleMode;
+
 async function openNewLotModal(){
   if(!currentAuction)return alert('Crie ou ative uma venda antes de cadastrar produtos.');
   lotForm.reset();
   document.querySelectorAll('#lotWhatsappGroups input[type="checkbox"]').forEach(x=>x.checked=false);
+  document.querySelectorAll('#lotScheduleChoice [data-lot-mode]').forEach(b=>{
+    b.onclick=()=>setLotScheduleMode(b.dataset.lotMode);
+  });
+  const auctionStarts=currentAuction?.starts_at?new Date(currentAuction.starts_at):null;
+  const auctionScheduled=String(currentAuction?.status||'').toLowerCase()==='scheduled'&&auctionStarts&&auctionStarts>new Date();
+  setLotScheduleMode(auctionScheduled?'scheduled':'now');
   modal.showModal();
-  // Abrir o formulario imediatamente; a lista de grupos e carregada em paralelo.
   void loadLotWhatsappGroups();
 }
 window.openNewLotModal=openNewLotModal;
@@ -626,11 +655,24 @@ document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();const in
   const number=(last?.lot_number||0)+1,start=+lstart.value;
   const auctionStarts=currentAuction?.starts_at?new Date(currentAuction.starts_at):null;
   const auctionEnds=currentAuction?.ends_at?new Date(currentAuction.ends_at):null;
-  const scheduled=String(currentAuction?.status||'').toLowerCase()==='scheduled'&&auctionStarts&&auctionStarts>new Date();
-  const lotStarts=scheduled?auctionStarts:new Date();
+  const auctionScheduled=String(currentAuction?.status||'').toLowerCase()==='scheduled'&&auctionStarts&&auctionStarts>new Date();
+  const wantsScheduled=lotForm.dataset.scheduleMode==='scheduled';
+  let lotStarts;
+  if(auctionScheduled){
+    const chosen=document.getElementById('lotStartAt')?.value?new Date(document.getElementById('lotStartAt').value):auctionStarts;
+    lotStarts=chosen<auctionStarts?auctionStarts:chosen;
+  }else if(wantsScheduled){
+    const raw=document.getElementById('lotStartAt')?.value;
+    if(!raw)throw new Error('Escolha a data e hora para iniciar o produto.');
+    lotStarts=new Date(raw);
+    if(!(lotStarts>new Date()))throw new Error('A data de início precisa estar no futuro.');
+  }else{
+    lotStarts=new Date();
+  }
+  if(auctionEnds&&lotStarts>=auctionEnds)throw new Error('O produto precisa começar antes do encerramento da venda.');
   const requestedEnd=new Date(lotStarts.getTime()+60000*(+lduration.value));
-  const lotEnds=auctionEnds&&auctionEnds>lotStarts&&requestedEnd>auctionEnds?auctionEnds:requestedEnd;
-  const lotStatus=scheduled?'scheduled':'live';
+  const lotEnds=auctionEnds&&requestedEnd>auctionEnds?auctionEnds:requestedEnd;
+  const lotStatus=(auctionScheduled||wantsScheduled)?'scheduled':'live';
   let{data:created,error}=await timeout(db.from('lots').insert({company_id:currentCompany.id,auction_id:currentAuction.id,lot_number:number,title:lname.value,description:ldesc.value||'',image_url:image,image_urls:images,valuation:+lvalue.value,starting_bid:start,current_bid:start,min_increment:+lstep.value,status:lotStatus,starts_at:lotStarts.toISOString(),ends_at:lotEnds.toISOString()}).select('id').single(),7000,'salvar lote');
   if(error)throw error;
   const selectedWhatsappGroups=[...document.querySelectorAll('#lotWhatsappGroups input[type="checkbox"]:checked')].map(x=>x.value);
