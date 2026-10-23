@@ -157,7 +157,7 @@
     if(d)return d;
     d=document.createElement('dialog');
     d.id='firstAuctionModal';
-    d.className='standard-form-modal';
+    d.className='standard-form-modal product-style-modal';
     d.innerHTML=`<form id="firstAuctionForm" class="standard-form">
       <div class="modal-head"><h2>Criar venda</h2><button type="button" id="closeFirstAuction" aria-label="Fechar">×</button></div>
       <p class="standard-form-intro">Configure a venda por lances antes de cadastrar os produtos.</p>
