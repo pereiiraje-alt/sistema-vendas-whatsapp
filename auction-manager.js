@@ -120,7 +120,8 @@
     catch(error){app.innerHTML=`<div class="panel"><h3>Não foi possível iniciar o venda</h3><p>${String(error.message||error).replace(/[&<>]/g,'')}</p><button class="primary" id="retryQuickAuction">Tentar novamente</button></div>`;const retry=document.querySelector('#retryQuickAuction');if(retry)retry.onclick=startQuickAuction;}
   }
 
-  navButton.onclick=startQuickAuction;
+  window.openQuickAuction=startQuickAuction;
+    navButton.onclick=startQuickAuction;
 
   modal.addEventListener('close',async()=>{
     if(savingQuickLot||!quickAuctionId)return;
