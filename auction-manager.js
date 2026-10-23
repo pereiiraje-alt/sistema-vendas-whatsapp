@@ -130,7 +130,15 @@
       if(!error&&!count)await timeout(db.from('auctions').delete().eq('id',abandonedId).eq('status','draft'),7000,'cancelar venda vazio');
       await restoreLatestAuction();
     }catch(error){console.error('Limpeza do venda cancelado:',error);}
-    if(navButton.classList.contains('active'))app.innerHTML='<div class="panel"><h3>Criação cancelada</h3><p class="muted">Clique em “Criar venda” quando quiser cadastrar um novo produto.</p></div>';
+    if(navButton.classList.contains('active')){
+      document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
+      const dash=document.querySelector('#nav button[data-page="dashboard"]');
+      if(dash)dash.classList.add('active');
+      document.querySelector('#title').textContent='Dashboard';
+      document.querySelector('#subtitle').textContent='Resumo das suas vendas e ofertas';
+      if(typeof dashboard==='function')await dashboard();
+      else dash?.click();
+    }
   });
 
   const saveLotButton=document.querySelector('#saveLot');
