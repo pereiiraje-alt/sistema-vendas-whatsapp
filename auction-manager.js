@@ -116,7 +116,15 @@
     document.querySelector('.sidebar').classList.remove('open');
     if(!currentCompany){app.innerHTML='<div class="panel"><h3>Criar venda</h3><p>É necessário estar vinculado a uma empresa.</p></div>';return;}
     app.innerHTML='<div class="panel"><h3>Novo venda</h3><p class="muted">Preencha os dados do produto. Ao criar o produto, o venda entra automaticamente ao vivo.</p></div>';
-    try{await createQuickAuction();resetLotForm();modal.showModal();void loadLotWhatsappGroups();}
+    try{
+      await createQuickAuction();
+      resetLotForm();
+      if(typeof window.setupDurationPresets==='function')window.setupDurationPresets();
+      if(typeof window.setupLotWhatsappPicker==='function')window.setupLotWhatsappPicker();
+      if(typeof window.setLotScheduleMode==='function')window.setLotScheduleMode('now');
+      modal.showModal();
+      void loadLotWhatsappGroups();
+    }
     catch(error){app.innerHTML=`<div class="panel"><h3>Não foi possível iniciar o venda</h3><p>${String(error.message||error).replace(/[&<>]/g,'')}</p><button class="primary" id="retryQuickAuction">Tentar novamente</button></div>`;const retry=document.querySelector('#retryQuickAuction');if(retry)retry.onclick=startQuickAuction;}
   }
 
