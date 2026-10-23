@@ -46,3 +46,23 @@
 .quick-participant-tabs button{min-height:44px;border:1px solid #d7e3dd;border-radius:11px;background:#f6f9f7;color:#375347;font-weight:800;font-family:inherit;cursor:pointer}
 .quick-participant-tabs button.active{background:#16c765;border-color:#16c765;color:#fff}
 @media(max-width:520px){.quick-participant-tabs{gap:6px}.quick-participant-tabs button{font-size:13px;padding:8px}}
+
+.standard-form-modal{width:min(520px,92vw);max-height:88vh;padding:0;border:0;border-radius:20px;overflow:hidden;background:#fff;box-shadow:0 20px 60px #0004}
+.standard-form-modal::backdrop{background:#10251b99;backdrop-filter:blur(2px)}
+.standard-form{display:grid;gap:15px;padding:20px;max-height:88vh;overflow:auto}
+.standard-form .modal-head{align-items:center;padding-bottom:12px;border-bottom:1px solid #edf1ef}
+.standard-form .modal-head h2{font-size:24px;color:#183226}
+.standard-form .modal-head button{width:38px;height:38px;border-radius:12px;background:#f3f7f5;color:#6b7c73;display:grid;place-items:center;padding:0;cursor:pointer}
+.standard-form-intro{margin:-2px 0 4px;color:#718078;line-height:1.45;font-size:13px}
+.standard-form label{font-size:12px;font-weight:700;color:#294638}
+.standard-form input{min-height:48px;border-radius:12px}
+.standard-form-actions{margin-top:2px}
+.standard-form-actions button{min-height:48px;border-radius:12px;font-weight:800}
+@media(max-width:650px){
+  .standard-form-modal{width:calc(100% - 30px);max-height:90vh}
+  .standard-form{padding:18px;max-height:90vh}
+  .standard-form .grid2{grid-template-columns:1fr}
+  .standard-form-actions{display:grid;grid-template-columns:1fr}
+  .standard-form-actions .primary{order:2}
+  .standard-form-actions .ghost{order:1}
+}
