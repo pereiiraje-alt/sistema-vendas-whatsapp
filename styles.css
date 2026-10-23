@@ -86,47 +86,60 @@
 .lot-schedule-section [hidden]{display:none!important}
 
 .product-style-modal{
-  width:min(520px,92vw);
+  width:min(560px,calc(100% - 34px));
   height:calc(100dvh - 32px);
   max-height:calc(100dvh - 32px);
   padding:0;
+  border:0;
   border-radius:24px;
   overflow:hidden;
+  background:#fff;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
 }
 .product-style-modal .standard-form{
   box-sizing:border-box;
   height:100%;
   max-height:100%;
-  padding:26px 28px;
-  gap:17px;
+  padding:22px;
+  display:grid;
+  gap:16px;
   overflow-y:auto;
   align-content:start;
 }
 .product-style-modal .modal-head{
   position:sticky;
-  top:-26px;
+  top:0;
   z-index:2;
   background:#fff;
-  margin:-26px -28px 0;
-  padding:26px 28px 14px;
+  margin:-22px -22px 0;
+  padding:22px 22px 12px;
+  border-bottom:1px solid #edf1ef;
 }
-.product-style-modal .modal-head h2{font-size:30px}
-.product-style-modal .standard-form-intro{margin:0;color:#74867c;font-size:13px}
-.product-style-modal .grid2{gap:12px}
-.product-style-modal label{display:grid;gap:7px}
-.product-style-modal input{min-height:54px;padding:12px 14px;font-size:16px}
-.product-style-modal .schedule-choice{margin-top:0}
 .product-style-modal .standard-form-actions{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:9px;
+  gap:10px;
   margin-top:auto;
   position:sticky;
-  bottom:-26px;
+  bottom:0;
   background:#fff;
-  padding:14px 0 2px;
+  padding-top:12px;
 }
-.product-style-modal .standard-form-actions button{min-height:52px;font-size:16px}
+.product-style-modal .standard-form-actions button{
+  min-height:52px;
+  border-radius:12px;
+}
+.product-style-modal .grid2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.product-style-modal input,
+.product-style-modal select,
+.product-style-modal textarea{
+  min-height:48px;
+  border-radius:12px;
+}
 @media(max-width:650px){
   .product-style-modal{
     width:calc(100vw - 36px);
@@ -134,17 +147,16 @@
     max-height:calc(100dvh - 32px);
   }
   .product-style-modal .standard-form{
-    padding:26px 28px;
-    gap:17px;
+    padding:18px;
   }
   .product-style-modal .modal-head{
-    top:-26px;
-    margin:-26px -28px 0;
-    padding:26px 28px 14px;
+    margin:-18px -18px 0;
+    padding:18px 18px 12px;
   }
-  .product-style-modal .grid2{grid-template-columns:1fr;gap:12px}
+  .product-style-modal .grid2{
+    grid-template-columns:1fr;
+  }
   .product-style-modal .standard-form-actions{
     grid-template-columns:1fr 1fr;
-    bottom:-26px;
   }
 }
