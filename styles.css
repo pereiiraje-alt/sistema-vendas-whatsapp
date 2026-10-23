@@ -160,3 +160,36 @@
     grid-template-columns:1fr 1fr;
   }
 }
+
+
+.duration-field{display:grid;gap:7px}
+.field-label{font-size:12px;font-weight:700;color:#294638}
+.duration-presets{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.duration-presets button{min-height:42px;border:1px solid #dce7e1;border-radius:10px;background:#f7faf8;color:#476156;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit}
+.duration-presets button.active{background:#16c765;color:#fff;border-color:#16c765;box-shadow:0 5px 14px rgba(22,199,101,.18)}
+.duration-field [hidden]{display:none!important}
+
+.lot-whatsapp-groups.compact{padding:13px}
+.lot-whatsapp-groups.compact .lot-wa-head{margin-bottom:9px}
+.lot-wa-picker-toggle{min-height:44px}
+#lotWhatsappGroupsWrap[hidden]{display:none!important}
+#lotWhatsappGroupsWrap{margin-top:10px}
+
+.lot-success-modal{border:0;padding:0;background:transparent;width:min(460px,calc(100% - 28px))}
+.lot-success-modal::backdrop{background:#10251b99;backdrop-filter:blur(2px)}
+.lot-success-card{background:#fff;border-radius:20px;padding:26px;text-align:center;box-shadow:0 20px 60px #0004}
+.lot-success-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;background:#eaf9f0;color:#10a956;font-size:30px;font-weight:900}
+.lot-success-card h2{margin:0 0 8px;font-size:24px}
+.lot-success-card p{margin:0 0 20px;color:#718078}
+.lot-success-actions{display:grid;gap:9px}
+.lot-success-actions button{min-height:48px}
+
+@media(max-width:900px){
+  .duration-presets{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:650px){
+  .duration-presets{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .duration-presets button:last-child{grid-column:1/-1}
+  .lot-whatsapp-groups.compact{padding:12px}
+  .lot-success-card{padding:22px 18px}
+}
