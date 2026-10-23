@@ -121,6 +121,7 @@ function lotCard(l){return `<article class="product">${img(l)}<div><small>PRODUT
 async function loadBids(l){let{data,error}=await timeout(db.from('bids').select('id,amount,created_at,participant_id').eq('lot_id',l.id).order('created_at',{ascending:false}).limit(30),7000,'carregar lances');if(error)return[];let ids=[...new Set((data||[]).map(x=>x.participant_id))],names={};if(ids.length){let{data:p}=await timeout(db.from('participants').select('id,full_name').in('id',ids),7000,'carregar participantes');(p||[]).forEach(x=>names[x.id]=x.full_name)}return(data||[]).map(b=>({user:names[b.participant_id]||'Participante',value:+b.amount,time:new Date(b.created_at).getTime(),participantId:b.participant_id}))}
 async function openLot(id){try{
   let l=await loadPublicLot(id);l.bids=await loadBids(l);
+  const scheduled=l.status==='scheduled'&&l.starts&&Date.now()<new Date(l.starts);
   let ended=l.ends&&Date.now()>=new Date(l.ends);
   const nextBid=l.current+l.step;
   const leader=l.bids[0]?.user||'Aguardando oferta';const sellerName=esc(currentSeller?.name||'Vendedor');const sellerLocation=[currentSeller?.city,currentSeller?.state].filter(Boolean).join(' - ');
@@ -134,7 +135,7 @@ async function openLot(id){try{
   app.innerHTML=`${publicTop}
   <div class="lot-layout public-auction-layout">
     <div class="lot-main public-lot-card">
-      <div class="public-live-badge">${ended?'ENCERRADO':'● AO VIVO'}</div>
+      <div class="public-live-badge">${ended?'ENCERRADO':scheduled?'◷ AGENDADO':'● AO VIVO'}</div>
       <div class="public-media-shell">${productGallery(l)}</div>
       <div class="public-lot-info">
         <div class="public-lot-heading"><div><small>PRODUTO #${l.number}</small><h2>${esc(l.name)}</h2></div><div class="public-valuation"><span>Valor de referência</span><b>${money(l.valuation)}</b></div></div>
@@ -146,7 +147,7 @@ async function openLot(id){try{
     </div>
     <aside class="public-bid-column">
       <div class="bidbox">
-        ${ended?`<div class="ended"><small>RESULTADO DA VENDA</small><h3>Venda encerrada</h3><div class="bigprice">${money(l.current)}</div><p>${l.winnerId?'Produto vendido.':'Aguardando confirmação do resultado.'}</p></div>`:`
+        ${ended?`<div class="ended"><small>RESULTADO DA VENDA</small><h3>Venda encerrada</h3><div class="bigprice">${money(l.current)}</div><p>${l.winnerId?'Produto vendido.':'Aguardando confirmação do resultado.'}</p></div>`:scheduled?`<div class="scheduled-sale-box"><small>VENDA AGENDADA</small><h3>Os lances ainda não começaram</h3><p>Esta oferta abre em:</p><div class="bigtime timer" data-end="${l.starts}">${remaining(l.starts)}</div><span>Início: ${endTime(l.starts)}</span></div>`:`
           <small>OFERTA ATUAL</small>
           <div class="bigprice">${money(l.current)}</div>
           <p class="public-next-bid">Próxima oferta mínima: <b>${money(nextBid)}</b></p>
@@ -273,7 +274,7 @@ function initSlideBid(){
   });
 }
 
-async function bid(id){try{let l=await loadPublicLot(id);if(!participant){pendingBid=id;registerModal.showModal();return}if(participant.companyId!==l.companyId){participant=null;pendingBid=id;registerModal.showModal();return}let amount=l.current+l.step;const bidClient=window.jpQuickBidClient||db;let{error}=await timeout(bidClient.rpc('place_bid',{p_lot_id:id,p_participant_id:participant.id,p_amount:amount}),7000,'registrar lance');if(error)throw error;await openLot(id)}catch(e){alert(e.message)}}
+async function bid(id){try{let l=await loadPublicLot(id);if(l.status==='scheduled'&&l.starts&&Date.now()<new Date(l.starts))throw new Error('Este leilão ainda não começou. Aguarde o horário agendado.');if(!participant){pendingBid=id;registerModal.showModal();return}if(participant.companyId!==l.companyId){participant=null;pendingBid=id;registerModal.showModal();return}let amount=l.current+l.step;const bidClient=window.jpQuickBidClient||db;let{error}=await timeout(bidClient.rpc('place_bid',{p_lot_id:id,p_participant_id:participant.id,p_amount:amount}),7000,'registrar lance');if(error)throw error;await openLot(id)}catch(e){alert(e.message)}}
 function offerShareUrl(id){
   const token=String(id||'').replace(/-/g,'');
   return new URL('/o/'+encodeURIComponent(token),location.origin).toString();
@@ -621,8 +622,16 @@ document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();const in
     images.push(db.storage.from('lot-images').getPublicUrl(path).data.publicUrl);
   }
   const image=images[0]||'';
-  let{data:last}=await timeout(db.from('lots').select('lot_number').eq('auction_id',currentAuction.id).order('lot_number',{ascending:false}).limit(1).maybeSingle(),7000,'buscar último lote'),number=(last?.lot_number||0)+1,start=+lstart.value,ends=new Date(Date.now()+60000*(+lduration.value)).toISOString();
-  let{data:created,error}=await timeout(db.from('lots').insert({company_id:currentCompany.id,auction_id:currentAuction.id,lot_number:number,title:lname.value,description:ldesc.value||'',image_url:image,image_urls:images,valuation:+lvalue.value,starting_bid:start,current_bid:start,min_increment:+lstep.value,status:'live',starts_at:new Date().toISOString(),ends_at:ends}).select('id').single(),7000,'salvar lote');
+  let{data:last}=await timeout(db.from('lots').select('lot_number').eq('auction_id',currentAuction.id).order('lot_number',{ascending:false}).limit(1).maybeSingle(),7000,'buscar último lote');
+  const number=(last?.lot_number||0)+1,start=+lstart.value;
+  const auctionStarts=currentAuction?.starts_at?new Date(currentAuction.starts_at):null;
+  const auctionEnds=currentAuction?.ends_at?new Date(currentAuction.ends_at):null;
+  const scheduled=String(currentAuction?.status||'').toLowerCase()==='scheduled'&&auctionStarts&&auctionStarts>new Date();
+  const lotStarts=scheduled?auctionStarts:new Date();
+  const requestedEnd=new Date(lotStarts.getTime()+60000*(+lduration.value));
+  const lotEnds=auctionEnds&&auctionEnds>lotStarts&&requestedEnd>auctionEnds?auctionEnds:requestedEnd;
+  const lotStatus=scheduled?'scheduled':'live';
+  let{data:created,error}=await timeout(db.from('lots').insert({company_id:currentCompany.id,auction_id:currentAuction.id,lot_number:number,title:lname.value,description:ldesc.value||'',image_url:image,image_urls:images,valuation:+lvalue.value,starting_bid:start,current_bid:start,min_increment:+lstep.value,status:lotStatus,starts_at:lotStarts.toISOString(),ends_at:lotEnds.toISOString()}).select('id').single(),7000,'salvar lote');
   if(error)throw error;
   const selectedWhatsappGroups=[...document.querySelectorAll('#lotWhatsappGroups input[type="checkbox"]:checked')].map(x=>x.value);
   if(created?.id&&selectedWhatsappGroups.length){
