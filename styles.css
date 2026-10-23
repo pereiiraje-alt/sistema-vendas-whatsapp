@@ -66,3 +66,13 @@
   .standard-form-actions .primary{order:2}
   .standard-form-actions .ghost{order:1}
 }
+
+.schedule-choice{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px;background:#f1f6f3;border:1px solid #dfe9e3;border-radius:13px}
+.schedule-choice button{min-height:42px;border:0;border-radius:10px;background:transparent;color:#587064;font-weight:800;font-family:inherit;cursor:pointer}
+.schedule-choice button.active{background:#16c765;color:#fff;box-shadow:0 5px 14px rgba(22,199,101,.18)}
+.scheduled-sale-box{display:grid;gap:10px;padding:20px 8px;text-align:center}
+.scheduled-sale-box small{font-weight:900;color:#7a8a81;letter-spacing:.06em}
+.scheduled-sale-box h3{margin:0;color:#193b2c}
+.scheduled-sale-box p{margin:0;color:#73847b}
+.scheduled-sale-box span{font-size:12px;color:#6c7d74}
+@media(max-width:650px){.schedule-choice button{font-size:13px;min-height:40px}}
