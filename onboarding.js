@@ -167,8 +167,8 @@
         <button type="button" data-fa-mode="scheduled">Agendar</button>
       </div>
       <div class="grid2">
-        <label id="faStartLabel" hidden>Data e hora de início<input id="faStart" type="datetime-local"></label>
-        <label>Encerramento<input id="faEnd" type="datetime-local" required></label>
+        <label id="faStartLabel" hidden>Início do leilão<input id="faStart" type="datetime-local"></label>
+        <label>Encerramento do leilão<input id="faEnd" type="datetime-local" required></label>
       </div>
       <label>Descrição<input id="faDescription" maxlength="240" placeholder="Informações gerais da venda"></label>
       <div class="actions standard-form-actions"><button type="button" class="ghost" id="cancelFirstAuction">Cancelar</button><button type="submit" class="primary" id="createFirstAuction">Criar venda e continuar</button></div>
@@ -204,13 +204,25 @@
       modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.faMode===saleMode));
       const btn=d.querySelector('#createFirstAuction');
       if(btn)btn.textContent=saleMode==='scheduled'?'Agendar venda':'Criar venda e continuar';
-      if(saleMode==='scheduled'&&new Date(startInput.value)<=new Date()){
+      if(saleMode==='scheduled'){
         const future=new Date(Date.now()+60*60*1000);
-        startInput.value=local(future);
-        if(new Date(endInput.value)<=future)endInput.value=local(new Date(future.getTime()+24*60*60*1000));
+        if(!startInput.value||new Date(startInput.value)<=new Date())startInput.value=local(future);
+        const chosenStart=new Date(startInput.value);
+        if(!endInput.value||new Date(endInput.value)<=chosenStart)endInput.value=local(new Date(chosenStart.getTime()+24*60*60*1000));
+      }else{
+        startInput.required=false;
+        const nowValue=new Date();
+        if(!endInput.value||new Date(endInput.value)<=nowValue)endInput.value=local(new Date(nowValue.getTime()+24*60*60*1000));
       }
     };
     modeButtons.forEach(b=>b.onclick=()=>applyMode(b.dataset.faMode));
+    startInput.addEventListener('change',()=>{
+      if(saleMode!=='scheduled'||!startInput.value)return;
+      const chosenStart=new Date(startInput.value);
+      if(!endInput.value||new Date(endInput.value)<=chosenStart){
+        endInput.value=local(new Date(chosenStart.getTime()+24*60*60*1000));
+      }
+    });
     applyMode('now');
     d.querySelector('#firstAuctionForm').onsubmit=async e=>{
       e.preventDefault();
