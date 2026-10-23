@@ -82,3 +82,5 @@
 .lot-schedule-section>div:first-child small{display:block;margin-top:3px;color:#74867c;font-size:11px}
 .lot-schedule-section label{margin-top:2px}
 @media(max-width:650px){.lot-schedule-section{padding:12px}}
+
+.lot-schedule-section [hidden]{display:none!important}
