@@ -157,15 +157,17 @@
     if(d)return d;
     d=document.createElement('dialog');
     d.id='firstAuctionModal';
-    d.innerHTML=`<form id="firstAuctionForm">
-      <div class="modal-head"><div><h2>Crie sua primeira venda</h2><p class="muted">Antes de cadastrar produtos, configure sua primeira venda por lances.</p></div><button type="button" id="closeFirstAuction">×</button></div>
+    d.className='standard-form-modal';
+    d.innerHTML=`<form id="firstAuctionForm" class="standard-form">
+      <div class="modal-head"><h2>Criar venda</h2><button type="button" id="closeFirstAuction" aria-label="Fechar">×</button></div>
+      <p class="standard-form-intro">Configure a venda por lances antes de cadastrar os produtos.</p>
       <label>Nome da venda<input id="faTitle" required maxlength="120" placeholder="Ex.: Oferta especial de veículos"></label>
       <div class="grid2">
         <label>Início<input id="faStart" type="datetime-local" required></label>
         <label>Encerramento<input id="faEnd" type="datetime-local" required></label>
       </div>
       <label>Descrição<input id="faDescription" maxlength="240" placeholder="Informações gerais da venda"></label>
-      <div class="actions"><button type="button" class="ghost" id="cancelFirstAuction">Agora não</button><button type="submit" class="primary" id="createFirstAuction">Criar venda e continuar</button></div>
+      <div class="actions standard-form-actions"><button type="button" class="ghost" id="cancelFirstAuction">Cancelar</button><button type="submit" class="primary" id="createFirstAuction">Criar venda e continuar</button></div>
       <p class="muted" id="faMessage"></p>
     </form>`;
     document.body.appendChild(d);
