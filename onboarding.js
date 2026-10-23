@@ -162,8 +162,12 @@
       <div class="modal-head"><h2>Criar venda</h2><button type="button" id="closeFirstAuction" aria-label="Fechar">×</button></div>
       <p class="standard-form-intro">Configure a venda por lances antes de cadastrar os produtos.</p>
       <label>Nome da venda<input id="faTitle" required maxlength="120" placeholder="Ex.: Oferta especial de veículos"></label>
+      <div class="schedule-choice" id="faScheduleChoice">
+        <button type="button" class="active" data-fa-mode="now">Começar agora</button>
+        <button type="button" data-fa-mode="scheduled">Agendar</button>
+      </div>
       <div class="grid2">
-        <label>Início<input id="faStart" type="datetime-local" required></label>
+        <label id="faStartLabel" hidden>Data e hora de início<input id="faStart" type="datetime-local"></label>
         <label>Encerramento<input id="faEnd" type="datetime-local" required></label>
       </div>
       <label>Descrição<input id="faDescription" maxlength="240" placeholder="Informações gerais da venda"></label>
@@ -176,8 +180,28 @@
     d.querySelector('#cancelFirstAuction').onclick=close;
     const now=new Date(), end=new Date(Date.now()+24*60*60*1000);
     const local=v=>new Date(v.getTime()-v.getTimezoneOffset()*60000).toISOString().slice(0,16);
-    d.querySelector('#faStart').value=local(now);
-    d.querySelector('#faEnd').value=local(end);
+    const startInput=d.querySelector('#faStart');
+    const startLabel=d.querySelector('#faStartLabel');
+    const endInput=d.querySelector('#faEnd');
+    const modeButtons=[...d.querySelectorAll('[data-fa-mode]')];
+    let saleMode='now';
+    startInput.value=local(now);
+    endInput.value=local(end);
+    const applyMode=mode=>{
+      saleMode=mode==='scheduled'?'scheduled':'now';
+      startLabel.hidden=saleMode!=='scheduled';
+      startInput.required=saleMode==='scheduled';
+      modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.faMode===saleMode));
+      const btn=d.querySelector('#createFirstAuction');
+      if(btn)btn.textContent=saleMode==='scheduled'?'Agendar venda':'Criar venda e continuar';
+      if(saleMode==='scheduled'&&new Date(startInput.value)<=new Date()){
+        const future=new Date(Date.now()+60*60*1000);
+        startInput.value=local(future);
+        if(new Date(endInput.value)<=future)endInput.value=local(new Date(future.getTime()+24*60*60*1000));
+      }
+    };
+    modeButtons.forEach(b=>b.onclick=()=>applyMode(b.dataset.faMode));
+    applyMode('now');
     d.querySelector('#firstAuctionForm').onsubmit=async e=>{
       e.preventDefault();
       const msg=d.querySelector('#faMessage'),btn=d.querySelector('#createFirstAuction');
@@ -188,15 +212,17 @@
         const {data:member,error:memberError}=await client.from('company_members').select('company_id').eq('user_id',session.user.id).limit(1).maybeSingle();
         if(memberError)throw memberError;
         if(!member?.company_id)throw new Error('Sua conta ainda não está vinculada a uma empresa.');
-        const starts=new Date(d.querySelector('#faStart').value),ends=new Date(d.querySelector('#faEnd').value);
+        const starts=saleMode==='scheduled'?new Date(startInput.value):new Date();
+        const ends=new Date(endInput.value);
+        if(saleMode==='scheduled'&&!(starts>new Date()))throw new Error('Escolha uma data futura para agendar a venda.');
         if(!(ends>starts))throw new Error('O encerramento precisa ser depois do início.');
-        const status=starts<=new Date()?'live':'scheduled';
+        const status=saleMode==='scheduled'?'scheduled':'live';
         const payload={company_id:member.company_id,title:d.querySelector('#faTitle').value.trim(),status,starts_at:starts.toISOString(),ends_at:ends.toISOString()};
         const {error}=await client.from('auctions').insert(payload);
         if(error)throw error;
-        msg.textContent='Venda criada com sucesso. Liberando cadastro de produtos...';
+        msg.textContent=saleMode==='scheduled'?'Venda agendada com sucesso. Agora você pode cadastrar os produtos.':'Venda criada com sucesso. Liberando cadastro de produtos...';
         setTimeout(()=>location.reload(),700);
-      }catch(err){msg.textContent='Não foi possível criar a venda: '+err.message;btn.disabled=false;btn.textContent='Criar venda e continuar';}
+      }catch(err){msg.textContent='Não foi possível criar a venda: '+err.message;btn.disabled=false;btn.textContent=saleMode==='scheduled'?'Agendar venda':'Criar venda e continuar';}
     };
     return d;
   }
