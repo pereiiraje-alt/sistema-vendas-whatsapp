@@ -393,6 +393,61 @@ window.copyOfferLink=async function(id){
   const url=offerShareUrl(id);
   try{await navigator.clipboard.writeText(url);alert('Link da oferta copiado. Agora é só enviar no WhatsApp.')}catch(_){prompt('Copie o link da oferta:',url)}
 }
+function updateLotWhatsappSummary(){
+  const summary=document.getElementById('lotWhatsappSummary');
+  if(!summary)return;
+  const checked=[...document.querySelectorAll('#lotWhatsappGroups input[type="checkbox"]:checked')];
+  summary.textContent=checked.length?checked.length+' grupo(s) selecionado(s)':'Nenhum grupo selecionado';
+}
+window.updateLotWhatsappSummary=updateLotWhatsappSummary;
+
+function setupLotWhatsappPicker(){
+  const toggle=document.getElementById('lotWhatsappToggle');
+  const wrap=document.getElementById('lotWhatsappGroupsWrap');
+  if(!toggle||!wrap)return;
+  toggle.onclick=()=>{
+    wrap.hidden=!wrap.hidden;
+    toggle.textContent=wrap.hidden?'Escolher grupos':'Ocultar grupos';
+  };
+  wrap.addEventListener('change',e=>{
+    if(e.target?.matches?.('input[type="checkbox"]'))updateLotWhatsappSummary();
+  });
+  wrap.hidden=true;
+  toggle.textContent='Escolher grupos';
+  updateLotWhatsappSummary();
+}
+window.setupLotWhatsappPicker=setupLotWhatsappPicker;
+
+function setDurationPreset(value){
+  const display=document.getElementById('ldurationDisplay');
+  const hidden=document.getElementById('lduration');
+  const customLabel=document.getElementById('durationCustomLabel');
+  const buttons=[...document.querySelectorAll('#durationPresets [data-minutes]')];
+  if(!display||!hidden||!customLabel)return;
+  buttons.forEach(b=>b.classList.toggle('active',String(b.dataset.minutes)===String(value)));
+  if(String(value)==='custom'){
+    customLabel.hidden=false;
+    display.required=true;
+    setTimeout(()=>display.focus(),0);
+    return;
+  }
+  const mins=Number(value)||180;
+  hidden.value=String(mins);
+  const h=Math.floor(mins/60),m=mins%60;
+  display.value=String(h).padStart(2,'0')+'h'+String(m).padStart(2,'0')+'m';
+  display.required=false;
+  customLabel.hidden=true;
+}
+window.setDurationPreset=setDurationPreset;
+
+function setupDurationPresets(){
+  document.querySelectorAll('#durationPresets [data-minutes]').forEach(b=>{
+    b.onclick=()=>setDurationPreset(b.dataset.minutes);
+  });
+  setDurationPreset('180');
+}
+window.setupDurationPresets=setupDurationPresets;
+
 async function loadLotWhatsappGroups(){
   const box=document.getElementById('lotWhatsappGroups');
   const status=document.getElementById('lotWhatsappStatus');
@@ -419,6 +474,7 @@ async function loadLotWhatsappGroups(){
     box.innerHTML=groups.length
       ?groups.map(g=>`<label class="lot-wa-group"><input type="checkbox" value="${esc(String(g.id))}"><span>${esc(String(g.name||g.id||'Grupo'))}</span></label>`).join('')
       :'<p class="muted">Nenhum grupo encontrado. Atualize os grupos na opção WhatsApp.</p><button type="button" class="ghost mini" onclick="loadLotWhatsappGroups()">Tentar novamente</button>';
+    updateLotWhatsappSummary();
   }catch(e){
     console.warn('Grupos do WhatsApp no cadastro:',e);
     status.textContent='Não foi possível carregar os grupos';
@@ -453,6 +509,8 @@ async function openNewLotModal(){
   if(!currentAuction)return alert('Crie ou ative uma venda antes de cadastrar produtos.');
   lotForm.reset();
   document.querySelectorAll('#lotWhatsappGroups input[type="checkbox"]').forEach(x=>x.checked=false);
+  setupDurationPresets();
+  setupLotWhatsappPicker();
   document.querySelectorAll('#lotScheduleChoice [data-lot-mode]').forEach(b=>{
     b.onclick=()=>setLotScheduleMode(b.dataset.lotMode);
   });
@@ -639,6 +697,19 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileMenu()});
 window.addEventListener('resize',()=>{if(!isMobileMenu())closeMobileMenu()});
+function showLotSuccess(){
+  const success=document.getElementById('lotSuccessModal');
+  if(!success)return;
+  const another=document.getElementById('successCreateAnother');
+  const view=document.getElementById('successViewSale');
+  const dash=document.getElementById('successDashboard');
+  if(another)another.onclick=async()=>{success.close();await openNewLotModal()};
+  if(view)view.onclick=async()=>{success.close();await leiloes()};
+  if(dash)dash.onclick=async()=>{success.close();await dashboard()};
+  if(!success.open)success.showModal();
+}
+window.showLotSuccess=showLotSuccess;
+
 document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();const invalid=[...lotForm.querySelectorAll('input:invalid')][0];if(invalid){invalid.scrollIntoView({behavior:'smooth',block:'center'});invalid.focus({preventScroll:true});invalid.reportValidity();alert('Confira o campo: '+(invalid.closest('label')?.childNodes[0]?.textContent?.trim()||'obrigatório')+'.');return;}if(!currentCompany||!currentAuction)return alert('É necessário estar vinculado a uma empresa e ter um venda ativo.');try{
   const files=[...(limage.files||[])];
   if(files.length>8)return alert('Você pode adicionar no máximo 8 fotos por produto.');
@@ -683,7 +754,7 @@ document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();const in
       alert('Produto criado, mas a integração do WhatsApp ainda não estava pronta para enviar.');
     }
   }
-  modal.close();lotForm.reset();await lotes()
+  modal.close();lotForm.reset();await loadLots();showLotSuccess()
 }catch(e){alert('Erro ao salvar lote: '+e.message)}};
 document.querySelector('#registerForm').onsubmit=async e=>{e.preventDefault();let id=pendingBid;if(!id)return;try{let l=await loadPublicLot(id);let email=remail.value.trim().toLowerCase(),password=rpassword.value;let{data,error}=await timeout(db.auth.signUp({email,password,options:{data:{full_name:rname.value.trim()}}}),7000,'criar cadastro');if(error)throw error;if(!data.user)throw new Error('Não foi possível criar o usuário.');let{data:p,error:pe}=await timeout(db.from('participants').insert({company_id:l.companyId,auth_user_id:data.user.id,full_name:rname.value.trim(),cpf:rcpf.value.trim(),phone:rphone.value.trim(),email,status:'approved'}).select().single(),7000,'salvar participante');if(pe)throw pe;participant={id:p.id,name:p.full_name,cpf:p.cpf,phone:p.phone,email:p.email,companyId:p.company_id};registerModal.close();pendingBid=null;await bid(id)}catch(e){alert('Cadastro: '+e.message)}};
 (async()=>{try{app.innerHTML='<div class="panel"><p>Conectando ao banco...</p></div>';await loadMyContext();let requestedLot=new URLSearchParams(location.search).get('lote');if(requestedLot){title.textContent='Oferta do produto';subtitle.textContent='Acompanhe e faça sua oferta';await openLot(requestedLot)}else await dashboard();window.lanceCertoBootDone=true;if(statusEl){statusEl.textContent='● Banco online';statusEl.style.color=''}}catch(e){console.error(e);bootError(e.message)}})();
