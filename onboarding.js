@@ -175,9 +175,19 @@
       <p class="muted" id="faMessage"></p>
     </form>`;
     document.body.appendChild(d);
-    const close=()=>d.close();
-    d.querySelector('#closeFirstAuction').onclick=close;
-    d.querySelector('#cancelFirstAuction').onclick=close;
+    const goDashboard=()=>{
+      d.close();
+      try{
+        if(typeof window.go==='function')window.go('dashboard');
+        else{
+          const dash=document.querySelector('#nav [data-page="dashboard"]');
+          if(dash)dash.click();
+        }
+      }catch(_){}
+    };
+    d.querySelector('#closeFirstAuction').onclick=goDashboard;
+    d.querySelector('#cancelFirstAuction').onclick=goDashboard;
+    d.addEventListener('cancel',e=>{e.preventDefault();goDashboard()});
     const now=new Date(), end=new Date(Date.now()+24*60*60*1000);
     const local=v=>new Date(v.getTime()-v.getTimezoneOffset()*60000).toISOString().slice(0,16);
     const startInput=d.querySelector('#faStart');
