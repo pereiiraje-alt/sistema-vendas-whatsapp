@@ -98,7 +98,7 @@ async function dashboard(){
 
       <div class="dash-focus-actions">
         ${currentAuction?'<button class="ghost" onclick="go(\'leiloes\')">Ver venda</button>':''}
-        <button class="primary" onclick="openFirstAuction()">＋ Criar venda</button>
+        <button class="primary" onclick="openQuickAuction()">＋ Criar venda</button>
         <button class="whatsapp" onclick="openWhatsappSettings()">💬 Conectar WhatsApp</button>
       </div>
     </section>
