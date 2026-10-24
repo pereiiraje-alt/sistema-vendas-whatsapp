@@ -17,6 +17,7 @@
 
 
   if(standalone()){
+    document.getElementById('installAppButton')?.remove();
     if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(e=>console.warn('Service Worker:',e));}
     return;
   }
@@ -24,16 +25,18 @@
   let button=document.getElementById('installAppButton');
   if(!button){
     button=document.createElement('button');
-    button.type='button';button.id='installAppButton';button.textContent='📱 Instalar aplicativo';
-    (document.getElementById('secondaryMenuBody')||nav).appendChild(button);
+    button.type='button';
+    button.id='installAppButton';
+    button.textContent='⬇ Baixar no celular';
+    nav.insertBefore(button,document.getElementById('menuRefreshButton')||null);
   }
 
   function instructions(){
     if(isiOS){
-      alert('Para instalar a JP Leilões no iPhone:\n\n1. Abra este site no Safari.\n2. Toque em Compartilhar.\n3. Escolha “Adicionar à Tela de Início”.\n4. Confirme em Adicionar.');
+      alert('Para baixar a JP Leilões no iPhone:\n\n1. Abra o site no Safari.\n2. Toque em Compartilhar.\n3. Escolha “Adicionar à Tela de Início”.\n4. Confirme em Adicionar.\n\nO aplicativo ficará na tela inicial com o ícone da JP Leilões.');
       return;
     }
-    alert('Para instalar a JP Leilões no celular, abra o menu do navegador e escolha “Instalar aplicativo” ou “Adicionar à tela inicial”.');
+    alert('Para baixar a JP Leilões no celular, abra o menu do navegador e escolha “Instalar aplicativo” ou “Adicionar à tela inicial”.');
   }
 
   window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredPrompt=event;});
