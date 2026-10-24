@@ -11,6 +11,11 @@ function mapStatus(status){
   return 'failed';
 }
 
+function pixData(mp){
+  const tx=mp?.point_of_interaction?.transaction_data||{};
+  return {qrCode:String(tx.qr_code||''),qrCodeBase64:String(tx.qr_code_base64||''),ticketUrl:String(tx.ticket_url||'')};
+}
+
 async function searchPayment(accessToken,externalReference){
   const url=`https://api.mercadopago.com/v1/payments/search?external_reference=${encodeURIComponent(externalReference)}&sort=date_created&criteria=desc`;
   const response=await fetch(url,{headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/json'}});
@@ -61,8 +66,12 @@ module.exports=async(req,res)=>{
           const mp=await searchPayment(accessToken,payment.id);
           if(mp){
             const status=mapStatus(String(mp.status||''));
+            const pix=pixData(mp);
             const patch={status,provider_payment_id:String(mp.id||payment.provider_payment_id||''),updated_at:new Date().toISOString()};
             if(status==='paid')patch.paid_at=mp.date_approved||new Date().toISOString();
+            if(pix.qrCode)patch.pix_qr_code=pix.qrCode;
+            if(pix.qrCodeBase64)patch.pix_qr_code_base64=pix.qrCodeBase64;
+            if(pix.ticketUrl)patch.checkout_url=pix.ticketUrl;
             await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}&company_id=eq.${encodeURIComponent(companyId)}`,{
               method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)
             });
