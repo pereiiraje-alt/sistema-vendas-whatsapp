@@ -11,16 +11,16 @@
   "theme_color": "#0b2a20",
   "icons": [
     {
-      "src": "/api/app-icon?size=192",
-      "sizes": "192x192",
+      "src": "/jp-leiloes-app-icon.png?v=20261024-1",
+      "sizes": "220x220",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/api/app-icon?size=512",
-      "sizes": "512x512",
+      "src": "/jp-leiloes-app-icon.png?v=20261024-1",
+      "sizes": "220x220",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ]
 }
