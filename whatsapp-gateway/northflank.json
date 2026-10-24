@@ -11,6 +11,6 @@
   "requiredEnvironment": [
     "SUPABASE_URL",
     "SUPABASE_KEY",
-    "ADMIN_SECRET"
+    "GATEWAY_SECRET"
   ]
 }
