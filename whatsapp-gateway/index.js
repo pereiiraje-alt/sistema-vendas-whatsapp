@@ -1,0 +1,211 @@
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import makeWASocket,{DisconnectReason,useMultiFileAuthState,fetchLatestBaileysVersion} from '@whiskeysockets/baileys';
+import QRCode from 'qrcode';
+import pino from 'pino';
+
+const PORT=Number(process.env.PORT||8080);
+const SUPABASE_URL=process.env.SUPABASE_URL||'https://dsgnyfnddyxilakjwavu.supabase.co';
+const SUPABASE_KEY=process.env.SUPABASE_KEY||'';
+const ADMIN_SECRET=process.env.ADMIN_SECRET||'';
+const logger=pino({level:'silent'});
+const sessions=new Map();
+
+if(!SUPABASE_KEY) console.warn('SUPABASE_KEY não configurada');
+
+async function rpc(name,body){
+  const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/'+name,{
+    method:'POST',
+    headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
+  const text=await r.text();
+  let data=null;
+  try{data=text?JSON.parse(text):null}catch{data=text}
+  if(!r.ok) throw new Error(data?.message||data?.error||String(data||r.status));
+  return data;
+}
+
+function digits(v){return String(v||'').replace(/\D/g,'')}
+
+async function resolveDirectJid(sock,raw){
+  const p=digits(raw);
+  if(!p) throw new Error('Telefone do destinatário não informado');
+  const candidates=[p];
+  if(p.startsWith('55')){
+    const local=p.slice(2);
+    if(local.length===11 && local[2]==='9') candidates.push('55'+local.slice(0,2)+local.slice(3));
+    if(local.length===10) candidates.push('55'+local.slice(0,2)+'9'+local.slice(2));
+  }
+  const unique=[...new Set(candidates)];
+  const checks=await sock.onWhatsApp(...unique);
+  const found=(checks||[]).find(x=>x?.exists&&x?.jid);
+  if(!found) throw new Error('Número não encontrado no WhatsApp');
+  return found.jid;
+}
+
+function captionFor(job){
+  const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const date=v=>v?new Date(v).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'a definir';
+  return `🔨 *${job.title||'JP Leilões'}*\n\n*Produto:* #${job.product_number||'-'}\n*Avaliação:* ${money(job.valuation)}\n*Lance inicial:* ${money(job.starting_bid)}\n*Oferta atual:* ${money(job.current_bid)}\n*Acréscimo:* ${money(job.min_increment)}\n*Começa:* ${date(job.starts_at)}\n*Termina:* ${date(job.ends_at)}\n\n👉 Veja o produto e dê seu lance:\n${job.share_url}`;
+}
+
+function sessionDir(token){
+  return path.join(os.tmpdir(),'jp-wa-'+Buffer.from(token).toString('hex').slice(0,32));
+}
+
+async function report(ctx){
+  try{
+    await rpc('whatsapp_worker_status',{
+      p_token:ctx.token,
+      p_status:ctx.state,
+      p_phone:ctx.phone||null,
+      p_groups:ctx.groups||[],
+      p_error:ctx.lastError||null,
+      p_worker_version:'central-1-direct'
+    });
+  }catch(e){console.error('status',e.message)}
+}
+
+async function refreshGroups(ctx){
+  if(!ctx.sock||ctx.state!=='ONLINE') return;
+  const all=await ctx.sock.groupFetchAllParticipating();
+  ctx.groups=Object.values(all||{}).map(g=>({id:g.id,name:g.subject||g.id})).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+  await report(ctx);
+}
+
+async function processOne(ctx){
+  if(ctx.busy||ctx.state!=='ONLINE'||!ctx.sock) return;
+  ctx.busy=true;
+  try{
+    const job=await rpc('whatsapp_worker_pull',{p_token:ctx.token});
+    if(!job) return;
+    try{
+      const directMessage=String(job.direct_message||'').trim();
+      if(directMessage){
+        const jid=await resolveDirectJid(ctx.sock,job.direct_phone);
+        await ctx.sock.sendMessage(jid,{text:directMessage});
+      }else{
+        const targetIds=Array.isArray(job.group_ids)?job.group_ids:[];
+        if(!targetIds.length) throw new Error('Nenhum grupo selecionado');
+        if(!job.image_url) throw new Error('Produto sem foto');
+        const caption=captionFor(job);
+        for(const jid of targetIds){
+          await ctx.sock.sendMessage(jid,{image:{url:job.image_url},caption});
+          await new Promise(r=>setTimeout(r,1500));
+        }
+      }
+      ctx.lastError='';
+      await rpc('whatsapp_worker_complete',{p_token:ctx.token,p_job_id:job.id,p_success:true,p_error:null});
+      await report(ctx);
+    }catch(e){
+      ctx.lastError='Envio: '+(e.message||e);
+      await rpc('whatsapp_worker_complete',{p_token:ctx.token,p_job_id:job.id,p_success:false,p_error:e.message||String(e)}).catch(()=>{});
+      await report(ctx);
+    }
+  }catch(e){
+    ctx.lastError='Fila: '+e.message;
+    await report(ctx);
+  }finally{ctx.busy=false}
+}
+
+async function connect(token){
+  token=String(token||'').trim();
+  if(!token) throw new Error('Token não informado');
+  let ctx=sessions.get(token);
+  if(ctx?.state==='ONLINE'||ctx?.connecting) return ctx;
+  if(!ctx){
+    ctx={token,state:'OFFLINE',phone:'',groups:[],lastError:'',qr:'',pairingCode:'',connecting:false,busy:false,sock:null,poll:null};
+    sessions.set(token,ctx);
+  }
+  ctx.connecting=true;ctx.state='CONECTANDO';ctx.lastError='';await report(ctx);
+  const {state:authState,saveCreds}=await useMultiFileAuthState(sessionDir(token));
+  const {version}=await fetchLatestBaileysVersion();
+  const sock=makeWASocket({version,auth:authState,logger,printQRInTerminal:false,browser:['JP Leilões','Chrome','1.0.0'],markOnlineOnConnect:false,syncFullHistory:false});
+  ctx.sock=sock;
+  sock.ev.on('creds.update',saveCreds);
+  sock.ev.on('connection.update',async u=>{
+    if(u.qr){
+      ctx.qr=await QRCode.toDataURL(u.qr,{margin:1,width:320});
+      ctx.state='AGUARDANDO_QR';ctx.lastError='';
+      await report(ctx);
+    }
+    if(u.connection==='open'){
+      ctx.qr='';ctx.pairingCode='';ctx.state='ONLINE';ctx.connecting=false;
+      ctx.phone=String(sock.user?.id||'').split(':')[0].split('@')[0]||'';
+      ctx.lastError='';
+      await refreshGroups(ctx).catch(e=>{ctx.lastError='Grupos: '+e.message});
+      await report(ctx);
+      if(ctx.poll) clearInterval(ctx.poll);
+      ctx.poll=setInterval(()=>processOne(ctx),3000);
+    }
+    if(u.connection==='close'){
+      const code=u.lastDisconnect?.error?.output?.statusCode;
+      const loggedOut=code===DisconnectReason.loggedOut;
+      ctx.state='OFFLINE';ctx.connecting=false;ctx.qr='';
+      if(ctx.poll){clearInterval(ctx.poll);ctx.poll=null}
+      if(loggedOut){
+        fs.rmSync(sessionDir(token),{recursive:true,force:true});
+        ctx.phone='';ctx.groups=[];ctx.lastError='Sessão encerrada pelo WhatsApp.';
+      }
+      await report(ctx);
+      if(!loggedOut) setTimeout(()=>connect(token).catch(()=>{}),3000);
+    }
+  });
+  return ctx;
+}
+
+async function pairing(token,phone){
+  const ctx=await connect(token);
+  const n=digits(phone);
+  if(!n) throw new Error('Informe o número com DDD');
+  if(!ctx.sock) throw new Error('Conector indisponível');
+  ctx.pairingCode=await ctx.sock.requestPairingCode(n);
+  return ctx.pairingCode;
+}
+
+function auth(req){
+  return ADMIN_SECRET && req.headers.authorization===`Bearer ${ADMIN_SECRET}`;
+}
+
+async function readJson(req){
+  let b=''; for await(const c of req)b+=c;
+  return b?JSON.parse(b):{};
+}
+
+function publicState(ctx){
+  return {status:ctx?.state||'OFFLINE',phone:ctx?.phone||'',groups:ctx?.groups||[],qr:ctx?.qr||'',pairingCode:ctx?.pairingCode||'',error:ctx?.lastError||''};
+}
+
+const server=http.createServer(async(req,res)=>{
+  res.setHeader('Content-Type','application/json; charset=utf-8');
+  if(req.method==='GET'&&req.url==='/health'){res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',sessions:sessions.size}));return}
+  if(!auth(req)){res.writeHead(401);res.end(JSON.stringify({error:'Não autorizado'}));return}
+  try{
+    const data=await readJson(req);
+    if(req.method==='POST'&&req.url==='/connect'){
+      const ctx=await connect(data.token);res.end(JSON.stringify({ok:true,...publicState(ctx)}));return;
+    }
+    if(req.method==='POST'&&req.url==='/pairing-code'){
+      const code=await pairing(data.token,data.phone);res.end(JSON.stringify({ok:true,code}));return;
+    }
+    if(req.method==='POST'&&req.url==='/status'){
+      const ctx=sessions.get(String(data.token||'').trim());res.end(JSON.stringify({ok:true,...publicState(ctx)}));return;
+    }
+    if(req.method==='POST'&&req.url==='/disconnect'){
+      const token=String(data.token||'').trim(),ctx=sessions.get(token);
+      if(ctx?.sock) await ctx.sock.logout().catch(()=>{});
+      if(ctx?.poll) clearInterval(ctx.poll);
+      fs.rmSync(sessionDir(token),{recursive:true,force:true});
+      sessions.delete(token);
+      res.end(JSON.stringify({ok:true}));return;
+    }
+    res.writeHead(404);res.end(JSON.stringify({error:'Não encontrado'}));
+  }catch(e){
+    res.writeHead(400);res.end(JSON.stringify({error:e.message||String(e)}));
+  }
+});
+
+server.listen(PORT,'0.0.0.0',()=>console.log('JP Leilões WhatsApp Gateway na porta '+PORT));
