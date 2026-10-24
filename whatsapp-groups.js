@@ -401,20 +401,6 @@
   window.jpWhatsappPage=renderWhatsappPage;
   if(typeof pages!=='undefined')pages.whatsapp=[renderWhatsappPage,'WhatsApp','Conexão e envios automáticos'];
 
-  const secondary=document.querySelector('#secondaryMenuBody');
-  if(secondary&&!secondary.querySelector('[data-page="whatsapp"]')){
-    const btn=document.createElement('button');
-    btn.dataset.page='whatsapp';
-    btn.textContent='💬 WhatsApp';
-    btn.onclick=async()=>{
-      document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.remove('active'));
-      btn.classList.add('active');
-      await renderWhatsappPage();
-      if(window.matchMedia('(max-width:650px)').matches&&typeof closeMobileMenu==='function')closeMobileMenu();
-    };
-    secondary.prepend(btn);
-  }
-
   const style=document.createElement('style');
   style.textContent=`
     .wa-simple{max-width:860px}
