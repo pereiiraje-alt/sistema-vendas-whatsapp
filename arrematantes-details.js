@@ -264,6 +264,19 @@ Se já realizou o pagamento, desconsidere esta mensagem e nos avise para conferi
       ]);
       if(paymentsError)throw paymentsError;if(bidsError)throw bidsError;if(lotsError)throw lotsError;
 
+      const {data:templateSettings,error:templateSettingsError}=await timeout(
+        db.from('company_whatsapp_settings')
+          .select('winner_message_template,payment_reminder_template')
+          .eq('company_id',currentCompany.id)
+          .maybeSingle(),
+        7000,'carregar mensagens do WhatsApp'
+      );
+      if(templateSettingsError)throw templateSettingsError;
+      messageTemplates={
+        winner:templateSettings?.winner_message_template||defaultTemplates.winner,
+        reminder:templateSettings?.payment_reminder_template||defaultTemplates.reminder
+      };
+
       const secondByLot=new Map();
       for(const win of wins){
         const candidates=(bids||[]).filter(b=>String(b.lot_id)===String(win.lot_id)&&String(b.participant_id)!==String(win.participant_id)).sort((a,b)=>Number(b.amount)-Number(a.amount));
