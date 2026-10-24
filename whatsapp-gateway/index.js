@@ -144,7 +144,7 @@ async function report(ctx){
       p_phone:ctx.phone||null,
       p_groups:ctx.groups||[],
       p_error:ctx.lastError||null,
-      p_worker_version:'central-4-siren'
+      p_worker_version:'central-5-retry'
     });
   }catch(e){console.error('status',e.message)}
 }
@@ -154,6 +154,14 @@ async function refreshGroups(ctx){
   const all=await ctx.sock.groupFetchAllParticipating();
   ctx.groups=Object.values(all||{}).map(g=>({id:g.id,name:g.subject||g.id})).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
   await report(ctx);
+}
+
+function withTimeout(promise,ms,label){
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error((label||'Operação')+' excedeu '+Math.ceil(ms/1000)+'s')),ms)})
+  ]).finally(()=>clearTimeout(timer));
 }
 
 async function processOne(ctx){
@@ -166,14 +174,14 @@ async function processOne(ctx){
       const directMessage=String(job.direct_message||'').trim();
       if(directMessage){
         const jid=await resolveDirectJid(ctx.sock,job.direct_phone);
-        await ctx.sock.sendMessage(jid,{text:directMessage});
+        await withTimeout(ctx.sock.sendMessage(jid,{text:directMessage}),20000,'Envio direto');
       }else{
         const targetIds=Array.isArray(job.group_ids)?job.group_ids:[];
         if(!targetIds.length) throw new Error('Nenhum grupo selecionado');
         if(!job.image_url) throw new Error('Produto sem foto');
         const caption=captionFor(job);
         for(const jid of targetIds){
-          await ctx.sock.sendMessage(jid,{image:{url:job.image_url},caption});
+          await withTimeout(ctx.sock.sendMessage(jid,{image:{url:job.image_url},caption}),25000,'Envio para grupo');
           await new Promise(r=>setTimeout(r,1500));
         }
       }
@@ -309,7 +317,7 @@ const server=http.createServer(async(req,res)=>{
   cors(req,res);
   if(req.method==='OPTIONS'){res.writeHead(204);res.end();return}
   res.setHeader('Content-Type','application/json; charset=utf-8');
-  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-4-siren',sessions:sessions.size}));return}
+  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-5-retry',sessions:sessions.size}));return}
   try{
     const data=await readJson(req);
     if(req.method==='POST'&&req.url==='/connect'){
