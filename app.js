@@ -293,7 +293,7 @@ function offerShareUrl(id){
 async function shareWhats(id){
   const l=lots.find(x=>x.id===id)||await loadPublicLot(id);
   const shareUrl=offerShareUrl(l.id);
-  const msg=`🔨 *${l.name||'JP Leilões'}*\n\n*Produto:* #${l.number||'-'}\n*Avaliação:* ${money(l.valuation)}\n*Lance inicial:* ${money(l.start)}\n*Oferta atual:* ${money(l.current)}\n*Próxima oferta:* ${money(l.current+l.step)}\n*Acréscimo:* ${money(l.step)}\n*Começa:* ${l.starts?endTime(l.starts):'agora'}\n*Termina:* ${l.ends?endTime(l.ends):'a definir'}\n\n👉 Veja o produto e participe:\n${shareUrl}`;
+  const msg=`🚨 *BORA PARA MAIS UM LEILÃO!* 🚨\n\n🔨 *${l.name||'JP Leilões'}*\n\n📦 Produto #${l.number||'-'}\n💰 Avaliação: ${money(l.valuation)}\n🔥 Lance inicial: ${money(l.start)}\n➕ Acréscimo mínimo: ${money(l.step)}\n\n🕐 Começa: ${l.starts?endTime(l.starts):'agora'}\n⏳ Termina: ${l.ends?endTime(l.ends):'a definir'}\n\n👉 *Clique no link abaixo e faça sua oferta:*\n\n${shareUrl}\n\n🚨 *Não fique de fora. Bora para mais um leilão!* 🔨`;
   location.href='https://wa.me/?text='+encodeURIComponent(msg);
 }
 async function sendLotToConfiguredWhatsapp(id){
@@ -567,18 +567,23 @@ async function lances(){
 async function participantes(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('participants').select('*').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar participantes');app.innerHTML=`<div class="panel"><h3>Interessados cadastrados</h3>${(data||[]).map(x=>`<div class="row"><span><b>${esc(x.full_name)}</b><br><small>${esc(x.email)} · ${esc(x.phone)}</small></span><b class="badge">${esc(x.status)}</b></div>`).join('')||'<p class="muted">Nenhum interessado cadastrado.</p>'}</div>`}
 async function arrematantes(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('arremates').select('winning_bid,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar arremates');app.innerHTML=`<div class="panel"><h3>Compradores</h3>${(data||[]).map(x=>`<div class="row"><span>Venda registrada<br><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></span><b>${money(x.winning_bid)}</b></div>`).join('')||'<p class="muted">Nenhuma venda finalizada.</p>'}</div>`}
 const DEFAULT_WHATSAPP_MESSAGE_TEMPLATES={
-  product:`🔨 *{produto}*
+  product:`🚨 *BORA PARA MAIS UM LEILÃO!* 🚨
 
-*Produto:* #{numero}
-*Avaliação:* {avaliacao}
-*Lance inicial:* {lance_inicial}
-*Oferta atual:* {oferta_atual}
-*Acréscimo:* {incremento}
-*Começa:* {inicio}
-*Termina:* {fim}
+🔨 *{produto}*
 
-👉 Veja o produto e dê seu lance:
-{link}`,
+📦 Produto #{numero}
+💰 Avaliação: {avaliacao}
+🔥 Lance inicial: {lance_inicial}
+➕ Acréscimo mínimo: {incremento}
+
+🕐 Começa: {inicio}
+⏳ Termina: {fim}
+
+👉 *Clique no link abaixo e faça sua oferta:*
+
+{link}
+
+🚨 *Não fique de fora. Bora para mais um leilão!* 🔨`,
   winner:`Olá {nome}! 🎉
 
 Parabéns! Você foi o comprador de {quantidade} produto(s) no leilão da {empresa}.
@@ -636,7 +641,7 @@ async function config(){
       <h3>📣 Divulgação do produto</h3>
       <p class="muted">Usada ao enviar o produto para os grupos selecionados.</p>
       <textarea id="waProductTemplate" rows="12" maxlength="12000">${esc(product)}</textarea>
-      <div class="wa-template-vars"><b>Variáveis:</b> <code>{empresa}</code> <code>{produto}</code> <code>{numero}</code> <code>{avaliacao}</code> <code>{lance_inicial}</code> <code>{oferta_atual}</code> <code>{incremento}</code> <code>{inicio}</code> <code>{fim}</code> <code>{link}</code></div>
+      <div class="wa-template-vars"><b>Variáveis:</b> <code>{empresa}</code> <code>{produto}</code> <code>{numero}</code> <code>{avaliacao}</code> <code>{lance_inicial}</code> <code>{incremento}</code> <code>{inicio}</code> <code>{fim}</code> <code>{link}</code></div>
     </div>
 
     <div class="wa-template-card">
