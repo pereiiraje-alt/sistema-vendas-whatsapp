@@ -55,7 +55,7 @@ async function reportStatus(){
       p_phone:phone||null,
       p_groups:groups,
       p_error:lastError||null,
-      p_worker_version:'local-2-direct'
+      p_worker_version:'local-3-templates'
     });
   }catch(e){console.error('Status:',e.message)}
 }
@@ -199,7 +199,7 @@ function html(){
   <div class="row"><button onclick="saveToken()">Salvar código</button><button onclick="act('/connect')">Conectar WhatsApp</button><button class="ghost" onclick="act('/disconnect')">Desconectar</button><button class="ghost" onclick="location.reload()">Atualizar</button></div>
   ${qrDataUrl?'<h3>Escaneie no WhatsApp</h3><img src="'+qrDataUrl+'" alt="QR Code">':''}
   <h3>Grupos encontrados</h3><p class="muted">${groups.length?groups.map(g=>esc(g.name)).join('<br>'):'Conecte o WhatsApp para carregar os grupos.'}</p>
-  <p class="muted">Mantenha este programa aberto. Ele envia automaticamente leilões para grupos e lembretes diretamente aos compradores.</p><p class="muted"><b>Versão do conector:</b> local-2-direct</p></div>
+  <p class="muted">Mantenha este programa aberto. Ele envia automaticamente leilões para grupos e lembretes diretamente aos compradores.</p><p class="muted"><b>Versão do conector:</b> local-3-templates</p></div>
   <script>
     async function post(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const d=await r.json().catch(()=>({}));if(!r.ok)alert(d.error||'Erro');return d}
     async function saveToken(){await post('/config',{deviceToken:document.getElementById('token').value});location.reload()}
