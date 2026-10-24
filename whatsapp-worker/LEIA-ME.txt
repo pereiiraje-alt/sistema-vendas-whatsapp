@@ -1,15 +1,24 @@
-JP LEILÕES - WHATSAPP AUTOMÁTICO
+JP LEILÕES - CONECTOR WHATSAPP
 
-1. Execute instalar.bat uma vez.
-2. Abra o JP Leilões > Mais > WhatsApp automático.
-3. Gere o código do computador.
-4. Execute iniciar.bat.
-5. Cole o código na página que abrir no navegador.
-6. Clique em Conectar WhatsApp e escaneie o QR Code.
-7. Volte ao JP Leilões, atualize a lista de grupos, selecione os grupos autorizados e ative o envio automático.
+Este conector envia pelo mesmo WhatsApp:
+- Leilões e produtos para os grupos escolhidos.
+- Lembretes de pagamento diretamente para o comprador.
+- Mensagens diretas da tela Compradores.
+
+Não usa a API oficial da Meta e não abre WhatsApp externo.
+
+INSTALAÇÃO / ATUALIZAÇÃO
+1. No JP Leilões, abra Mais > WhatsApp.
+2. Clique em "Baixar / atualizar".
+3. Execute instalar-jp-whatsapp.cmd.
+4. No painel WhatsApp do JP Leilões, clique em "Gerar código".
+5. Abra o atalho "JP Leilões WhatsApp" no computador.
+6. Cole o código do computador.
+7. Clique em "Conectar WhatsApp" e escaneie o QR Code.
+8. Mantenha o conector aberto.
 
 IMPORTANTE
-- Este conector usa uma sessão do WhatsApp Web, sem a API oficial.
-- O computador precisa permanecer ligado e o programa precisa ficar aberto para enviar automaticamente.
-- O WhatsApp pode encerrar a sessão e pedir novo QR Code.
-- Use somente grupos em que sua empresa tenha autorização para publicar.
+- O computador da empresa precisa permanecer ligado para os envios automáticos.
+- O instalador configura o conector para iniciar automaticamente com o Windows.
+- Se o WhatsApp encerrar a sessão, será necessário conectar novamente pelo QR Code.
+- Use os envios somente para contatos e grupos autorizados.
