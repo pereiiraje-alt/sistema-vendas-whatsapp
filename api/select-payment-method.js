@@ -98,7 +98,7 @@ module.exports=async(req,res)=>{
     const accessToken=decrypt(connection.access_token_encrypted);
     if(method==='pix'){
       const pix=await createPixPayment(accessToken,{lot,arremate,payment,payerEmail:participant.email||user.email,marketplaceFee});
-      const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({checkout_url:pix.ticketUrl||null,provider_payment_id:pix.id,updated_at:new Date().toISOString()})});
+      const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({checkout_url:pix.ticketUrl||null,provider_payment_id:pix.id,pix_qr_code:pix.qrCode||null,pix_qr_code_base64:pix.qrCodeBase64||null,updated_at:new Date().toISOString()})});
       payment=Array.isArray(updated)?updated[0]:payment;
       return res.status(200).json({payment,onlineReady:true,method:'pix',qrCode:pix.qrCode,qrCodeBase64:pix.qrCodeBase64,checkoutUrl:pix.ticketUrl||'',marketplaceFee,feePercent,paymentDeadline:new Date(deadline).toISOString(),message:'PIX gerado. Escaneie o QR Code com qualquer banco ou use o código PIX copia e cola.'});
     }
