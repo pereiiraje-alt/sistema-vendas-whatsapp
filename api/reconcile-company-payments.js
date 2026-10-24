@@ -1,6 +1,6 @@
 const {authUser,serviceFetch,decrypt}=require('../lib/mercadopago');
 
-const PAYMENT_LIMIT_MS=10*60*1000;
+const PAYMENT_LIMIT_MS=30*60*1000;
 
 function mapStatus(status){
   if(status==='approved')return 'paid';
