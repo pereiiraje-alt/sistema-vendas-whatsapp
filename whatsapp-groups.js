@@ -11,6 +11,9 @@
   function setCloudToken(token){
     try{localStorage.setItem(cloudTokenKey(),token)}catch{}
   }
+  function clearCloudToken(){
+    try{localStorage.removeItem(cloudTokenKey())}catch{}
+  }
   async function ensureCloudToken(){
     let token=getCloudToken();
     if(token)return token;
@@ -268,22 +271,6 @@
       return;
     }
 
-    let cloudState=null;
-    if(getCloudToken()){
-      try{
-        cloudState=await cloudRequest('/api/status');
-        device={
-          ...(device||{}),
-          status:cloudState?.status||device?.status,
-          phone:cloudState?.phone||device?.phone,
-          available_groups:Array.isArray(cloudState?.groups)&&cloudState.groups.length?cloudState.groups:(device?.available_groups||[]),
-          last_error:cloudState?.lastError||device?.last_error
-        };
-      }catch(e){
-        console.warn('Status WhatsApp Cloud:',e);
-      }
-    }
-
     const groups=Array.isArray(device?.available_groups)?device.available_groups:[];
     const selected=new Set(Array.isArray(settings?.selected_groups)?settings.selected_groups:[]);
     const online=device?.status==='ONLINE';
@@ -304,8 +291,8 @@
         <div class="wa-connected">
           <div class="wa-phone"><span>✓</span><div><small>WHATSAPP CONECTADO E PRONTO</small><b>${esc(device?.phone||'Conta conectada')}</b><em>Envios de leilões disponíveis</em></div></div>
           <div class="wa-connected-actions">
-            <button class="ghost mini" type="button" data-wa-refresh>Atualizar grupos</button>
-            <button class="ghost mini" type="button" data-wa-disconnect>Desconectar</button>
+            <button class="ghost mini" type="button" data-wa-refresh>Atualizar status</button>
+            <button class="ghost mini" type="button" data-wa-local-start>Usar conector do computador</button>
           </div>
         </div>
 
@@ -321,60 +308,78 @@
           </div>
         </div>
       `:`
-        <div class="wa-connect-options">
-          <div class="wa-connect-card">
-            <div class="wa-connect-icon">▣</div>
-            <div>
-              <small>NO COMPUTADOR</small>
-              <h3>Conectar por QR Code</h3>
-              <p>Mostre o QR nesta tela e escaneie com o WhatsApp do celular.</p>
-            </div>
-            <button class="primary" type="button" data-wa-qr-start>Mostrar QR Code</button>
-          </div>
 
+        <div class="wa-connect-options">
+          <div class="wa-connect-card wa-local-card">
+            <div class="wa-connect-icon">PC</div>
+            <div>
+              <small>SEM META • SEM RAILWAY</small>
+              <h3>Usar conector do computador</h3>
+              <p>O mesmo conector envia leilões para grupos e lembretes diretamente aos compradores.</p>
+            </div>
+            <a class="primary wa-download-link" href="/instalar-jp-whatsapp.cmd" download>Baixar / atualizar</a>
+          </div>
           <div class="wa-connect-card">
             <div class="wa-connect-icon">#</div>
             <div>
-              <small>NO CELULAR</small>
-              <h3>Conectar pelo número</h3>
-              <p>Informe seu WhatsApp com DDD para gerar um código de vinculação.</p>
-              <div class="wa-phone-input"><span>+55</span><input type="tel" inputmode="numeric" autocomplete="tel" placeholder="41 99999-9999" data-wa-phone-input></div>
+              <small>PASSO 2</small>
+              <h3>Gerar código do computador</h3>
+              <p>Gere o código, abra o conector instalado e cole esse código na tela local.</p>
             </div>
-            <button class="primary" type="button" data-wa-phone-start>Gerar código</button>
+            <button class="primary" type="button" data-wa-local-start>Gerar código</button>
           </div>
         </div>
 
-        <div class="wa-cloud-state" data-wa-cloud-state hidden>
-          <div class="wa-cloud-status-row"><span class="wa-cloud-dot"></span><div><small>STATUS DA CONEXÃO</small><b data-wa-cloud-status>Conectando...</b></div></div>
-          <div class="wa-error" data-wa-cloud-error hidden></div>
-
-          <div class="wa-qr-wrap" data-wa-qr-wrap hidden>
-            <h3>Escaneie este QR Code</h3>
-            <img data-wa-qr-img alt="QR Code do WhatsApp">
-            <p class="muted">WhatsApp → Aparelhos conectados → Conectar um aparelho.</p>
+        <div class="wa-local-code-wrap" data-wa-local-code-wrap hidden>
+          <small>CÓDIGO DO COMPUTADOR</small>
+          <div class="wa-pair-code" data-wa-local-code></div>
+          <div class="row">
+            <button class="ghost mini" type="button" data-wa-local-copy>Copiar código</button>
+            <a class="ghost mini" href="http://localhost:8765" target="_blank" rel="noopener">Abrir conector</a>
           </div>
-
-          <div class="wa-code-wrap" data-wa-code-wrap hidden>
-            <small>SEU CÓDIGO</small>
-            <div class="wa-pair-code" data-wa-code></div>
-            <button class="ghost mini" type="button" data-wa-copy-code>Copiar código</button>
-            <ol>
-              <li>Abra o WhatsApp neste celular.</li>
-              <li>Entre em <b>Aparelhos conectados</b>.</li>
-              <li>Toque em <b>Conectar um aparelho</b>.</li>
-              <li>Escolha <b>Conectar com número de telefone</b> e digite o código acima.</li>
-            </ol>
-          </div>
+          <ol>
+            <li>Baixe ou atualize o conector.</li>
+            <li>Abra “JP Leilões WhatsApp” no computador.</li>
+            <li>Cole o código acima.</li>
+            <li>Clique em “Conectar WhatsApp” e escaneie o QR Code.</li>
+          </ol>
         </div>
       `}
 
       <details class="wa-help">
         <summary>Ajuda e conexão</summary>
-        <p>A conexão fica salva na nuvem. Depois de conectar, o cliente não precisa instalar programa nem manter computador ligado.</p>
+        <p>O conector fica no computador da empresa e precisa permanecer aberto. Ele envia leilões para grupos e lembretes de pagamento diretamente pelo mesmo WhatsApp conectado, sem Meta e sem abrir WhatsApp externo.</p>
       </details>
     </section>`;
 
     const root=app.querySelector('.wa-simple');
+
+    async function startLocalConnector(){
+      try{
+        clearCloudToken();
+        const token=await createDeviceToken();
+        const wrap=root.querySelector('[data-wa-local-code-wrap]');
+        const code=root.querySelector('[data-wa-local-code]');
+        if(wrap&&code){
+          code.textContent=token.replace(/(.{4})/g,'$1 ').trim();
+          code.dataset.value=token;
+          wrap.hidden=false;
+          wrap.scrollIntoView({behavior:'smooth',block:'center'});
+        }else{
+          prompt('Código do computador:',token);
+        }
+      }catch(err){
+        alert('Não foi possível gerar o código do computador: '+(err.message||err));
+      }
+    }
+    root.querySelectorAll('[data-wa-local-start]').forEach(btn=>btn.addEventListener('click',startLocalConnector));
+    root.querySelector('[data-wa-local-copy]')?.addEventListener('click',async()=>{
+      const el=root.querySelector('[data-wa-local-code]');
+      const value=el?.dataset.value||'';
+      if(!value)return;
+      try{await navigator.clipboard.writeText(value);alert('Código copiado.')}
+      catch{prompt('Copie o código:',value)}
+    });
 
     root.querySelector('[data-wa-qr-start]')?.addEventListener('click',async e=>{
       const btn=e.currentTarget;
@@ -411,7 +416,6 @@
 
     root.querySelectorAll('[data-wa-refresh]').forEach(btn=>btn.addEventListener('click',async()=>{
       try{
-        if(getCloudToken())await cloudRequest('/api/groups/refresh',{method:'POST'});
         await renderWhatsappPage();
       }catch(err){alert('Não foi possível atualizar os grupos: '+(err.message||err))}
     }));
@@ -486,6 +490,11 @@
     .wa-connect-card{margin-top:22px;border:1px solid #dce7e1;background:#fbfdfc;border-radius:18px;padding:22px;display:grid;grid-template-columns:52px 1fr auto;gap:15px;align-items:center}
     .wa-connect-icon{width:52px;height:52px;border-radius:16px;background:#e9f8ef;color:#08783f;display:grid;place-items:center;font-size:24px;font-weight:900}
     .wa-connect-card h3{margin:0 0 5px}.wa-connect-card p{margin:0;color:#617267}
+    .wa-download-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;white-space:nowrap}
+    .wa-local-code-wrap{margin-top:18px;padding:18px;border:1px solid #dce7e1;border-radius:16px;background:#f8fbf9}
+    .wa-local-code-wrap>small{font-size:10px;font-weight:900;letter-spacing:.08em;color:#7a8a80}
+    .wa-local-code-wrap .wa-pair-code{margin:10px 0}
+    .wa-local-code-wrap ol{margin:12px 0 0;padding-left:20px;color:#52645a}
     .wa-connect-main{min-height:44px}
     .wa-connect-started .wa-connect-main{display:none}
     .wa-setup{margin-top:14px;border:1px solid #dce7e1;border-radius:16px;padding:16px;background:#f8fbf9}
