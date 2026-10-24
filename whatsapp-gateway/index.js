@@ -118,7 +118,23 @@ async function resolveDirectJid(sock,raw){
 function captionFor(job){
   const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const date=v=>v?new Date(v).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'a definir';
-  return `🔨 *${job.title||'JP Leilões'}*\n\n*Produto:* #${job.product_number||'-'}\n*Avaliação:* ${money(job.valuation)}\n*Lance inicial:* ${money(job.starting_bid)}\n*Oferta atual:* ${money(job.current_bid)}\n*Acréscimo:* ${money(job.min_increment)}\n*Começa:* ${date(job.starts_at)}\n*Termina:* ${date(job.ends_at)}\n\n👉 Veja o produto e dê seu lance:\n${job.share_url}`;
+  const fallback=`🔨 *{produto}*\n\n*Produto:* #{numero}\n*Avaliação:* {avaliacao}\n*Lance inicial:* {lance_inicial}\n*Oferta atual:* {oferta_atual}\n*Acréscimo:* {incremento}\n*Começa:* {inicio}\n*Termina:* {fim}\n\n👉 Veja o produto e dê seu lance:\n{link}`;
+  const values={
+    empresa:job.company_name||'JP Leilões',
+    produto:job.title||'JP Leilões',
+    numero:job.product_number||'-',
+    avaliacao:money(job.valuation),
+    lance_inicial:money(job.starting_bid),
+    oferta_atual:money(job.current_bid),
+    incremento:money(job.min_increment),
+    inicio:date(job.starts_at),
+    fim:date(job.ends_at),
+    link:job.share_url||''
+  };
+  return String(job.product_message_template||fallback)
+    .replace(/\{([a-z0-9_]+)\}/gi,(full,key)=>Object.prototype.hasOwnProperty.call(values,key)?String(values[key]??''):full)
+    .replace(/\n{3,}/g,'\n\n')
+    .trim();
 }
 
 async function report(ctx){
