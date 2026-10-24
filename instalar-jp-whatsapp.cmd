@@ -32,10 +32,11 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\JP Leiloes WhatsApp.lnk');$s.TargetPath='%DIR%\iniciar.bat';$s.WorkingDirectory='%DIR%';$s.Save()"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$w=New-Object -COM WScript.Shell;$s=$w.CreateShortcut([Environment]::GetFolderPath('Desktop')+'\JP Leiloes WhatsApp.lnk');$s.TargetPath='%DIR%\iniciar.bat';$s.WorkingDirectory='%DIR%';$s.Save();$startup=[Environment]::GetFolderPath('Startup');$a=$w.CreateShortcut($startup+'\JP Leiloes WhatsApp.lnk');$a.TargetPath='%DIR%\iniciar.bat';$a.WorkingDirectory='%DIR%';$a.WindowStyle=7;$a.Save()"
 echo.
 echo Instalacao concluida.
 echo Foi criado o atalho "JP Leiloes WhatsApp" na Area de Trabalho.
+echo O conector tambem iniciara automaticamente com o Windows.
 echo.
 start "" "%DIR%\iniciar.bat"
 pause
