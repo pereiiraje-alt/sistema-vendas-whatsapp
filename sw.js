@@ -1,5 +1,5 @@
-const CACHE='jp-leiloes-shell-v2';
-const STATIC=['/styles.css','/app-icon.svg','/manifest.webmanifest','/jp-leiloes-logo.svg'];
+const CACHE='jp-leiloes-shell-v3';
+const STATIC=['/styles.css','/manifest.webmanifest','/jp-leiloes-logo.svg','/api/app-icon?size=180','/api/app-icon?size=192','/api/app-icon?size=512'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).catch(()=>null));
