@@ -144,7 +144,7 @@ async function report(ctx){
       p_phone:ctx.phone||null,
       p_groups:ctx.groups||[],
       p_error:ctx.lastError||null,
-      p_worker_version:'central-3-templates'
+      p_worker_version:'central-4-siren'
     });
   }catch(e){console.error('status',e.message)}
 }
@@ -309,7 +309,7 @@ const server=http.createServer(async(req,res)=>{
   cors(req,res);
   if(req.method==='OPTIONS'){res.writeHead(204);res.end();return}
   res.setHeader('Content-Type','application/json; charset=utf-8');
-  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-3-templates',sessions:sessions.size}));return}
+  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-4-siren',sessions:sessions.size}));return}
   try{
     const data=await readJson(req);
     if(req.method==='POST'&&req.url==='/connect'){
