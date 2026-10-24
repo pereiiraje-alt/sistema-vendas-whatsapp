@@ -16,6 +16,25 @@ const sessions=new Map();
 if(!SUPABASE_KEY) console.warn('SUPABASE_KEY não configurada');
 if(!GATEWAY_SECRET) console.warn('GATEWAY_SECRET não configurado; auto-resume desativado');
 
+async function getLiveWhatsAppVersion(){
+  try{
+    const response=await fetch('https://web.whatsapp.com/sw.js',{
+      headers:{
+        'sec-fetch-site':'none',
+        'user-agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+      }
+    });
+    if(!response.ok)throw new Error('WhatsApp Web respondeu '+response.status);
+    const body=await response.text();
+    const match=body.match(/\\?"client_revision\\?":\s*(\d+)/);
+    if(match?.[1])return [2,3000,Number(match[1])];
+  }catch(e){
+    console.warn('live wa version',e.message||e);
+  }
+  const {version}=await fetchLatestWaWebVersion({});
+  return version;
+}
+
 async function rpc(name,body){
   const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/'+name,{
     method:'POST',
@@ -170,7 +189,7 @@ async function connect(rawToken){
     await restoreSession(token);
     await rpc('whatsapp_gateway_session_save',{p_token:token,p_files:readSessionFiles(sessionDir(token))});
     const {state:authState,saveCreds}=await useMultiFileAuthState(sessionDir(token));
-    const {version}=await fetchLatestWaWebVersion({});
+    const version=await getLiveWhatsAppVersion();
     const sock=makeWASocket({version,auth:authState,logger,printQRInTerminal:false,browser:Browsers.windows('Chrome'),markOnlineOnConnect:false,syncFullHistory:false});
     ctx.sock=sock;
     sock.ev.on('creds.update',async()=>{await saveCreds();schedulePersist(ctx)});
@@ -275,7 +294,7 @@ const server=http.createServer(async(req,res)=>{
   cors(req,res);
   if(req.method==='OPTIONS'){res.writeHead(204);res.end();return}
   res.setHeader('Content-Type','application/json; charset=utf-8');
-  if(req.method==='GET'&&req.url==='/health'){res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-2-pairing',sessions:sessions.size}));return}
+  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-2-pairing',sessions:sessions.size}));return}
   try{
     const data=await readJson(req);
     if(req.method==='POST'&&req.url==='/connect'){
