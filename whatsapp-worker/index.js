@@ -85,13 +85,21 @@ async function processOne(){
   catch(e){lastError='Fila: '+e.message;await reportStatus();return}
   if(!job)return;
   try{
-    const targetIds=Array.isArray(job.group_ids)?job.group_ids:[];
-    if(!targetIds.length)throw new Error('Nenhum grupo selecionado');
-    if(!job.image_url)throw new Error('Produto sem foto');
-    const caption=captionFor(job);
-    for(const jid of targetIds){
-      await sock.sendMessage(jid,{image:{url:job.image_url},caption});
-      await new Promise(r=>setTimeout(r,1500));
+    const directMessage=String(job.direct_message||'').trim();
+    const directPhone=String(job.direct_phone||'').replace(/\D/g,'');
+    if(directMessage){
+      if(!directPhone)throw new Error('Telefone do destinatário não informado');
+      const jid=directPhone+'@s.whatsapp.net';
+      await sock.sendMessage(jid,{text:directMessage});
+    }else{
+      const targetIds=Array.isArray(job.group_ids)?job.group_ids:[];
+      if(!targetIds.length)throw new Error('Nenhum grupo selecionado');
+      if(!job.image_url)throw new Error('Produto sem foto');
+      const caption=captionFor(job);
+      for(const jid of targetIds){
+        await sock.sendMessage(jid,{image:{url:job.image_url},caption});
+        await new Promise(r=>setTimeout(r,1500));
+      }
     }
     await rpc('whatsapp_worker_complete',{p_token:cfg.deviceToken,p_job_id:job.id,p_success:true,p_error:null});
   }catch(e){
