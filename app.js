@@ -566,7 +566,144 @@ async function lances(){
 }
 async function participantes(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('participants').select('*').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar participantes');app.innerHTML=`<div class="panel"><h3>Interessados cadastrados</h3>${(data||[]).map(x=>`<div class="row"><span><b>${esc(x.full_name)}</b><br><small>${esc(x.email)} · ${esc(x.phone)}</small></span><b class="badge">${esc(x.status)}</b></div>`).join('')||'<p class="muted">Nenhum interessado cadastrado.</p>'}</div>`}
 async function arrematantes(){if(!currentCompany)return app.innerHTML='<div class="panel">Faça login como empresa.</div>';let{data}=await timeout(db.from('arremates').select('winning_bid,created_at').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),7000,'carregar arremates');app.innerHTML=`<div class="panel"><h3>Compradores</h3>${(data||[]).map(x=>`<div class="row"><span>Venda registrada<br><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></span><b>${money(x.winning_bid)}</b></div>`).join('')||'<p class="muted">Nenhuma venda finalizada.</p>'}</div>`}
-function config(){app.innerHTML=`<div class="panel"><h3>Configurações</h3><p>${currentCompany?`Empresa conectada: <b>${esc(currentCompany.name)}</b>`:'Nenhuma empresa vinculada ao usuário atual.'}</p><p class="muted">A configuração do Mercado Pago será conectada na próxima etapa.</p></div>`}
+const DEFAULT_WHATSAPP_MESSAGE_TEMPLATES={
+  product:`🔨 *{produto}*
+
+*Produto:* #{numero}
+*Avaliação:* {avaliacao}
+*Lance inicial:* {lance_inicial}
+*Oferta atual:* {oferta_atual}
+*Acréscimo:* {incremento}
+*Começa:* {inicio}
+*Termina:* {fim}
+
+👉 Veja o produto e dê seu lance:
+{link}`,
+  winner:`Olá {nome}! 🎉
+
+Parabéns! Você foi o comprador de {quantidade} produto(s) no leilão da {empresa}.
+
+🔨 Valor total arrematado: {valor_total}.
+
+{prazo_pagamento}{pagamento}
+
+Após a confirmação do pagamento, você receberá as informações para seguir com a retirada/entrega do produto.
+
+JP Leilões`,
+  reminder:`Olá, {nome}! Aqui é da {empresa}. Seu pagamento referente a {produtos} no valor pendente de {valor_pendente} ainda não consta como confirmado.
+
+{pix}{link_pagamento}
+
+Se já realizou o pagamento, desconsidere esta mensagem e nos avise para conferirmos. Obrigado!`
+};
+function fillWhatsappTemplate(template,values={}){
+  return String(template||'').replace(/\{([a-z0-9_]+)\}/gi,(full,key)=>Object.prototype.hasOwnProperty.call(values,key)?String(values[key]??''):full).replace(/\n{3,}/g,'\n\n').trim();
+}
+window.jpDefaultWhatsappMessageTemplates=DEFAULT_WHATSAPP_MESSAGE_TEMPLATES;
+window.jpFillWhatsappTemplate=fillWhatsappTemplate;
+
+async function config(){
+  if(!currentCompany?.id){
+    app.innerHTML='<div class="panel"><h3>Configurações</h3><p>Nenhuma empresa vinculada ao usuário atual.</p></div>';
+    return;
+  }
+  app.innerHTML='<div class="panel"><h3>Configurações</h3><p class="muted">Carregando preferências da empresa...</p></div>';
+  let {data:settings,error}=await timeout(db.from('company_whatsapp_settings')
+    .select('company_id,product_message_template,winner_message_template,payment_reminder_template')
+    .eq('company_id',currentCompany.id).maybeSingle(),7000,'carregar mensagens do WhatsApp');
+  if(error)throw error;
+  if(!settings){
+    const inserted=await timeout(db.from('company_whatsapp_settings').insert({
+      company_id:currentCompany.id,
+      enabled:false,
+      auto_send_on_publish:false,
+      selected_groups:[],
+      product_message_template:DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.product,
+      winner_message_template:DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.winner,
+      payment_reminder_template:DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.reminder
+    }).select('company_id,product_message_template,winner_message_template,payment_reminder_template').single(),7000,'criar mensagens do WhatsApp');
+    if(inserted.error)throw inserted.error;
+    settings=inserted.data;
+  }
+  const product=settings.product_message_template||DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.product;
+  const winner=settings.winner_message_template||DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.winner;
+  const reminder=settings.payment_reminder_template||DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.reminder;
+  app.innerHTML=`<div class="panel"><h3>Configurações</h3><p>Empresa conectada: <b>${esc(currentCompany.name)}</b></p></div>
+  <section class="panel wa-template-settings">
+    <div class="wa-template-head"><div><small>WHATSAPP</small><h2>Mensagens do WhatsApp</h2><p class="muted">Edite os textos padrão. As palavras entre chaves são preenchidas automaticamente no momento do envio.</p></div></div>
+
+    <div class="wa-template-card">
+      <h3>📣 Divulgação do produto</h3>
+      <p class="muted">Usada ao enviar o produto para os grupos selecionados.</p>
+      <textarea id="waProductTemplate" rows="12" maxlength="12000">${esc(product)}</textarea>
+      <div class="wa-template-vars"><b>Variáveis:</b> <code>{empresa}</code> <code>{produto}</code> <code>{numero}</code> <code>{avaliacao}</code> <code>{lance_inicial}</code> <code>{oferta_atual}</code> <code>{incremento}</code> <code>{inicio}</code> <code>{fim}</code> <code>{link}</code></div>
+    </div>
+
+    <div class="wa-template-card">
+      <h3>🏆 Comprador vencedor</h3>
+      <p class="muted">Usada no botão “Enviar WhatsApp” da tela Compradores.</p>
+      <textarea id="waWinnerTemplate" rows="12" maxlength="12000">${esc(winner)}</textarea>
+      <div class="wa-template-vars"><b>Variáveis:</b> <code>{nome}</code> <code>{empresa}</code> <code>{quantidade}</code> <code>{valor_total}</code> <code>{prazo_pagamento}</code> <code>{pagamento}</code></div>
+    </div>
+
+    <div class="wa-template-card">
+      <h3>💳 Lembrete de pagamento</h3>
+      <p class="muted">Usada quando houver pagamento pendente.</p>
+      <textarea id="waReminderTemplate" rows="12" maxlength="12000">${esc(reminder)}</textarea>
+      <div class="wa-template-vars"><b>Variáveis:</b> <code>{nome}</code> <code>{empresa}</code> <code>{produtos}</code> <code>{valor_pendente}</code> <code>{pix}</code> <code>{link_pagamento}</code></div>
+    </div>
+
+    <div class="wa-template-actions">
+      <button type="button" class="ghost" id="resetWhatsappMessages">Restaurar padrões</button>
+      <button type="button" class="primary" id="saveWhatsappMessages">Salvar mensagens</button>
+    </div>
+    <div id="waTemplateStatus" class="muted" aria-live="polite"></div>
+  </section>
+  <style>
+    .wa-template-settings{max-width:980px}.wa-template-head small{font-size:10px;font-weight:900;letter-spacing:.08em;color:#16864a}.wa-template-head h2{margin:5px 0 4px}
+    .wa-template-card{margin-top:18px;padding:18px;border:1px solid #dce7e1;border-radius:16px;background:#fbfdfc}.wa-template-card h3{margin:0 0 5px}
+    .wa-template-card textarea{width:100%;min-height:210px;box-sizing:border-box;border:1px solid #cad8d0;border-radius:12px;padding:13px;font:inherit;line-height:1.45;resize:vertical;background:#fff;color:#102019}
+    .wa-template-card textarea:focus{outline:none;border-color:#18b85d;box-shadow:0 0 0 3px rgba(24,184,93,.1)}
+    .wa-template-vars{margin-top:10px;font-size:12px;line-height:1.8;color:#617267}.wa-template-vars code{display:inline-block;margin:2px 3px;padding:2px 6px;border-radius:6px;background:#eef6f1;color:#0b6e3b}
+    .wa-template-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:18px}.wa-template-actions button{min-height:44px}
+    #waTemplateStatus{margin-top:10px;text-align:right;font-weight:700}
+    @media(max-width:650px){.wa-template-card{padding:14px}.wa-template-card textarea{min-height:240px}.wa-template-actions{display:grid;grid-template-columns:1fr}.wa-template-actions button{width:100%}}
+  </style>`;
+
+  const productEl=document.getElementById('waProductTemplate');
+  const winnerEl=document.getElementById('waWinnerTemplate');
+  const reminderEl=document.getElementById('waReminderTemplate');
+  const status=document.getElementById('waTemplateStatus');
+  document.getElementById('resetWhatsappMessages').onclick=()=>{
+    productEl.value=DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.product;
+    winnerEl.value=DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.winner;
+    reminderEl.value=DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.reminder;
+    status.textContent='Modelos padrão carregados. Clique em Salvar mensagens para confirmar.';
+  };
+  document.getElementById('saveWhatsappMessages').onclick=async e=>{
+    const btn=e.currentTarget;
+    const values={
+      product_message_template:String(productEl.value||'').trim(),
+      winner_message_template:String(winnerEl.value||'').trim(),
+      payment_reminder_template:String(reminderEl.value||'').trim(),
+      updated_at:new Date().toISOString()
+    };
+    if(!values.product_message_template||!values.winner_message_template||!values.payment_reminder_template){
+      status.textContent='Preencha os três modelos antes de salvar.';
+      return;
+    }
+    btn.disabled=true;btn.textContent='Salvando...';status.textContent='';
+    try{
+      const {error:updateError}=await db.from('company_whatsapp_settings').update(values).eq('company_id',currentCompany.id);
+      if(updateError)throw updateError;
+      status.textContent='✓ Mensagens salvas com sucesso.';
+    }catch(saveError){
+      status.textContent='Não foi possível salvar: '+(saveError.message||saveError);
+    }finally{
+      btn.disabled=false;btn.textContent='Salvar mensagens';
+    }
+  };
+}
 function tick(){clearInterval(window._timer);window._timer=setInterval(()=>document.querySelectorAll('.timer').forEach(e=>{if(e.dataset.end)e.textContent=remaining(e.dataset.end)}),1000)}function go(name){document.querySelector(`[data-page="${name}"]`)?.click()}
 async function openWhatsappSettings(){
   for(let i=0;i<12;i++){
