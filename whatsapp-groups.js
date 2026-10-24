@@ -291,7 +291,7 @@
 
       ${localReady?`
         <div class="wa-connected">
-          <div class="wa-phone"><span>✓</span><div><small>WHATSAPP CONECTADO E PRONTO</small><b>${esc(device?.phone||'Conta conectada')}</b><em>Envios de leilões disponíveis</em></div></div>
+          <div class="wa-phone"><span>✓</span><div><small>WHATSAPP CONECTADO E PRONTO</small><b>${esc(device?.phone||'Conta conectada')}</b><em>Leilões e lembretes automáticos disponíveis</em></div></div>
           <div class="wa-connected-actions">
             <button class="ghost mini" type="button" data-wa-refresh>Atualizar status</button>
             <button class="ghost mini" type="button" data-wa-local-start>Usar conector do computador</button>
@@ -316,72 +316,132 @@
             <div class="wa-connect-icon">PC</div>
             <div>
               <small>SEM META • SEM RAILWAY</small>
-              <h3>Usar conector do computador</h3>
-              <p>O mesmo conector envia leilões para grupos e lembretes diretamente aos compradores.</p>
+              <h3>Configurar automaticamente</h3>
+              <p>Gera o código, baixa o conector já configurado, atualiza os arquivos e deixa o envio automático pronto.</p>
             </div>
-            <a class="primary wa-download-link" href="/instalar-jp-whatsapp.cmd" download>Baixar / atualizar</a>
-          </div>
-          <div class="wa-connect-card">
-            <div class="wa-connect-icon">#</div>
-            <div>
-              <small>PASSO 2</small>
-              <h3>Gerar código do computador</h3>
-              <p>Gere o código, abra o conector instalado e cole esse código na tela local.</p>
-            </div>
-            <button class="primary" type="button" data-wa-local-start>Gerar código</button>
+            <button class="primary" type="button" data-wa-auto-install>Configurar automaticamente</button>
           </div>
         </div>
 
-        <div class="wa-local-code-wrap" data-wa-local-code-wrap hidden>
-          <small>CÓDIGO DO COMPUTADOR</small>
-          <div class="wa-pair-code" data-wa-local-code></div>
+        <div class="wa-local-code-wrap" data-wa-auto-status hidden>
+          <small>CONFIGURAÇÃO DO CONECTOR</small>
+          <h3 data-wa-auto-title>Preparando...</h3>
+          <p class="muted" data-wa-auto-text></p>
           <div class="row">
-            <button class="ghost mini" type="button" data-wa-local-copy>Copiar código</button>
+            <button class="ghost mini" type="button" data-wa-check-local>Verificar conexão</button>
             <a class="ghost mini" href="http://localhost:8765" target="_blank" rel="noopener">Abrir conector</a>
           </div>
-          <ol>
-            <li>Baixe ou atualize o conector.</li>
-            <li>Abra “JP Leilões WhatsApp” no computador.</li>
-            <li>Cole o código acima.</li>
-            <li>Clique em “Conectar WhatsApp” e escaneie o QR Code.</li>
-          </ol>
         </div>
       `}
 
       <details class="wa-help">
         <summary>Ajuda e conexão</summary>
-        <p>O conector fica no computador da empresa e precisa permanecer aberto. Ele envia leilões para grupos e lembretes de pagamento diretamente pelo mesmo WhatsApp conectado, sem Meta e sem abrir WhatsApp externo.</p>
+        <p>Depois da configuração, o conector inicia com o Windows e envia leilões e lembretes automaticamente. O computador precisa permanecer ligado. Se a sessão do WhatsApp expirar, será necessário escanear o QR Code novamente.</p>
       </details>
     </section>`;
 
     const root=app.querySelector('.wa-simple');
 
-    async function startLocalConnector(){
+    let localWatchTimer=null;
+    function setAutoStatus(titleText,bodyText){
+      const wrap=root.querySelector('[data-wa-auto-status]');
+      const titleEl=root.querySelector('[data-wa-auto-title]');
+      const textEl=root.querySelector('[data-wa-auto-text]');
+      if(wrap)wrap.hidden=false;
+      if(titleEl)titleEl.textContent=titleText||'';
+      if(textEl)textEl.textContent=bodyText||'';
+    }
+    function buildConfiguredInstaller(token){
+      const safeToken=String(token||'').replace(/[^a-f0-9]/gi,'');
+      if(safeToken.length<24)throw new Error('Código do conector inválido.');
+      const lines=[
+        "@echo off",
+        "setlocal",
+        "title JP Leiloes - Configuracao Automatica WhatsApp",
+        "set \"DIR=%USERPROFILE%\\JP-Leiloes-WhatsApp\"",
+        "set \"BASE=https://www.jpleiloes.com.br/whatsapp-worker\"",
+        "set \"TOKEN="+safeToken+"\"",
+        "echo.",
+        "echo JP LEILOES - CONFIGURACAO AUTOMATICA DO WHATSAPP",
+        "echo =================================================",
+        "where node >nul 2>nul",
+        "if errorlevel 1 (",
+        "  start \"\" \"https://nodejs.org/en/download\"",
+        "  echo Instale o Node.js LTS e execute este arquivo novamente.",
+        "  pause",
+        "  exit /b 1",
+        ")",
+        "if not exist \"%DIR%\" mkdir \"%DIR%\"",
+        "echo Baixando a versao mais recente do conector...",
+        "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Invoke-WebRequest -UseBasicParsing '%BASE%/package.json' -OutFile '%DIR%\\package.json'; Invoke-WebRequest -UseBasicParsing '%BASE%/index.js' -OutFile '%DIR%\\index.js'; Invoke-WebRequest -UseBasicParsing '%BASE%/iniciar.bat' -OutFile '%DIR%\\iniciar.bat'; Invoke-WebRequest -UseBasicParsing '%BASE%/LEIA-ME.txt' -OutFile '%DIR%\\LEIA-ME.txt'\"",
+        "if errorlevel 1 (",
+        "  echo Falha ao baixar os arquivos.",
+        "  pause",
+        "  exit /b 1",
+        ")",
+        "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$json=@{deviceToken='%TOKEN%'}|ConvertTo-Json; Set-Content -Path '%DIR%\\config.json' -Value $json -Encoding UTF8\"",
+        "cd /d \"%DIR%\"",
+        "call npm install --no-fund --no-audit",
+        "if errorlevel 1 (",
+        "  echo Falha ao instalar dependencias.",
+        "  pause",
+        "  exit /b 1",
+        ")",
+        "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$w=New-Object -COM WScript.Shell;$s=$w.CreateShortcut([Environment]::GetFolderPath('Desktop')+'\\JP Leiloes WhatsApp.lnk');$s.TargetPath='%DIR%\\iniciar.bat';$s.WorkingDirectory='%DIR%';$s.Save();$startup=[Environment]::GetFolderPath('Startup');$a=$w.CreateShortcut($startup+'\\JP Leiloes WhatsApp.lnk');$a.TargetPath='%DIR%\\iniciar.bat';$a.WorkingDirectory='%DIR%';$a.WindowStyle=7;$a.Save()\"",
+        "start \"\" \"%DIR%\\iniciar.bat\"",
+        "exit /b 0"
+      ];
+      return lines.join('\\r\\n');
+    }
+    function downloadInstaller(content){
+      const blob=new Blob([content],{type:'application/octet-stream'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download='Configurar-JP-Leiloes-WhatsApp.cmd';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),3000);
+    }
+    async function checkLocalConnector(){
       try{
-        clearCloudToken();
-        const token=await createDeviceToken();
-        const wrap=root.querySelector('[data-wa-local-code-wrap]');
-        const code=root.querySelector('[data-wa-local-code]');
-        if(wrap&&code){
-          code.textContent=token.replace(/(.{4})/g,'$1 ').trim();
-          code.dataset.value=token;
-          wrap.hidden=false;
-          wrap.scrollIntoView({behavior:'smooth',block:'center'});
-        }else{
-          prompt('Código do computador:',token);
+        const deviceNow=await getDevice();
+        const ready=deviceNow?.status==='ONLINE'&&String(deviceNow?.worker_version||'').startsWith('local-');
+        if(ready){
+          if(localWatchTimer){clearInterval(localWatchTimer);localWatchTimer=null}
+          setAutoStatus('✓ Conector local ativo','Pronto. Leilões e lembretes serão enviados automaticamente pelo mesmo WhatsApp.');
+          setTimeout(()=>renderWhatsappPage(),1200);
+          return true;
         }
+        setAutoStatus('Aguardando o conector','Abra o arquivo baixado. Se o WhatsApp pedir, escaneie o QR Code uma vez.');
+        return false;
       }catch(err){
-        alert('Não foi possível gerar o código do computador: '+(err.message||err));
+        setAutoStatus('Não foi possível verificar',err.message||String(err));
+        return false;
       }
     }
-    root.querySelectorAll('[data-wa-local-start]').forEach(btn=>btn.addEventListener('click',startLocalConnector));
-    root.querySelector('[data-wa-local-copy]')?.addEventListener('click',async()=>{
-      const el=root.querySelector('[data-wa-local-code]');
-      const value=el?.dataset.value||'';
-      if(!value)return;
-      try{await navigator.clipboard.writeText(value);alert('Código copiado.')}
-      catch{prompt('Copie o código:',value)}
-    });
+    async function automaticLocalSetup(button){
+      if(button)button.disabled=true;
+      try{
+        clearCloudToken();
+        setAutoStatus('Gerando configuração','Preparando o conector para esta empresa...');
+        const token=await createDeviceToken();
+        downloadInstaller(buildConfiguredInstaller(token));
+        setAutoStatus('Instalador baixado','Abra “Configurar-JP-Leiloes-WhatsApp.cmd”. A instalação, atualização e configuração serão automáticas.');
+        if(localWatchTimer)clearInterval(localWatchTimer);
+        localWatchTimer=setInterval(checkLocalConnector,3000);
+        setTimeout(checkLocalConnector,1500);
+      }catch(err){
+        setAutoStatus('Falha na configuração',err.message||String(err));
+      }finally{
+        if(button)button.disabled=false;
+      }
+    }
+    root.querySelector('[data-wa-auto-install]')?.addEventListener('click',e=>automaticLocalSetup(e.currentTarget));
+    root.querySelectorAll('[data-wa-local-start]').forEach(btn=>btn.addEventListener('click',e=>automaticLocalSetup(e.currentTarget)));
+    root.querySelector('[data-wa-check-local]')?.addEventListener('click',checkLocalConnector);
+
 
     root.querySelector('[data-wa-qr-start]')?.addEventListener('click',async e=>{
       const btn=e.currentTarget;
