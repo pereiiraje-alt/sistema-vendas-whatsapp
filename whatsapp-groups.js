@@ -181,12 +181,14 @@
     try{
       const text=String(message||'').trim();
       if(!text)throw new Error('Mensagem vazia.');
-      const result=await cloudRequest('/api/send-direct',{
-        method:'POST',
-        body:{phone:String(phone||''),message:text}
+      const {data,error}=await db.rpc('enqueue_company_whatsapp_direct',{
+        p_phone:String(phone||''),
+        p_message:text
       });
-      if(!silent)alert('Mensagem enviada pelo WhatsApp conectado.');
-      return !!result?.ok;
+      if(error)throw error;
+      const queued=Number(data||0)>0;
+      if(!silent)alert(queued?'Mensagem colocada na fila do WhatsApp.':'Não foi possível criar o envio.');
+      return queued;
     }catch(e){
       console.warn('WhatsApp direto:',e);
       if(!silent)alert('Não foi possível enviar pelo WhatsApp conectado: '+(e.message||e));
