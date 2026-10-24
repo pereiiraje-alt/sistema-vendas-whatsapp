@@ -1,5 +1,5 @@
-const CACHE='jp-leiloes-shell-v6';
-const STATIC=['/styles.css','/manifest.webmanifest','/jp-leiloes-logo.svg','/apple-touch-icon.png','/jp-leiloes-icon.png'];
+const CACHE='jp-leiloes-shell-v7';
+const STATIC=['/styles.css','/manifest.webmanifest?v=20261024-6','/jp-leiloes-logo.svg','/apple-touch-icon.png?v=20261024-1','/jp-leiloes-icon-192.png?v=20261024-1','/jp-leiloes-icon-512.png?v=20261024-1'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).catch(()=>null));
