@@ -719,7 +719,7 @@ async function pagamentos(){
   if(!currentCompany?.id){app.innerHTML='<div class="panel">Entre como empresa para consultar pagamentos.</div>';return;}
   app.innerHTML='<div class="panel"><h3>Pagamentos</h3><p class="muted">Consultando pagamentos...</p></div>';
   const {data:payments,error}=await timeout(db.from('payments')
-    .select('id,arremate_id,status,method,amount,paid_at,created_at,updated_at')
+    .select('id,arremate_id,status,method,amount,paid_at,created_at,updated_at,checkout_url,pix_qr_code')
     .eq('company_id',currentCompany.id).order('created_at',{ascending:false}).limit(500),
     10000,'carregar pagamentos');
   if(error)throw error;
@@ -738,6 +738,12 @@ async function pagamentos(){
   ]);
   if(peopleResponse.error)throw peopleResponse.error;
   if(lotsResponse.error)throw lotsResponse.error;
+  const {data:paymentMessageSettings,error:paymentMessageSettingsError}=await timeout(
+    db.from('company_whatsapp_settings').select('payment_reminder_template').eq('company_id',currentCompany.id).maybeSingle(),
+    7000,'carregar mensagem de lembrete'
+  );
+  if(paymentMessageSettingsError)throw paymentMessageSettingsError;
+  const paymentReminderTemplate=paymentMessageSettings?.payment_reminder_template||DEFAULT_WHATSAPP_MESSAGE_TEMPLATES.reminder;
   const saleById=new Map(sales.map(x=>[x.id,x]));
   const peopleById=new Map((peopleResponse.data||[]).map(x=>[x.id,x]));
   const lotById=new Map((lotsResponse.data||[]).map(x=>[x.id,x]));
@@ -767,9 +773,18 @@ async function pagamentos(){
     let phone=String(person?.phone||'').replace(/\D/g,'');
     if(phone.length===10||phone.length===11)phone='55'+phone;
     if(!/^\d{12,13}$/.test(phone)||!phone.startsWith('55'))return '';
-    const name=String(person?.full_name||'').trim().split(/\s+/)[0]||'tudo bem';
-    const title=String(lot?.title||'seu produto arrematado');
-    const message='Olá, '+name+'! Tudo bem? Aqui é da JP Leilões. Verificamos que o pagamento do produto '+title+' no valor de '+moneyPay(p.amount)+' ainda consta como pendente em nosso sistema. Quando possível, confira o pagamento pelo link recebido após o arremate. Se você já pagou, desconsidere esta mensagem e nos avise para conferirmos. Obrigado!';
+    const name=String(person?.full_name||'').trim()||'Comprador';
+    const title=String(lot?.title||'produto arrematado');
+    const pix=p.pix_qr_code?'💠 PIX copia e cola:\n\n📦 '+title+'\n'+p.pix_qr_code:'';
+    const linkPagamento=!pix&&p.checkout_url?'💳 Link para pagamento:\n'+p.checkout_url:'';
+    const message=fillWhatsappTemplate(paymentReminderTemplate,{
+      nome:name,
+      empresa:currentCompany?.name||'JP Leilões',
+      produtos:title,
+      valor_pendente:moneyPay(p.amount),
+      pix,
+      link_pagamento:linkPagamento
+    });
     return 'https://wa.me/'+phone+'?text='+encodeURIComponent(message);
   };
   const table=document.getElementById('paymentsTable');
