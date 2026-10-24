@@ -85,7 +85,30 @@
       .expired-row:first-of-type{border-top:0}.expired-badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:12px;font-weight:800}
       .contact-second{display:inline-block;text-decoration:none;background:#16a34a;color:#fff;padding:9px 12px;border-radius:9px;font-weight:800;white-space:nowrap}
       @media(max-width:900px){.winner-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.expired-row{grid-template-columns:1fr}.winner-send-panel{align-items:flex-start;flex-direction:column}.winner-send-main{width:100%}}
-      @media(max-width:560px){.winner-summary{grid-template-columns:1fr}.winner-table-wrap table{min-width:1050px}}
+      @media(max-width:560px){
+        .winner-summary{grid-template-columns:1fr 1fr;gap:9px}
+        .winner-summary .card{min-height:92px;padding:14px}
+        .winner-summary .card h2{font-size:20px;margin:7px 0 3px}
+        .winner-table-wrap{overflow:visible;margin:0 -4px}
+        .winner-table-wrap table,.winner-table-wrap tbody,.winner-table-wrap tr,.winner-table-wrap td{display:block;width:100%}
+        .winner-table-wrap table{min-width:0;background:transparent}
+        .winner-table-wrap thead{display:none}
+        .winner-table-wrap tbody{display:grid;gap:12px}
+        .winner-table-wrap tr{background:#fff;border:1px solid #dfe8e3;border-radius:16px;padding:15px;box-shadow:0 5px 18px rgba(16,37,27,.05)}
+        .winner-table-wrap td{border:0;padding:7px 0;display:grid;grid-template-columns:118px minmax(0,1fr);gap:10px;align-items:start;font-size:13px}
+        .winner-table-wrap td::before{content:attr(data-label);font-size:10px;font-weight:900;letter-spacing:.04em;color:#7a8a80;text-transform:uppercase}
+        .winner-table-wrap td:first-child{display:block;padding:0 0 11px;border-bottom:1px solid #edf1ee;margin-bottom:5px}
+        .winner-table-wrap td:first-child::before{display:none}
+        .winner-name strong{font-size:16px}.winner-contact{font-size:12px;overflow-wrap:anywhere}
+        .winner-phone{font-size:15px}
+        .winner-table-wrap td.winner-actions-cell{display:block;padding-top:12px;border-top:1px solid #edf1ee;margin-top:6px}
+        .winner-table-wrap td.winner-actions-cell::before{display:block;margin-bottom:8px}
+        .winner-actions{display:grid;grid-template-columns:1fr;gap:8px;min-width:0}
+        .winner-actions .winner-notify{width:100%;min-height:46px;font-size:13px}
+        .winner-actions .winner-notify.whatsapp:first-child{background:#f59e0b;color:#fff}
+        .winner-send-panel{padding:16px}.winner-send-main{min-height:46px}
+      }
+      @media(max-width:390px){.winner-summary{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
   }
@@ -179,7 +202,15 @@
         const wa=cloudWhatsappButton(row.phone,message,'💬 Enviar WhatsApp');
         const subject=encodeURIComponent('Parabéns! Você arrematou no JP Leilões');
         const email=row.email?`<a class="winner-notify email" href="mailto:${encodeURIComponent(row.email)}?subject=${subject}&body=${encodeURIComponent(message)}">E-mail</a>`:`<span class="winner-notify email disabled">E-mail</span>`;
-        return `<tr><td><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td><td>${phone}</td><td><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td><td><strong>${currency(row.totalArrematado)}</strong></td><td class="winner-paid">${currency(row.totalPago)}${row.paidCount?`<br><span class="winner-paid">✅ ${row.pending?"Pagamento confirmado ("+row.paidCount+")":"Pagamento confirmado"}${row.lastPaidAt?` · ${dateLabel(row.lastPaidAt)}`:""}</span>`:""}${!row.paidCount&&row.pending?'<br><span class="winner-pending">Aguardando pagamento</span>':""}</td><td>${dateLabel(row.latest)}</td><td><div class="winner-actions">${reminderButton}${wa}${email}</div></td></tr>`;
+        return `<tr>
+          <td data-label="Comprador"><div class="winner-name"><strong>${safe(row.name)}</strong><span class="winner-contact">${safe(row.email||'Sem e-mail')}</span></div></td>
+          <td data-label="Telefone">${phone}</td>
+          <td data-label="Arremates"><strong>${row.count}</strong>${row.pending?`<br><span class="winner-pending">${row.pending} pagamento(s) pendente(s)</span>`:''}</td>
+          <td data-label="Total arrematado"><strong>${currency(row.totalArrematado)}</strong></td>
+          <td data-label="Total pago" class="winner-paid">${currency(row.totalPago)}${row.paidCount?`<br><span class="winner-paid">✅ ${row.pending?"Pagamento confirmado ("+row.paidCount+")":"Pagamento confirmado"}${row.lastPaidAt?` · ${dateLabel(row.lastPaidAt)}`:""}</span>`:""}${!row.paidCount&&row.pending?'<br><span class="winner-pending">Aguardando pagamento</span>':""}</td>
+          <td data-label="Último arremate">${dateLabel(row.latest)}</td>
+          <td data-label="Ações" class="winner-actions-cell"><div class="winner-actions">${reminderButton}${wa}${email}</div></td>
+        </tr>`;
       }).join('');
 
       app.innerHTML=`${quickNotify}${expiredHtml}<div class="winner-summary"><div class="card"><small>Compradores</small><h2>${rows.length}</h2><span class="up">Compradores únicos</span></div><div class="card"><small>Produtos arrematados</small><h2>${totalProdutos}</h2><span class="up">Vendas finalizadas</span></div><div class="card"><small>Total arrematado</small><h2>${currency(totalArrematado)}</h2><span class="up">Valor das arrematações</span></div><div class="card"><small>Total pago</small><h2>${currency(totalPago)}</h2><span class="up">Pagamentos aprovados</span></div></div><div class="panel"><h3>Dados dos compradores</h3><p class="muted">“Lembrar pagamento” e “Enviar WhatsApp” usam diretamente o WhatsApp conectado no JP Leilões, sem abrir página externa.</p><div class="winner-table-wrap"><table><thead><tr><th>ARREMATANTE</th><th>TELEFONE</th><th>ARREMATES</th><th>TOTAL ARREMATADO</th><th>TOTAL PAGO</th><th>ÚLTIMO ARREMATE</th><th>NOTIFICAR</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
