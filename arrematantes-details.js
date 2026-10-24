@@ -23,35 +23,72 @@
     return `https://api.whatsapp.com/send?phone=${number}${text}`;
   };
 
+  const defaultTemplates=window.jpDefaultWhatsappMessageTemplates||{
+    winner:`Olá {nome}! 🎉
+
+Parabéns! Você foi o comprador de {quantidade} produto(s) no leilão da {empresa}.
+
+🔨 Valor total arrematado: {valor_total}.
+
+{prazo_pagamento}{pagamento}
+
+Após a confirmação do pagamento, você receberá as informações para seguir com a retirada/entrega do produto.
+
+JP Leilões`,
+    reminder:`Olá, {nome}! Aqui é da {empresa}. Seu pagamento referente a {produtos} no valor pendente de {valor_pendente} ainda não consta como confirmado.
+
+{pix}{link_pagamento}
+
+Se já realizou o pagamento, desconsidere esta mensagem e nos avise para conferirmos. Obrigado!`
+  };
+  let messageTemplates={winner:defaultTemplates.winner,reminder:defaultTemplates.reminder};
+  const fillTemplate=(template,values)=>{
+    if(typeof window.jpFillWhatsappTemplate==='function')return window.jpFillWhatsappTemplate(template,values);
+    return String(template||'').replace(/\{([a-z0-9_]+)\}/gi,(full,key)=>Object.prototype.hasOwnProperty.call(values,key)?String(values[key]??''):full).replace(/\n{3,}/g,'\n\n').trim();
+  };
+
   function winnerMessage(row){
     const empresa=currentCompany?.name||'JP Leilões';
-    const pendente=row.pending>0?`\n\n⏱️ Seu pagamento ainda está pendente. Você tem 30 minutos a partir do encerramento do leilão para concluir o pagamento.`:'';
+    const prazoPagamento=row.pending>0?'⏱️ Seu pagamento ainda está pendente. Você tem 30 minutos a partir do encerramento do leilão para concluir o pagamento.':'';
     const links=[...new Set((row.paymentLinks||[]).filter(Boolean))];
-    const paymentBlock=links.length===1
-      ?`\n\n💳 Link para pagamento:\n${links[0]}`
+    const pagamento=links.length===1
+      ?`💳 Link para pagamento:\n${links[0]}`
       :links.length>1
-        ?`\n\n💳 Links para pagamento:\n${links.map((url,i)=>`${i+1}. ${url}`).join('\n')}`
+        ?`💳 Links para pagamento:\n${links.map((url,i)=>`${i+1}. ${url}`).join('\n')}`
         :'';
-    return `Olá ${row.name}! 🎉\n\nParabéns! Você foi o comprador de ${row.count} produto(s) no leilão da ${empresa}.\n\n🔨 Valor total arrematado: ${currency(row.totalArrematado)}.${pendente}${paymentBlock}\n\nApós a confirmação do pagamento, você receberá as informações para seguir com a retirada/entrega do produto.\n\nJP Leilões`;
+    return fillTemplate(messageTemplates.winner||defaultTemplates.winner,{
+      nome:row.name||'Comprador',
+      empresa,
+      quantidade:row.count||0,
+      valor_total:currency(row.totalArrematado),
+      prazo_pagamento:prazoPagamento,
+      pagamento
+    });
   }
 
   function paymentReminderMessage(row){
+    const empresa=currentCompany?.name||'JP Leilões';
     const products=(row.pendingProducts||[]).filter(Boolean);
-    let message='Olá, '+row.name+'! Aqui é da JP Leilões. Seu pagamento referente a '+products.join(', ')+' no valor pendente de '+currency(row.pendingAmount)+' ainda não consta como confirmado.';
     const details=(row.pendingPaymentDetails||[]).filter(item=>item&&item.pix);
+    let pix='';
+    let linkPagamento='';
     if(details.length){
-      message+='\n\n💠 PIX copia e cola:';
+      pix='💠 PIX copia e cola:';
       for(const item of details){
-        message+='\n\n📦 '+item.product+'\n'+item.pix;
+        pix+='\n\n📦 '+item.product+'\n'+item.pix;
       }
     }else{
       const links=[...new Set((row.paymentLinks||[]).filter(Boolean))];
-      if(links.length){
-        message+='\n\n💳 Link para pagamento:\n'+links.join('\n');
-      }
+      if(links.length)linkPagamento='💳 Link para pagamento:\n'+links.join('\n');
     }
-    message+='\n\nSe já realizou o pagamento, desconsidere esta mensagem e nos avise para conferirmos. Obrigado!';
-    return message;
+    return fillTemplate(messageTemplates.reminder||defaultTemplates.reminder,{
+      nome:row.name||'Comprador',
+      empresa,
+      produtos:products.join(', ')||'produto arrematado',
+      valor_pendente:currency(row.pendingAmount),
+      pix,
+      link_pagamento:linkPagamento
+    });
   }
 
   const dataEncode=value=>encodeURIComponent(String(value||'')).replace(/'/g,'%27');
