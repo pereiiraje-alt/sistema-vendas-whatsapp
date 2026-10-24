@@ -31,7 +31,19 @@ window.changeLotPhoto=function(btn){
   gallery.querySelectorAll('.product-thumb').forEach(x=>x.classList.toggle('active',x===btn));
 };
 async function loadLots(){let q=db.from('lots').select('*').order('lot_number');if(currentCompany)q=q.eq('company_id',currentCompany.id);let{data,error}=await timeout(q,7000,'carregar lotes');if(error)throw error;lots=(data||[]).map(normalize);return lots}
-async function loadPublicLot(id){let{data,error}=await timeout(db.from('lots').select('*').eq('id',id).single(),7000,'carregar produto');if(error)throw error;let l=normalize(data);let{data:a}=await timeout(db.from('auctions').select('*').eq('id',l.auctionId).single(),7000,'carregar venda');currentAuction=a||null;let{data:s}=await timeout(db.from('companies').select('id,name,city,state').eq('id',l.companyId).limit(1).maybeSingle(),7000,'carregar vendedor').catch(()=>({data:null}));currentSeller=s||null;return l}
+async function loadPublicLot(id){
+  const lotId=String(id||'').trim();
+  if(!lotId)throw new Error('Produto não informado.');
+  let{data,error}=await timeout(db.from('lots').select('*').eq('id',lotId).limit(1).maybeSingle(),7000,'carregar produto');
+  if(error)throw error;
+  if(!data)throw new Error('Produto não encontrado ou não está mais disponível.');
+  let l=normalize(data);
+  let auctionResult=await timeout(db.from('auctions').select('*').eq('id',l.auctionId).limit(1).maybeSingle(),7000,'carregar venda').catch(()=>({data:null,error:null}));
+  currentAuction=auctionResult?.data||null;
+  let{data:s}=await timeout(db.from('companies').select('id,name,city,state').eq('id',l.companyId).limit(1).maybeSingle(),7000,'carregar vendedor').catch(()=>({data:null}));
+  currentSeller=s||null;
+  return l
+}
 async function loadMyContext(){let result=await timeout(db.auth.getSession(),5000,'verificar sessão');let user=result?.data?.session?.user;if(!user)return;document.querySelector('#userName').textContent=user.user_metadata?.full_name||user.email;let{data:m,error:me}=await timeout(db.from('company_members').select('company_id,role').eq('user_id',user.id).limit(1).maybeSingle(),7000,'buscar empresa');if(me)throw me;if(m){let{data:c,error:ce}=await timeout(db.from('companies').select('*').eq('id',m.company_id).single(),7000,'carregar empresa');if(ce)throw ce;currentCompany=c;document.querySelector('#companyName').textContent=c.name;let{data:a}=await timeout(db.from('auctions').select('*').eq('company_id',c.id).in('status',['draft','scheduled','live']).order('created_at',{ascending:false}).limit(1).maybeSingle(),7000,'carregar venda');currentAuction=a||null}let{data:p}=await timeout(db.from('participants').select('*').eq('auth_user_id',user.id).limit(1).maybeSingle(),7000,'buscar participante');if(p)participant={id:p.id,name:p.full_name,cpf:p.cpf,phone:p.phone,email:p.email,companyId:p.company_id}}
 async function dashboard(){
   await loadLots();
