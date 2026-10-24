@@ -76,6 +76,8 @@ module.exports=async(req,res)=>{
             const update={status,provider_payment_id:String(mp.id||providerPaymentId||payment.provider_payment_id||''),updated_at:new Date().toISOString()};
             if(status==='paid')update.paid_at=mp.date_approved||new Date().toISOString();
             if(pix.ticketUrl)update.checkout_url=pix.ticketUrl;
+            if(pix.qrCode)update.pix_qr_code=pix.qrCode;
+            if(pix.qrCodeBase64)update.pix_qr_code_base64=pix.qrCodeBase64;
             const updated=await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(update)});
             payment=Array.isArray(updated)?updated[0]:payment;
           }
