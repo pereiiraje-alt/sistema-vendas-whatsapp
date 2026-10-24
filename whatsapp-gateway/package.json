@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {"start":"node index.js"},
   "dependencies": {
-    "@whiskeysockets/baileys": "6.7.21",
+    "@whiskeysockets/baileys": "6.7.24",
     "qrcode": "1.5.4",
     "pino": "9.4.0"
   }
