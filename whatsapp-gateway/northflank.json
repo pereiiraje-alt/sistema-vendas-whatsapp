@@ -1,0 +1,16 @@
+{
+  "name": "jp-leiloes-whatsapp-gateway",
+  "build": {
+    "dockerfile": "whatsapp-gateway/Dockerfile",
+    "context": "whatsapp-gateway"
+  },
+  "runtime": {
+    "port": 8080,
+    "healthcheck": "/health"
+  },
+  "requiredEnvironment": [
+    "SUPABASE_URL",
+    "SUPABASE_KEY",
+    "ADMIN_SECRET"
+  ]
+}
