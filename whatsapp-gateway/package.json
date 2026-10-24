@@ -1,0 +1,12 @@
+{
+  "name": "jp-leiloes-whatsapp-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"start":"node index.js"},
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.21",
+    "qrcode": "1.5.4",
+    "pino": "9.4.0"
+  }
+}
