@@ -35,20 +35,89 @@
     return `Olá ${row.name}! 🎉\n\nParabéns! Você foi o comprador de ${row.count} produto(s) no leilão da ${empresa}.\n\n🔨 Valor total arrematado: ${currency(row.totalArrematado)}.${pendente}${paymentBlock}\n\nApós a confirmação do pagamento, você receberá as informações para seguir com a retirada/entrega do produto.\n\nJP Leilões`;
   }
 
+  function paymentReminderMessage(row){
+    const products=(row.pendingProducts||[]).filter(Boolean);
+    let message='Olá, '+row.name+'! Aqui é da JP Leilões. Seu pagamento referente a '+products.join(', ')+' no valor pendente de '+currency(row.pendingAmount)+' ainda não consta como confirmado.';
+    const details=(row.pendingPaymentDetails||[]).filter(item=>item&&item.pix);
+    if(details.length){
+      message+='\n\n💠 PIX copia e cola:';
+      for(const item of details){
+        message+='\n\n📦 '+item.product+'\n'+item.pix;
+      }
+    }else{
+      const links=[...new Set((row.paymentLinks||[]).filter(Boolean))];
+      if(links.length){
+        message+='\n\n💳 Link para pagamento:\n'+links.join('\n');
+      }
+    }
+    message+='\n\nSe já realizou o pagamento, desconsidere esta mensagem e nos avise para conferirmos. Obrigado!';
+    return message;
+  }
+
   const dataEncode=value=>encodeURIComponent(String(value||'')).replace(/'/g,'%27');
   function cloudWhatsappButton(phone,message,label,className='winner-notify whatsapp'){
     const number=whatsappNumber(phone);
     if(!number)return `<span class="${className} disabled">Telefone indisponível</span>`;
-    return `<button type="button" class="${className} cloud-wa-send" data-phone="${safe(dataEncode(number))}" data-message="${safe(dataEncode(message))}">${label}</button>`;
+    return `<button type="button" class="${className} cloud-wa-send" data-phone="${safe(dataEncode(number))}" data-message="${safe(dataEncode(message))}" data-editor-title="${safe(dataEncode(label))}">${label}</button>`;
   }
 
-  async function sendCloudWhatsappButton(button){
+  let whatsappEditorButton=null;
+
+  function ensureWhatsappEditor(){
+    let modal=document.getElementById('winnerWhatsappEditor');
+    if(modal)return modal;
+    modal=document.createElement('div');
+    modal.id='winnerWhatsappEditor';
+    modal.className='winner-message-modal';
+    modal.innerHTML=`<div class="winner-message-card" role="dialog" aria-modal="true" aria-labelledby="winnerMessageTitle">
+      <div class="winner-message-head"><div><small>Mensagem do WhatsApp</small><h3 id="winnerMessageTitle">Editar mensagem</h3></div><button type="button" class="winner-message-close" aria-label="Fechar">×</button></div>
+      <p class="winner-message-help">Edite o texto abaixo antes de enviar. O PIX copia e cola, quando disponível, já entra automaticamente no lembrete.</p>
+      <textarea id="winnerMessageText" rows="12" maxlength="12000"></textarea>
+      <div class="winner-message-footer"><button type="button" class="winner-message-cancel">Cancelar</button><button type="button" class="winner-message-send">💬 Enviar WhatsApp</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    const close=()=>{modal.classList.remove('open');whatsappEditorButton=null};
+    modal.querySelector('.winner-message-close').addEventListener('click',close);
+    modal.querySelector('.winner-message-cancel').addEventListener('click',close);
+    modal.addEventListener('click',e=>{if(e.target===modal)close()});
+    modal.querySelector('.winner-message-send').addEventListener('click',async()=>{
+      const button=whatsappEditorButton;
+      const textarea=modal.querySelector('#winnerMessageText');
+      const message=String(textarea?.value||'').trim();
+      if(!button)return close();
+      if(!message)return alert('Digite a mensagem antes de enviar.');
+      const send=modal.querySelector('.winner-message-send');
+      send.disabled=true;send.textContent='Enviando...';
+      try{
+        const ok=await sendCloudWhatsappButton(button,message);
+        if(ok)close();
+      }finally{
+        send.disabled=false;send.textContent='💬 Enviar WhatsApp';
+      }
+    });
+    return modal;
+  }
+
+  function openWhatsappEditor(button){
     if(!button||button.disabled)return;
-    const phone=decodeURIComponent(button.dataset.phone||'');
     const message=decodeURIComponent(button.dataset.message||'');
-    if(!phone||!message)return alert('Telefone ou mensagem indisponível.');
-    if(typeof window.jpWhatsappSendDirect!=='function')return alert('WhatsApp ainda está carregando. Tente novamente.');
-    if(!confirm('Enviar esta mensagem pelo WhatsApp conectado da empresa?'))return;
+    const title=decodeURIComponent(button.dataset.editorTitle||'Editar mensagem');
+    const modal=ensureWhatsappEditor();
+    whatsappEditorButton=button;
+    modal.querySelector('#winnerMessageTitle').textContent=title;
+    const textarea=modal.querySelector('#winnerMessageText');
+    textarea.value=message;
+    modal.classList.add('open');
+    setTimeout(()=>textarea.focus(),40);
+  }
+
+  async function sendCloudWhatsappButton(button,messageOverride){
+    if(!button||button.disabled)return false;
+    if(messageOverride===undefined){openWhatsappEditor(button);return false}
+    const phone=decodeURIComponent(button.dataset.phone||'');
+    const message=String(messageOverride||'').trim();
+    if(!phone||!message){alert('Telefone ou mensagem indisponível.');return false}
+    if(typeof window.jpWhatsappSendDirect!=='function'){alert('WhatsApp ainda está carregando. Tente novamente.');return false}
     const old=button.textContent;
     button.disabled=true;
     button.textContent='Enviando...';
@@ -57,10 +126,12 @@
       if(!ok)throw new Error('Não foi possível colocar a mensagem na fila.');
       button.textContent='✓ Enviado';
       setTimeout(()=>{if(button.isConnected){button.textContent=old;button.disabled=false}},2500);
+      return true;
     }catch(e){
       button.disabled=false;
       button.textContent=old;
-      alert('Não foi possível enviar o lembrete: '+(e.message||e));
+      alert('Não foi possível enviar a mensagem: '+(e.message||e));
+      return false;
     }
   }
 
@@ -78,6 +149,13 @@
       .winner-notify.whatsapp{background:#16a34a;color:#fff}.winner-notify.whatsapp:hover{background:#15803d}
       .winner-notify.email{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}.winner-notify.email:hover{background:#dbeafe}
       .winner-notify.disabled{opacity:.45;pointer-events:none}
+      .winner-message-modal{display:none;position:fixed;inset:0;z-index:100000;background:rgba(7,20,14,.62);padding:18px;align-items:center;justify-content:center}
+      .winner-message-modal.open{display:flex}.winner-message-card{width:min(620px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.3)}
+      .winner-message-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.winner-message-head small{display:block;color:#15803d;font-weight:900;text-transform:uppercase;letter-spacing:.05em}.winner-message-head h3{margin:4px 0 0!important}
+      .winner-message-close{border:0;background:#eef3f0;width:38px;height:38px;border-radius:50%;font-size:23px;cursor:pointer}.winner-message-help{color:#64748b;line-height:1.45;font-size:13px}
+      #winnerMessageText{width:100%;min-height:260px;resize:vertical;border:1px solid #cfdad4;border-radius:13px;padding:13px;font:inherit;line-height:1.45;box-sizing:border-box;outline:none}#winnerMessageText:focus{border-color:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.12)}
+      .winner-message-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}.winner-message-footer button{min-height:44px;padding:10px 15px;border-radius:11px;font-weight:800;cursor:pointer;font-family:inherit}.winner-message-cancel{background:#fff;border:1px solid #d7dfda;color:#334155}.winner-message-send{border:0;background:#16a34a;color:#fff}
+
       .winner-send-panel{margin-bottom:16px;border:1px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);display:flex;align-items:center;justify-content:space-between;gap:18px}
       .winner-send-panel h3{margin-bottom:6px!important}.winner-send-panel p{margin:0;color:#52645a;line-height:1.5}.winner-send-main{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:50px;padding:12px 18px;border:0;border-radius:13px;background:#16a34a;color:#fff;text-decoration:none;font-weight:900;white-space:nowrap;box-shadow:0 10px 24px rgba(22,163,74,.2);cursor:pointer;font-family:inherit}.winner-send-main:hover{background:#15803d}.winner-send-main.disabled{opacity:.45;pointer-events:none;box-shadow:none}
       .expired-panel{margin-bottom:16px;border:1px solid #fecaca;background:#fff7f7}
@@ -106,6 +184,8 @@
         .winner-actions{display:grid;grid-template-columns:1fr;gap:8px;min-width:0}
         .winner-actions .winner-notify{width:100%;min-height:46px;font-size:13px}
         .winner-actions .winner-notify.whatsapp:first-child{background:#f59e0b;color:#fff}
+        .winner-message-modal{padding:10px;align-items:flex-end}.winner-message-card{border-radius:20px 20px 10px 10px;padding:17px;max-height:94vh}.winner-message-footer{display:grid;grid-template-columns:1fr 1.25fr}.winner-message-footer button{width:100%}#winnerMessageText{min-height:230px}
+
         .winner-send-panel{padding:16px}.winner-send-main{min-height:46px}
       }
       @media(max-width:390px){.winner-summary{grid-template-columns:1fr}}
@@ -141,7 +221,7 @@
       const vendaIds=wins.map(row=>row.id).filter(Boolean);
       const lotIds=[...new Set(wins.map(row=>row.lot_id).filter(Boolean))];
       const [{data:payments,error:paymentsError},{data:bids,error:bidsError},{data:lots,error:lotsError}]=await Promise.all([
-        vendaIds.length?timeout(db.from('payments').select('arremate_id,status,amount,paid_at,checkout_url').in('arremate_id',vendaIds),7000,'carregar pagamentos'):Promise.resolve({data:[],error:null}),
+        vendaIds.length?timeout(db.from('payments').select('arremate_id,status,amount,paid_at,checkout_url,pix_qr_code').in('arremate_id',vendaIds),7000,'carregar pagamentos'):Promise.resolve({data:[],error:null}),
         lotIds.length?timeout(db.from('bids').select('lot_id,participant_id,amount,created_at').in('lot_id',lotIds).order('amount',{ascending:false}),7000,'carregar ofertas anteriores'):Promise.resolve({data:[],error:null}),
         lotIds.length?timeout(db.from('lots').select('id,title').in('id',lotIds),7000,'carregar produtos'):Promise.resolve({data:[],error:null})
       ]);
@@ -165,7 +245,7 @@
       for(const win of wins){
         const person=participantMap.get(String(win.participant_id))||{};
         const key=win.participant_id||win.id;
-        if(!grouped.has(key))grouped.set(key,{id:key,name:person.full_name||'Comprador',phone:person.phone||'',email:person.email||'',count:0,totalArrematado:0,totalPago:0,paidCount:0,lastPaidAt:null,latest:null,pending:0,pendingAmount:0,pendingProducts:[],paymentLinks:[]});
+        if(!grouped.has(key))grouped.set(key,{id:key,name:person.full_name||'Comprador',phone:person.phone||'',email:person.email||'',count:0,totalArrematado:0,totalPago:0,paidCount:0,lastPaidAt:null,latest:null,pending:0,pendingAmount:0,pendingProducts:[],pendingPaymentDetails:[],paymentLinks:[]});
         const item=grouped.get(key);item.count+=1;
         const amount=Number(win.total_amount||win.winning_bid||0);item.totalArrematado+=amount;
         if(!item.latest||new Date(win.created_at)>new Date(item.latest))item.latest=win.created_at;
@@ -174,7 +254,9 @@
         else if(payment?.status!=='cancelled'){
           item.pending+=1;
           item.pendingAmount+=amount;
-          item.pendingProducts.push(lotMap.get(String(win.lot_id))?.title||'produto arrematado');
+          const pendingProduct=lotMap.get(String(win.lot_id))?.title||'produto arrematado';
+          item.pendingProducts.push(pendingProduct);
+          item.pendingPaymentDetails.push({product:pendingProduct,pix:payment?.pix_qr_code||'',link:payment?.checkout_url||''});
           if(payment?.checkout_url&&!item.paymentLinks.includes(payment.checkout_url))item.paymentLinks.push(payment.checkout_url);
         }
       }
@@ -196,7 +278,7 @@
         const directUrl=whatsappUrl(row.phone);
         const phone=directUrl?`<a class="winner-phone" href="${directUrl}" target="_blank" rel="noopener">${safe(row.phone)}</a>`:'—';
         const message=winnerMessage(row);
-        const reminderText='Olá, '+row.name+'! Aqui é da JP Leilões. Seu pagamento referente a '+row.pendingProducts.join(', ')+' no valor pendente de '+currency(row.pendingAmount)+' ainda não consta como confirmado. Por favor, verifique o pagamento. Se já realizou, desconsidere esta mensagem e nos avise para conferirmos. Obrigado!';
+        const reminderText=paymentReminderMessage(row);
         const reminderButton=row.pending>0?cloudWhatsappButton(row.phone,reminderText,'💬 Lembrar pagamento'):'';
 
         const wa=cloudWhatsappButton(row.phone,message,'💬 Enviar WhatsApp');
