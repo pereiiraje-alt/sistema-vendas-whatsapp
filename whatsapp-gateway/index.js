@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import makeWASocket,{DisconnectReason,useMultiFileAuthState,fetchLatestBaileysVersion} from '@whiskeysockets/baileys';
+import makeWASocket,{DisconnectReason,useMultiFileAuthState,fetchLatestWaWebVersion,Browsers} from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
 import pino from 'pino';
 
@@ -170,8 +170,8 @@ async function connect(rawToken){
     await restoreSession(token);
     await rpc('whatsapp_gateway_session_save',{p_token:token,p_files:readSessionFiles(sessionDir(token))});
     const {state:authState,saveCreds}=await useMultiFileAuthState(sessionDir(token));
-    const {version}=await fetchLatestBaileysVersion();
-    const sock=makeWASocket({version,auth:authState,logger,printQRInTerminal:false,browser:['JP Leilões','Chrome','1.0.0'],markOnlineOnConnect:false,syncFullHistory:false});
+    const {version}=await fetchLatestWaWebVersion({});
+    const sock=makeWASocket({version,auth:authState,logger,printQRInTerminal:false,browser:Browsers.windows('Chrome'),markOnlineOnConnect:false,syncFullHistory:false});
     ctx.sock=sock;
     sock.ev.on('creds.update',async()=>{await saveCreds();schedulePersist(ctx)});
     sock.ev.on('connection.update',async u=>{
@@ -193,23 +193,39 @@ async function connect(rawToken){
       if(u.connection==='close'){
         const code=u.lastDisconnect?.error?.output?.statusCode;
         const loggedOut=code===DisconnectReason.loggedOut;
-        ctx.state='OFFLINE';ctx.connecting=false;ctx.qr='';
+        const restartRequired=code===DisconnectReason.restartRequired;
+        ctx.state=restartRequired?'CONECTANDO':'OFFLINE';ctx.connecting=false;ctx.qr='';
         if(ctx.poll){clearInterval(ctx.poll);ctx.poll=null}
         if(loggedOut){
           fs.rmSync(sessionDir(token),{recursive:true,force:true});
           ctx.phone='';ctx.groups=[];ctx.lastError='Sessão encerrada pelo WhatsApp.';
           await rpc('whatsapp_gateway_session_deactivate',{p_token:token}).catch(()=>{});
         }else{
+          if(restartRequired)ctx.lastError='';
+          await new Promise(r=>setTimeout(r,restartRequired?550:150));
           await persistSession(ctx).catch(()=>{});
         }
         await report(ctx);
-        if(!loggedOut) setTimeout(()=>connect(token).catch(()=>{}),3000);
+        if(!loggedOut) setTimeout(()=>connect(token).catch(()=>{}),restartRequired?500:2500);
       }
     });
     return ctx;
   }catch(e){
     ctx.state='ERRO';ctx.lastError=e.message||String(e);ctx.connecting=false;await report(ctx);throw e;
   }
+}
+
+async function waitPairingReady(ctx,timeoutMs=12000){
+  if(ctx.qr)return;
+  const started=Date.now();
+  while(Date.now()-started<timeoutMs){
+    if(ctx.qr)return;
+    if(ctx.state==='OFFLINE'||ctx.state==='ERRO'){
+      throw new Error(ctx.lastError||'A conexão foi encerrada antes de gerar o código.');
+    }
+    await new Promise(r=>setTimeout(r,180));
+  }
+  throw new Error('O WhatsApp demorou para preparar o vínculo. Tente gerar o código novamente.');
 }
 
 async function pairing(token,phone){
@@ -219,6 +235,7 @@ async function pairing(token,phone){
   if(n.length===10||n.length===11) n='55'+n;
   if(n.length<12||n.length>15) throw new Error('Número inválido. Informe DDD + número.');
   if(!ctx.sock) throw new Error('Conector indisponível');
+  await waitPairingReady(ctx);
   ctx.pairingCode=await ctx.sock.requestPairingCode(n);
   ctx.state='AGUARDANDO_CODIGO';
   ctx.lastError='';
