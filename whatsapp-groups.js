@@ -57,7 +57,7 @@
   async function getDevice(){
     if(!currentCompany?.id)return null;
     const {data,error}=await db.from('company_whatsapp_devices')
-      .select('status,phone,available_groups,last_seen,last_error,updated_at')
+      .select('status,phone,available_groups,last_seen,last_error,updated_at,worker_version')
       .eq('company_id',currentCompany.id).maybeSingle();
     if(error)throw error;
     return data||null;
@@ -274,20 +274,22 @@
     const groups=Array.isArray(device?.available_groups)?device.available_groups:[];
     const selected=new Set(Array.isArray(settings?.selected_groups)?settings.selected_groups:[]);
     const online=device?.status==='ONLINE';
+    const localReady=online&&String(device?.worker_version||'').startsWith('local-');
 
     app.innerHTML=`<section class="panel wa-simple">
       <div class="wa-simple-head">
         <div>
           <small>WHATSAPP AUTOMÁTICO</small>
-          <h2>${online?'✅ WhatsApp conectado':'Conecte seu WhatsApp'}</h2>
-          <p>${online?'Conectado e pronto para enviar seus leilões. Escolha abaixo os grupos que receberão as divulgações.':'Faça a conexão uma vez e depois use tudo pelo painel do JP Leilões.'}</p>
+          <h2>${localReady?'✅ Conector local ativo':online?'⚠️ Conexão antiga detectada':'Conecte seu WhatsApp'}</h2>
+          <p>${localReady?'Pronto para enviar leilões e lembretes automaticamente.':online?'Atualize para o conector local para liberar lembretes automáticos.':'Instale o conector local no computador da empresa para enviar tudo automaticamente.'}</p>
         </div>
         <span class="badge ${online?'wa-online':'wa-offline'}">${statusLabel(device?.status)}</span>
       </div>
 
+      ${online&&!localReady?`<div class="wa-error"><b>Atualização necessária:</b> esta sessão ainda está usando o conector antigo. Baixe/atualize o conector e gere um novo código do computador.</div>`:''}
       ${device?.last_error?`<div class="wa-error">${esc(device.last_error)}</div>`:''}
 
-      ${online?`
+      ${localReady?`
         <div class="wa-connected">
           <div class="wa-phone"><span>✓</span><div><small>WHATSAPP CONECTADO E PRONTO</small><b>${esc(device?.phone||'Conta conectada')}</b><em>Envios de leilões disponíveis</em></div></div>
           <div class="wa-connected-actions">
