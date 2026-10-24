@@ -214,10 +214,15 @@ async function connect(rawToken){
 
 async function pairing(token,phone){
   const ctx=await connect(token);
-  const n=digits(phone);
+  let n=digits(phone);
   if(!n) throw new Error('Informe o número com DDD');
+  if(n.length===10||n.length===11) n='55'+n;
+  if(n.length<12||n.length>15) throw new Error('Número inválido. Informe DDD + número.');
   if(!ctx.sock) throw new Error('Conector indisponível');
   ctx.pairingCode=await ctx.sock.requestPairingCode(n);
+  ctx.state='AGUARDANDO_CODIGO';
+  ctx.lastError='';
+  await report(ctx);
   return ctx.pairingCode;
 }
 
