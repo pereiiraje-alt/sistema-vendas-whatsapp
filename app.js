@@ -882,6 +882,15 @@ window.showLotSuccess=showLotSuccess;
 document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();const invalid=[...lotForm.querySelectorAll('input:invalid')][0];if(invalid){invalid.scrollIntoView({behavior:'smooth',block:'center'});invalid.focus({preventScroll:true});invalid.reportValidity();alert('Confira o campo: '+(invalid.closest('label')?.childNodes[0]?.textContent?.trim()||'obrigatório')+'.');return;}if(!currentCompany||!currentAuction)return alert('É necessário estar vinculado a uma empresa e ter um venda ativo.');try{
   const files=[...(limage.files||[])];
   if(files.length>8)return alert('Você pode adicionar no máximo 8 fotos por produto.');
+  const allowedImageTypes=new Set(['image/jpeg','image/png','image/webp']);
+  for(const file of files){
+    if(!allowedImageTypes.has(String(file.type||'').toLowerCase())){
+      return alert('Use somente fotos JPG, PNG ou WEBP.');
+    }
+    if(Number(file.size||0)>5*1024*1024){
+      return alert('Cada foto pode ter no máximo 5 MB.');
+    }
+  }
   const images=[];
   for(const file of files){
     let path=`${currentCompany.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
