@@ -47,12 +47,18 @@ module.exports=async(req,res)=>{
     const [connections,payments,arremates]=await Promise.all([
       serviceFetch(`/rest/v1/mercado_pago_connections?company_id=eq.${encodeURIComponent(companyId)}&active=eq.true&select=access_token_encrypted&limit=1`),
       serviceFetch(`/rest/v1/payments?company_id=eq.${encodeURIComponent(companyId)}&status=in.(pending,processing)&select=id,status,provider_payment_id,updated_at,arremate_id&order=updated_at.desc&limit=100`),
-      serviceFetch(`/rest/v1/arremates?company_id=eq.${encodeURIComponent(companyId)}&select=id,created_at`)
+      serviceFetch(`/rest/v1/arremates?company_id=eq.${encodeURIComponent(companyId)}&select=id,created_at,lot_id`)
     ]);
 
     const connection=Array.isArray(connections)?connections[0]:null;
     const rows=Array.isArray(payments)?payments:[];
-    const arremateMap=new Map((Array.isArray(arremates)?arremates:[]).map(a=>[String(a.id),a]));
+    const arremateRows=Array.isArray(arremates)?arremates:[];
+    const arremateMap=new Map(arremateRows.map(a=>[String(a.id),a]));
+    const lotIds=[...new Set(arremateRows.map(a=>a.lot_id).filter(Boolean))];
+    const lotRows=lotIds.length
+      ?await serviceFetch(`/rest/v1/lots?id=in.(${lotIds.map(encodeURIComponent).join(',')})&select=id,ends_at`)
+      :[];
+    const lotEndMap=new Map((Array.isArray(lotRows)?lotRows:[]).map(l=>[String(l.id),l.ends_at]));
     if(!rows.length)return res.status(200).json({ok:true,checked:0,updated:0,expired:0,connected:!!connection?.access_token_encrypted});
 
     const accessToken=connection?.access_token_encrypted?decrypt(connection.access_token_encrypted):null;
@@ -82,7 +88,9 @@ module.exports=async(req,res)=>{
 
         if(currentStatus!=='paid'){
           const arremate=arremateMap.get(String(payment.arremate_id));
-          const deadline=arremate?.created_at?new Date(arremate.created_at).getTime()+PAYMENT_LIMIT_MS:0;
+          const startsAt=arremate?.lot_id?lotEndMap.get(String(arremate.lot_id)):null;
+          const baseTime=startsAt||arremate?.created_at||null;
+          const deadline=baseTime?new Date(baseTime).getTime()+PAYMENT_LIMIT_MS:0;
           if(deadline&&Date.now()>=deadline){
             await serviceFetch(`/rest/v1/payments?id=eq.${encodeURIComponent(payment.id)}&company_id=eq.${encodeURIComponent(companyId)}`,{
               method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'cancelled',updated_at:new Date().toISOString()})
