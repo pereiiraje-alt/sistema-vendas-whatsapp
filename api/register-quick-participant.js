@@ -39,14 +39,18 @@ module.exports=async(req,res)=>{
       const p=existing[0];
       const sameName=normalizeName(p.full_name)===normalizeName(name);
       const samePhone=String(p.phone||'').replace(/\D/g,'')===mobile;
-      if(!sameName||!samePhone)return res.status(409).json({error:'Este CPF já possui cadastro. Confira o nome e telefone informados ou use “Já participei”.'});
-      if(!p.auth_user_id)return res.status(409).json({error:'Cadastro antigo sem acesso rápido. Procure o organizador.'});
-      const authUpdate=await fetch(SUPABASE_URL+'/auth/v1/admin/users/'+encodeURIComponent(p.auth_user_id),{method:'PUT',headers,body:JSON.stringify({password})});
-      if(!authUpdate.ok)return res.status(502).json({error:'Não foi possível renovar seu acesso.'});
-      const updated=await fetch(SUPABASE_URL+'/rest/v1/participants?id=eq.'+encodeURIComponent(p.id),{method:'PATCH',headers:{...headers,Prefer:'return=representation'},body:JSON.stringify({quick_access_hash:accessHash,phone:mobile,full_name:name})});
-      const rows=await readJson(updated);
-      if(!updated.ok||!Array.isArray(rows)||!rows[0])return res.status(502).json({error:'Não foi possível atualizar seu acesso.'});
-      return res.status(200).json({participant:rows[0],credentials:{email:p.email,password},accessKey,recovered:true});
+      if(!sameName||!samePhone)return res.status(409).json({error:'Este CPF já possui cadastro. Confira os dados informados ou use “Já participei”.'});
+
+      // Nunca gere uma nova credencial somente com nome + CPF + telefone.
+      // Esses dados podem ser conhecidos por terceiros e não comprovam posse do cadastro.
+      if(p.quick_access_hash){
+        return res.status(409).json({
+          error:'Este CPF já possui acesso rápido. Use “Já participei” neste aparelho. Se trocou de aparelho ou perdeu o acesso, procure o organizador para liberar um novo acesso.'
+        });
+      }
+      return res.status(409).json({
+        error:'Este CPF já possui cadastro anterior. Procure o organizador para liberar o acesso rápido com segurança.'
+      });
     }
     const email='participante-'+crypto.randomUUID()+'@jpleiloes.com.br';
     const create=await fetch(SUPABASE_URL+'/auth/v1/admin/users',{method:'POST',headers,body:JSON.stringify({email,password,email_confirm:true,user_metadata:{full_name:name,account_type:'quick_participant'}})});
