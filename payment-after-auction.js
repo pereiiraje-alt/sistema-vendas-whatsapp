@@ -179,7 +179,7 @@
     if(!a){box.insertAdjacentHTML('beforeend','<div class="pay-status">Não foi possível carregar os dados do arremate. Atualize a página.</div>');return}
     const amount=Number(a.total_amount||a.winning_bid||0);
     const paid=payment?.status==='paid';
-    const expired=payment?.status==='cancelled';
+    const expired=payment?.status==='cancelled'||data?.expired===true;
     const selected=['pix','card'].includes(payment?.method)?payment.method:'';
     const startMs=data.paymentDeadline?new Date(data.paymentDeadline).getTime()-PAYMENT_LIMIT_MS:(lotEnds?new Date(lotEnds).getTime():new Date(a.created_at).getTime());
     const deadline=startMs+PAYMENT_LIMIT_MS;
@@ -214,6 +214,7 @@
           const checked=await checkPaymentStatus(id);
           if(checked?.payment)lastFinalization.payment=checked.payment;
           if(checked?.paymentDeadline)lastFinalization.paymentDeadline=checked.paymentDeadline;
+          lastFinalization.expired=checked?.expired===true;
           lastFinalization.qrCode=checked?.qrCode||'';
           lastFinalization.qrCodeBase64=checked?.qrCodeBase64||'';
           lastFinalization.ticketUrl=checked?.ticketUrl||'';
