@@ -29,7 +29,7 @@ module.exports=async(req,res)=>{
     const lotResponse=await fetch(SUPABASE_URL+'/rest/v1/lots?id=eq.'+encodeURIComponent(lotId)+'&company_id=eq.'+encodeURIComponent(companyId)+'&select=id,status,ends_at&limit=1',{headers});
     const lots=await readJson(lotResponse);
     if(!lotResponse.ok||!Array.isArray(lots)||lots[0]?.status!=='live'||!lots[0]?.ends_at||Date.now()>=Date.parse(lots[0].ends_at))return res.status(403).json({error:'Leilão encerrado ou indisponível.'});
-    const existingResponse=await fetch(SUPABASE_URL+'/rest/v1/participants?company_id=eq.'+encodeURIComponent(companyId)+'&cpf=eq.'+document+'&select=id,company_id,auth_user_id,full_name,cpf,phone,email,status&limit=1',{headers});
+    const existingResponse=await fetch(SUPABASE_URL+'/rest/v1/participants?company_id=eq.'+encodeURIComponent(companyId)+'&cpf=eq.'+document+'&select=id,company_id,auth_user_id,full_name,cpf,phone,email,status,quick_access_hash,quick_access_reset_until&limit=1',{headers});
     const existing=await readJson(existingResponse);
     if(!existingResponse.ok)return res.status(502).json({error:'Não foi possível conferir seu cadastro.'});
     const accessKey=crypto.randomBytes(32).toString('base64url');
@@ -41,16 +41,37 @@ module.exports=async(req,res)=>{
       const samePhone=String(p.phone||'').replace(/\D/g,'')===mobile;
       if(!sameName||!samePhone)return res.status(409).json({error:'Este CPF já possui cadastro. Confira os dados informados ou use “Já participei”.'});
 
-      // Nunca gere uma nova credencial somente com nome + CPF + telefone.
-      // Esses dados podem ser conhecidos por terceiros e não comprovam posse do cadastro.
-      if(p.quick_access_hash){
+      const resetUntil=p.quick_access_reset_until?Date.parse(p.quick_access_reset_until):0;
+      const resetAllowed=Number.isFinite(resetUntil)&&resetUntil>Date.now();
+      if(!resetAllowed){
         return res.status(409).json({
-          error:'Este CPF já possui acesso rápido. Use “Já participei” neste aparelho. Se trocou de aparelho ou perdeu o acesso, procure o organizador para liberar um novo acesso.'
+          error:p.quick_access_hash
+            ?'Este CPF já possui acesso rápido. Use “Já participei”. Se trocou de aparelho ou perdeu o acesso, peça ao organizador para liberar um novo acesso.'
+            :'Este CPF já possui cadastro anterior. Peça ao organizador para liberar o acesso rápido com segurança.'
         });
       }
-      return res.status(409).json({
-        error:'Este CPF já possui cadastro anterior. Procure o organizador para liberar o acesso rápido com segurança.'
+      if(!p.auth_user_id||!p.email){
+        return res.status(409).json({error:'Cadastro antigo sem conta de acesso. Procure o organizador.'});
+      }
+
+      const authUpdate=await fetch(SUPABASE_URL+'/auth/v1/admin/users/'+encodeURIComponent(p.auth_user_id),{
+        method:'PUT',headers,body:JSON.stringify({password})
       });
+      if(!authUpdate.ok)return res.status(502).json({error:'Não foi possível renovar seu acesso.'});
+
+      const updated=await fetch(SUPABASE_URL+'/rest/v1/participants?id=eq.'+encodeURIComponent(p.id),{
+        method:'PATCH',
+        headers:{...headers,Prefer:'return=representation'},
+        body:JSON.stringify({
+          quick_access_hash:accessHash,
+          quick_access_reset_until:null,
+          phone:mobile,
+          full_name:name
+        })
+      });
+      const rows=await readJson(updated);
+      if(!updated.ok||!Array.isArray(rows)||!rows[0])return res.status(502).json({error:'Não foi possível concluir a liberação do novo acesso.'});
+      return res.status(200).json({participant:rows[0],credentials:{email:p.email,password},accessKey,recovered:true});
     }
     const email='participante-'+crypto.randomUUID()+'@jpleiloes.com.br';
     const create=await fetch(SUPABASE_URL+'/auth/v1/admin/users',{method:'POST',headers,body:JSON.stringify({email,password,email_confirm:true,user_metadata:{full_name:name,account_type:'quick_participant'}})});
