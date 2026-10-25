@@ -918,7 +918,11 @@ document.querySelector('#saveLot').onclick=async e=>{e.preventDefault();const in
   if(created?.id&&selectedWhatsappGroups.length){
     if(typeof window.jpWhatsappSendLotToGroups==='function'){
       const sent=await window.jpWhatsappSendLotToGroups(created.id,selectedWhatsappGroups,{silent:true});
-      if(!sent)alert('Produto criado, mas não foi possível colocá-lo na fila do WhatsApp.');
+      if(sent){
+        window.jpWhatsappQueuedDuringCreate={lotId:created.id,auctionId:currentAuction.id,at:Date.now()};
+      }else{
+        alert('Produto criado, mas não foi possível colocá-lo na fila do WhatsApp.');
+      }
     }else{
       alert('Produto criado, mas a integração do WhatsApp ainda não estava pronta para enviar.');
     }
