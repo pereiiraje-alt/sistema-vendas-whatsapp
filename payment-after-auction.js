@@ -7,6 +7,8 @@
   let paymentWatcher=null;
   let deadlineWatcher=null;
   let syncingReturn=false;
+  const finalizationInflight=new Map();
+  let authFailureAt=0;
 
   function styleOnce(){
     if(document.getElementById('winner-payment-style'))return;
@@ -46,13 +48,35 @@
   }
 
   async function finalize(id){
-    const session=await (window.jpQuickBidClient||db).auth.getSession();
-    const token=session?.data?.session?.access_token;
-    if(!token)return null;
-    const response=await fetch('/api/finalize-lot',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({lotId:id})});
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(data.error||'Não foi possível finalizar o produto.');
-    return data;
+    if(finalizationInflight.has(id))return finalizationInflight.get(id);
+    if(Date.now()-authFailureAt<15000)return null;
+    const task=(async()=>{
+      const authClient=window.jpQuickBidClient||db;
+      let session=await authClient.auth.getSession();
+      let token=session?.data?.session?.access_token;
+      if(!token)return null;
+      const request=async accessToken=>fetch('/api/finalize-lot',{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:`Bearer ${accessToken}`},
+        body:JSON.stringify({lotId:id})
+      });
+      let response=await request(token);
+      if(response.status===401&&typeof authClient.auth.refreshSession==='function'){
+        const refreshed=await authClient.auth.refreshSession().catch(()=>null);
+        token=refreshed?.data?.session?.access_token||'';
+        if(token)response=await request(token);
+      }
+      const data=await response.json().catch(()=>({}));
+      if(response.status===401){
+        authFailureAt=Date.now();
+        return null;
+      }
+      if(!response.ok)throw new Error(data.error||'Não foi possível finalizar o produto.');
+      authFailureAt=0;
+      return data;
+    })().finally(()=>finalizationInflight.delete(id));
+    finalizationInflight.set(id,task);
+    return task;
   }
 
   function methodLabel(m){return m==='pix'?'PIX':m==='card'?'Cartão':''}
