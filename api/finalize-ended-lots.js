@@ -13,6 +13,27 @@ module.exports=async(req,res)=>{
   }
 
   try{
+    const nowIso=new Date().toISOString();
+
+    // Transições de horário não dependem mais de uma tela aberta no navegador.
+    await serviceFetch('/rest/v1/lots?status=eq.scheduled&starts_at=lte.'+encodeURIComponent(nowIso),{
+      method:'PATCH',
+      headers:{Prefer:'return=minimal'},
+      body:JSON.stringify({status:'live',updated_at:nowIso})
+    });
+    await serviceFetch('/rest/v1/auctions?status=eq.scheduled&starts_at=lte.'+encodeURIComponent(nowIso),{
+      method:'PATCH',
+      headers:{Prefer:'return=minimal'},
+      body:JSON.stringify({status:'live',updated_at:nowIso})
+    });
+
+    // O teste gratuito expira no servidor, mesmo se o usuário mantiver a sessão aberta.
+    await serviceFetch('/rest/v1/companies?plan=eq.teste&active=eq.true&subscription_expires_at=lt.'+encodeURIComponent(nowIso),{
+      method:'PATCH',
+      headers:{Prefer:'return=minimal'},
+      body:JSON.stringify({active:false,subscription_status:'trial_expired',updated_at:nowIso})
+    });
+
     const due=await serviceFetch(
       '/rest/v1/lots?status=eq.live&ends_at=lt.'+
       encodeURIComponent(new Date().toISOString())+
