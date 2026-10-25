@@ -87,13 +87,21 @@ module.exports=async(req,res)=>{
     const feePercent=company?.platform_fee_type==='percentage'?Number(company.platform_fee_value||0):0;
     const marketplaceFee=feePercent>0?Number((amount*feePercent/100).toFixed(2)):0;
 
+    const connections=await serviceFetch(`/rest/v1/mercado_pago_connections?company_id=eq.${encodeURIComponent(arremate.company_id)}&active=eq.true&select=access_token_encrypted,token_expires_at&limit=1`);
+    const connection=Array.isArray(connections)?connections[0]:null;
+    if(!connection?.access_token_encrypted){
+      return res.status(200).json({
+        payment:null,
+        onlineReady:false,
+        method,
+        paymentDeadline:new Date(deadline).toISOString(),
+        message:'A empresa ainda precisa conectar o Mercado Pago antes de receber pagamentos online.'
+      });
+    }
+
     const payload={company_id:arremate.company_id,arremate_id:arremate.id,provider:'mercado_pago',method,status:'pending',amount,platform_fee_amount:marketplaceFee,platform_fee_percent:feePercent,updated_at:new Date().toISOString()};
     const savedRows=await serviceFetch('/rest/v1/payments?on_conflict=arremate_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
     let payment=Array.isArray(savedRows)?savedRows[0]:savedRows;
-
-    const connections=await serviceFetch(`/rest/v1/mercado_pago_connections?company_id=eq.${encodeURIComponent(arremate.company_id)}&active=eq.true&select=access_token_encrypted,token_expires_at&limit=1`);
-    const connection=Array.isArray(connections)?connections[0]:null;
-    if(!connection?.access_token_encrypted)return res.status(200).json({payment,onlineReady:false,message:'Forma de pagamento registrada. A empresa ainda precisa conectar o Mercado Pago.'});
 
     const accessToken=decrypt(connection.access_token_encrypted);
     if(method==='pix'){
