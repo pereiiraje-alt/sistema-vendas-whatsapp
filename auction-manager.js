@@ -176,7 +176,11 @@
         document.querySelector('#title').textContent='Vendas';
         document.querySelector('#subtitle').textContent='Vendas publicados e em andamento';
         await leiloes();
-        if(typeof window.jpWhatsappSendAuction==='function'){
+        const queuedDuringCreate=window.jpWhatsappQueuedDuringCreate;
+        const sameAuction=queuedDuringCreate?.auctionId===currentAuction.id&&(Date.now()-Number(queuedDuringCreate.at||0))<30000;
+        if(sameAuction){
+          window.jpWhatsappQueuedDuringCreate=null;
+        }else if(typeof window.jpWhatsappSendAuction==='function'){
           window.jpWhatsappSendAuction(currentAuction.id,{silent:true}).catch(error=>console.warn('WhatsApp automático:',error));
         }
       }catch(error){alert('O produto foi criado, mas não foi possível publicar o venda: '+(error.message||error));}
