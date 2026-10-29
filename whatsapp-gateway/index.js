@@ -131,7 +131,7 @@ async function resolveDirectJid(sock,raw){
 
 function captionFor(job){
   const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-  const date=v=>v?new Date(v).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'a definir';
+  const date=v=>v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'a definir';
   const fallback=`🚨 *BORA PARA MAIS UM LEILÃO!* 🚨\n\n🔨 *{produto}*\n\n📦 Produto #{numero}\n💰 Avaliação: {avaliacao}\n🔥 Lance inicial: {lance_inicial}\n➕ Acréscimo mínimo: {incremento}\n\n🕐 Começa: {inicio}\n⏳ Termina: {fim}\n\n👉 *Clique no link abaixo e faça sua oferta:*\n\n{link}\n\n🚨 *Não fique de fora. Bora para mais um leilão!* 🔨`;
   const values={
     empresa:job.company_name||'JP Leilões',
@@ -158,7 +158,7 @@ async function report(ctx){
       p_phone:ctx.phone||null,
       p_groups:ctx.groups||[],
       p_error:ctx.lastError||null,
-      p_worker_version:'central-10-query-timeout'
+      p_worker_version:'central-11-sao-paulo-time'
     });
   }catch(e){console.error('status',e.message)}
 }
@@ -372,7 +372,7 @@ const server=http.createServer(async(req,res)=>{
   cors(req,res);
   if(req.method==='OPTIONS'){res.writeHead(204);res.end();return}
   res.setHeader('Content-Type','application/json; charset=utf-8');
-  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-10-query-timeout',sessions:sessions.size}));return}
+  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-11-sao-paulo-time',sessions:sessions.size}));return}
   try{
     const data=await readJson(req);
     if(req.method==='POST'&&req.url==='/connect'){
