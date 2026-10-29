@@ -89,14 +89,28 @@ async function restoreSession(token){
   if(files&&typeof files==='object'&&Object.keys(files).length) writeSessionFiles(sessionDir(token),files);
 }
 
-async function persistSession(ctx){
+async function persistSessionNow(ctx){
   const files=readSessionFiles(sessionDir(ctx.token));
   await rpc('whatsapp_gateway_session_save',{p_token:ctx.token,p_files:files});
 }
 
+async function persistSession(ctx){
+  if(ctx.persistPromise){
+    ctx.persistAgain=true;
+    return ctx.persistPromise;
+  }
+  ctx.persistPromise=(async()=>{
+    do{
+      ctx.persistAgain=false;
+      await persistSessionNow(ctx);
+    }while(ctx.persistAgain);
+  })().finally(()=>{ctx.persistPromise=null});
+  return ctx.persistPromise;
+}
+
 function schedulePersist(ctx){
   clearTimeout(ctx.persistTimer);
-  ctx.persistTimer=setTimeout(()=>persistSession(ctx).catch(e=>console.error('persist',e.message)),400);
+  ctx.persistTimer=setTimeout(()=>persistSession(ctx).catch(e=>console.error('persist',e.message)),2500);
 }
 
 async function resolveDirectJid(sock,raw){
@@ -144,7 +158,7 @@ async function report(ctx){
       p_phone:ctx.phone||null,
       p_groups:ctx.groups||[],
       p_error:ctx.lastError||null,
-      p_worker_version:'central-5-retry'
+      p_worker_version:'central-6-session-reset'
     });
   }catch(e){console.error('status',e.message)}
 }
@@ -204,13 +218,12 @@ async function connect(rawToken){
   let ctx=sessions.get(token);
   if(ctx?.state==='ONLINE'||ctx?.connecting) return ctx;
   if(!ctx){
-    ctx={token,state:'OFFLINE',phone:'',groups:[],lastError:'',qr:'',pairingCode:'',connecting:false,busy:false,sock:null,poll:null,persistTimer:null};
+    ctx={token,state:'OFFLINE',phone:'',groups:[],lastError:'',qr:'',pairingCode:'',connecting:false,busy:false,sock:null,poll:null,persistTimer:null,persistPromise:null,persistAgain:false};
     sessions.set(token,ctx);
   }
   ctx.connecting=true;ctx.state='CONECTANDO';ctx.lastError='';await report(ctx);
   try{
     await restoreSession(token);
-    await rpc('whatsapp_gateway_session_save',{p_token:token,p_files:readSessionFiles(sessionDir(token))});
     const {state:authState,saveCreds}=await useMultiFileAuthState(sessionDir(token));
     const version=await getLiveWhatsAppVersion();
     const sock=makeWASocket({version,auth:authState,logger,printQRInTerminal:false,browser:Browsers.windows('Chrome'),markOnlineOnConnect:false,syncFullHistory:false});
@@ -317,7 +330,7 @@ const server=http.createServer(async(req,res)=>{
   cors(req,res);
   if(req.method==='OPTIONS'){res.writeHead(204);res.end();return}
   res.setHeader('Content-Type','application/json; charset=utf-8');
-  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-5-retry',sessions:sessions.size}));return}
+  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-6-session-reset',sessions:sessions.size}));return}
   try{
     const data=await readJson(req);
     if(req.method==='POST'&&req.url==='/connect'){
