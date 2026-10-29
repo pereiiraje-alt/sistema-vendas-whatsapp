@@ -1,5 +1,5 @@
 (()=>{
-  const GATEWAY_API='https://p01--jp-leiloes-whatsapp-gateway--6k5y48knpjrb.code.run';
+  const GATEWAY_API='/api/whatsapp-gateway';
   let pollTimer=null;
 
   function tokenKey(){
@@ -62,10 +62,19 @@
   async function gatewayRequest(path,body={}){
     const token=getToken();
     if(!token)throw new Error('Inicie uma nova conexão do WhatsApp.');
-    const response=await fetch(GATEWAY_API+path,{
+
+    const sessionResult=await db.auth.getSession();
+    const accessToken=sessionResult?.data?.session?.access_token;
+    if(!accessToken)throw new Error('Sessão da empresa expirada. Entre novamente.');
+
+    const action=String(path||'').replace(/^\/+|\/+$/g,'');
+    const response=await fetch(GATEWAY_API,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({token,...body}),
+      headers:{
+        'Content-Type':'application/json',
+        Authorization:`Bearer ${accessToken}`
+      },
+      body:JSON.stringify({action,token,...body}),
       cache:'no-store'
     });
     const raw=await response.text();
