@@ -55,7 +55,7 @@ async function reportStatus(){
       p_phone:phone||null,
       p_groups:groups,
       p_error:lastError||null,
-      p_worker_version:'local-4-siren'
+      p_worker_version:'local-11-sao-paulo-time'
     });
   }catch(e){console.error('Status:',e.message)}
 }
@@ -75,7 +75,7 @@ async function refreshGroups(){
 
 function captionFor(job){
   const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-  const date=v=>v?new Date(v).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'a definir';
+  const date=v=>v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'a definir';
   const fallback=`🚨 *BORA PARA MAIS UM LEILÃO!* 🚨\n\n🔨 *{produto}*\n\n📦 Produto #{numero}\n💰 Avaliação: {avaliacao}\n🔥 Lance inicial: {lance_inicial}\n➕ Acréscimo mínimo: {incremento}\n\n🕐 Começa: {inicio}\n⏳ Termina: {fim}\n\n👉 *Clique no link abaixo e faça sua oferta:*\n\n{link}\n\n🚨 *Não fique de fora. Bora para mais um leilão!* 🔨`;
   const values={
     empresa:job.company_name||'JP Leilões',
@@ -198,7 +198,7 @@ function html(){
   <div class="row"><button onclick="saveToken()">Salvar código</button><button onclick="act('/connect')">Conectar WhatsApp</button><button class="ghost" onclick="act('/disconnect')">Desconectar</button><button class="ghost" onclick="location.reload()">Atualizar</button></div>
   ${qrDataUrl?'<h3>Escaneie no WhatsApp</h3><img src="'+qrDataUrl+'" alt="QR Code">':''}
   <h3>Grupos encontrados</h3><p class="muted">${groups.length?groups.map(g=>esc(g.name)).join('<br>'):'Conecte o WhatsApp para carregar os grupos.'}</p>
-  <p class="muted">Mantenha este programa aberto. Ele envia automaticamente leilões para grupos e lembretes diretamente aos compradores.</p><p class="muted"><b>Versão do conector:</b> local-4-siren</p></div>
+  <p class="muted">Mantenha este programa aberto. Ele envia automaticamente leilões para grupos e lembretes diretamente aos compradores.</p><p class="muted"><b>Versão do conector:</b> local-11-sao-paulo-time</p></div>
   <script>
     async function post(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const d=await r.json().catch(()=>({}));if(!r.ok)alert(d.error||'Erro');return d}
     async function saveToken(){await post('/config',{deviceToken:document.getElementById('token').value});location.reload()}
