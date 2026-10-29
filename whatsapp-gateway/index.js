@@ -158,7 +158,7 @@ async function report(ctx){
       p_phone:ctx.phone||null,
       p_groups:ctx.groups||[],
       p_error:ctx.lastError||null,
-      p_worker_version:'central-6-session-reset'
+      p_worker_version:'central-7-session-cors'
     });
   }catch(e){console.error('status',e.message)}
 }
@@ -319,7 +319,15 @@ async function readJson(req){
 
 function cors(req,res){
   const origin=String(req.headers.origin||'');
-  const allowed=['https://jpleiloes.com.br','https://www.jpleiloes.com.br','http://localhost:3000','http://127.0.0.1:5500'];
+  const allowed=[
+    'https://jpleiloes.com.br',
+    'https://www.jpleiloes.com.br',
+    'https://sistema-vendas-whatsapp.vercel.app',
+    'https://sistema-vendas-whatsapp-pereiiraje-5610.vercel.app',
+    'https://sistema-vendas-whatsapp-git-main-pereiiraje-5610.vercel.app',
+    'http://localhost:3000',
+    'http://127.0.0.1:5500'
+  ];
   if(allowed.includes(origin)) res.setHeader('Access-Control-Allow-Origin',origin);
   res.setHeader('Vary','Origin');
   res.setHeader('Access-Control-Allow-Headers','Content-Type');
@@ -330,7 +338,7 @@ const server=http.createServer(async(req,res)=>{
   cors(req,res);
   if(req.method==='OPTIONS'){res.writeHead(204);res.end();return}
   res.setHeader('Content-Type','application/json; charset=utf-8');
-  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-6-session-reset',sessions:sessions.size}));return}
+  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-7-session-cors',sessions:sessions.size}));return}
   try{
     const data=await readJson(req);
     if(req.method==='POST'&&req.url==='/connect'){
