@@ -158,7 +158,7 @@ async function report(ctx){
       p_phone:ctx.phone||null,
       p_groups:ctx.groups||[],
       p_error:ctx.lastError||null,
-      p_worker_version:'central-8-group-retry'
+      p_worker_version:'central-9-media-fallback'
     });
   }catch(e){console.error('status',e.message)}
 }
@@ -178,6 +178,13 @@ function withTimeout(promise,ms,label){
   ]).finally(()=>clearTimeout(timer));
 }
 
+async function fetchMediaBuffer(url){
+  const response=await withTimeout(fetch(url,{cache:'no-store'}),12000,'Baixar foto do produto');
+  if(!response.ok)throw new Error('Não foi possível baixar a foto do produto');
+  const arrayBuffer=await withTimeout(response.arrayBuffer(),12000,'Ler foto do produto');
+  return Buffer.from(arrayBuffer);
+}
+
 async function processOne(ctx){
   if(ctx.busy||ctx.state!=='ONLINE'||!ctx.sock) return;
   ctx.busy=true;
@@ -194,9 +201,26 @@ async function processOne(ctx){
         if(!targetIds.length) throw new Error('Nenhum grupo selecionado');
         if(!job.image_url) throw new Error('Produto sem foto');
         const caption=captionFor(job);
+        let imageBuffer=null;
+        try{
+          imageBuffer=await fetchMediaBuffer(job.image_url);
+        }catch(e){
+          console.warn('media-download',e.message||e);
+        }
         for(const jid of targetIds){
           if(ctx.state!=='ONLINE'||!ctx.sock)throw new Error('WhatsApp reconectando; envio será repetido automaticamente');
-          await withTimeout(ctx.sock.sendMessage(jid,{image:{url:job.image_url},caption}),60000,'Envio para grupo');
+          let sent=false;
+          if(imageBuffer){
+            try{
+              await withTimeout(ctx.sock.sendMessage(jid,{image:imageBuffer,caption}),35000,'Envio da foto para grupo');
+              sent=true;
+            }catch(e){
+              console.warn('media-send-fallback',jid,e.message||e);
+            }
+          }
+          if(!sent){
+            await withTimeout(ctx.sock.sendMessage(jid,{text:caption}),20000,'Envio em texto para grupo');
+          }
           await new Promise(r=>setTimeout(r,1500));
         }
       }
@@ -339,7 +363,7 @@ const server=http.createServer(async(req,res)=>{
   cors(req,res);
   if(req.method==='OPTIONS'){res.writeHead(204);res.end();return}
   res.setHeader('Content-Type','application/json; charset=utf-8');
-  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-8-group-retry',sessions:sessions.size}));return}
+  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-9-media-fallback',sessions:sessions.size}));return}
   try{
     const data=await readJson(req);
     if(req.method==='POST'&&req.url==='/connect'){
