@@ -73,6 +73,23 @@ module.exports=async(req,res)=>{
         body:JSON.stringify({p_token:deviceToken})
       }).catch(()=>null);
 
+      const revokedTokenHash=sha256('revoked:'+crypto.randomBytes(32).toString('hex'));
+      await serviceFetch(
+        '/rest/v1/company_whatsapp_devices?company_id=eq.'+encodeURIComponent(membership.company_id),
+        {
+          method:'PATCH',
+          headers:{Prefer:'return=minimal'},
+          body:JSON.stringify({
+            token_hash:revokedTokenHash,
+            status:'OFFLINE',
+            phone:null,
+            available_groups:[],
+            last_error:null,
+            updated_at:new Date().toISOString()
+          })
+        }
+      );
+
       return res.status(200).json({
         ok:true,
         disconnected:true,
