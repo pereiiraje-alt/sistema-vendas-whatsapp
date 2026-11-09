@@ -18,6 +18,32 @@
     if(pollTimer){clearInterval(pollTimer);pollTimer=null}
   }
 
+  async function ensureFreshAuth(){
+    let result=await db.auth.getSession();
+    let session=result?.data?.session||null;
+    const expiresAt=Number(session?.expires_at||0)*1000;
+    if(!session||!session.access_token||(expiresAt&&expiresAt-Date.now()<90000)){
+      const refreshed=await db.auth.refreshSession();
+      if(refreshed?.error)throw refreshed.error;
+      session=refreshed?.data?.session||null;
+    }
+    if(!session?.access_token)throw new Error('Sessão da empresa expirada. Entre novamente.');
+    return session;
+  }
+
+  async function rpcWithAuthRetry(name,args){
+    await ensureFreshAuth();
+    let result=await db.rpc(name,args);
+    const msg=String(result?.error?.message||'');
+    if(result?.error&&/(jwt|token|session|permission|not authorized|unauthorized)/i.test(msg)){
+      const refreshed=await db.auth.refreshSession();
+      if(refreshed?.error)throw refreshed.error;
+      result=await db.rpc(name,args);
+    }
+    if(result?.error)throw result.error;
+    return result.data;
+  }
+
   async function getSettings(){
     if(!currentCompany?.id)return null;
     let {data,error}=await db.from('company_whatsapp_settings').select('*').eq('company_id',currentCompany.id).maybeSingle();
@@ -49,8 +75,7 @@
 
   async function createDeviceToken(){
     const token=randomToken();
-    const {error}=await db.rpc('configure_company_whatsapp_device',{p_token:token});
-    if(error)throw error;
+    await rpcWithAuthRetry('configure_company_whatsapp_device',{p_token:token});
     setToken(token);
     return token;
   }
@@ -63,9 +88,8 @@
     const token=getToken();
     if(!token)throw new Error('Inicie uma nova conexão do WhatsApp.');
 
-    const sessionResult=await db.auth.getSession();
-    const accessToken=sessionResult?.data?.session?.access_token;
-    if(!accessToken)throw new Error('Sessão da empresa expirada. Entre novamente.');
+    const session=await ensureFreshAuth();
+    const accessToken=session.access_token;
 
     const action=String(path||'').replace(/^\/+|\/+$/g,'');
     const response=await fetch(GATEWAY_API,{
@@ -85,8 +109,7 @@
   }
 
   async function enqueueAuction(auctionId,force=false){
-    const {data,error}=await db.rpc('enqueue_company_whatsapp_auction',{p_auction_id:auctionId,p_force:!!force});
-    if(error)throw error;
+    const data=await rpcWithAuthRetry('enqueue_company_whatsapp_auction',{p_auction_id:auctionId,p_force:!!force});
     return Number(data||0);
   }
 
@@ -106,10 +129,9 @@
   window.jpWhatsappSendLot=async function(lotId,{silent=false,force=true}={}){
     if(!currentCompany?.id||!lotId)return false;
     try{
-      const {data,error}=await db.rpc('enqueue_company_whatsapp_lot',{
+      const data=await rpcWithAuthRetry('enqueue_company_whatsapp_lot',{
         p_lot_id:lotId,p_force:!!force
       });
-      if(error)throw error;
       const count=Number(data||0);
       if(!silent)alert(count?'Produto enviado para a fila do WhatsApp.':'Este produto já estava na fila ou já foi enviado.');
       return count>0;
@@ -139,10 +161,9 @@
     const ids=[...new Set((groupIds||[]).map(String).filter(Boolean))];
     if(!ids.length)return false;
     try{
-      const {data,error}=await db.rpc('enqueue_company_whatsapp_lot_groups',{
+      const data=await rpcWithAuthRetry('enqueue_company_whatsapp_lot_groups',{
         p_lot_id:lotId,p_group_ids:ids
       });
-      if(error)throw error;
       const count=Number(data||0);
       if(!silent)alert(count?'Produto enviado para os grupos selecionados.':'Este produto já estava na fila para estes grupos.');
       return count>0;
@@ -157,16 +178,17 @@
     try{
       const text=String(message||'').trim();
       if(!text)throw new Error('Mensagem vazia.');
-      const {data,error}=await db.rpc('enqueue_company_whatsapp_direct',{
+      const data=await rpcWithAuthRetry('enqueue_company_whatsapp_direct',{
         p_phone:String(phone||''),p_message:text
       });
-      if(error)throw error;
       const queued=Number(data||0)>0;
-      if(!silent)alert(queued?'Mensagem colocada na fila do WhatsApp.':'Não foi possível criar o envio.');
-      return queued;
+      if(!queued)throw new Error('A mensagem não entrou na fila do WhatsApp.');
+      if(!silent)alert('Mensagem colocada na fila do WhatsApp.');
+      return true;
     }catch(e){
       console.warn('WhatsApp direto:',e);
-      if(!silent)alert('Não foi possível enviar pelo WhatsApp conectado: '+(e.message||e));
+      if(silent)throw e;
+      alert('Não foi possível enviar pelo WhatsApp conectado: '+(e.message||e));
       return false;
     }
   };
