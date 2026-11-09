@@ -158,7 +158,7 @@ async function report(ctx){
       p_phone:ctx.phone||null,
       p_groups:ctx.groups||[],
       p_error:ctx.lastError||null,
-      p_worker_version:'central-11-sao-paulo-time'
+      p_worker_version:'central-12-fast-disconnect'
     });
   }catch(e){console.error('status',e.message)}
 }
@@ -243,7 +243,7 @@ async function connect(rawToken){
   let ctx=sessions.get(token);
   if(ctx?.state==='ONLINE'||ctx?.connecting) return ctx;
   if(!ctx){
-    ctx={token,state:'OFFLINE',phone:'',groups:[],lastError:'',qr:'',pairingCode:'',connecting:false,busy:false,sock:null,poll:null,persistTimer:null,persistPromise:null,persistAgain:false};
+    ctx={token,state:'OFFLINE',phone:'',groups:[],lastError:'',qr:'',pairingCode:'',connecting:false,busy:false,sock:null,poll:null,persistTimer:null,persistPromise:null,persistAgain:false,manualDisconnect:false};
     sessions.set(token,ctx);
   }
   ctx.connecting=true;ctx.state='CONECTANDO';ctx.lastError='';await report(ctx);
@@ -283,19 +283,20 @@ async function connect(rawToken){
         const code=u.lastDisconnect?.error?.output?.statusCode;
         const loggedOut=code===DisconnectReason.loggedOut;
         const restartRequired=code===DisconnectReason.restartRequired;
-        ctx.state=restartRequired?'CONECTANDO':'OFFLINE';ctx.connecting=false;ctx.qr='';
+        const manualDisconnect=ctx.manualDisconnect===true;
+        ctx.state=restartRequired&&!manualDisconnect?'CONECTANDO':'OFFLINE';ctx.connecting=false;ctx.qr='';
         if(ctx.poll){clearInterval(ctx.poll);ctx.poll=null}
-        if(loggedOut){
+        if(loggedOut||manualDisconnect){
           fs.rmSync(sessionDir(token),{recursive:true,force:true});
-          ctx.phone='';ctx.groups=[];ctx.lastError='Sessão encerrada pelo WhatsApp.';
+          ctx.phone='';ctx.groups=[];ctx.lastError=manualDisconnect?'':'Sessão encerrada pelo WhatsApp.';
           await rpc('whatsapp_gateway_session_deactivate',{p_token:token}).catch(()=>{});
         }else{
           if(restartRequired)ctx.lastError='';
           await new Promise(r=>setTimeout(r,restartRequired?550:150));
           await persistSession(ctx).catch(()=>{});
         }
-        await report(ctx);
-        if(!loggedOut) setTimeout(()=>connect(token).catch(()=>{}),restartRequired?500:2500);
+        if(!manualDisconnect)await report(ctx);
+        if(!loggedOut&&!manualDisconnect) setTimeout(()=>connect(token).catch(()=>{}),restartRequired?500:2500);
       }
     });
     return ctx;
@@ -335,11 +336,34 @@ async function pairing(token,phone){
 async function disconnect(rawToken){
   const token=await validateToken(rawToken);
   const ctx=sessions.get(token);
-  if(ctx?.sock) await ctx.sock.logout().catch(()=>{});
-  if(ctx?.poll) clearInterval(ctx.poll);
+
+  if(ctx){
+    ctx.manualDisconnect=true;
+    ctx.state='OFFLINE';
+    ctx.connecting=false;
+    ctx.qr='';
+    ctx.pairingCode='';
+    ctx.phone='';
+    ctx.groups=[];
+    ctx.lastError='';
+    if(ctx.poll){clearInterval(ctx.poll);ctx.poll=null}
+    if(ctx.persistTimer){clearTimeout(ctx.persistTimer);ctx.persistTimer=null}
+  }
+
+  if(ctx?.sock){
+    await withTimeout(ctx.sock.logout(),5000,'Desconectar WhatsApp').catch(()=>{});
+  }
+
   fs.rmSync(sessionDir(token),{recursive:true,force:true});
   sessions.delete(token);
-  await rpc('whatsapp_gateway_session_deactivate',{p_token:token});
+
+  await withTimeout(
+    rpc('whatsapp_gateway_session_deactivate',{p_token:token}),
+    8000,
+    'Limpar sessão do WhatsApp'
+  ).catch(()=>{});
+
+  return true;
 }
 
 function publicState(ctx){
@@ -372,7 +396,7 @@ const server=http.createServer(async(req,res)=>{
   cors(req,res);
   if(req.method==='OPTIONS'){res.writeHead(204);res.end();return}
   res.setHeader('Content-Type','application/json; charset=utf-8');
-  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-11-sao-paulo-time',sessions:sessions.size}));return}
+  if(req.method==='GET'&&(req.url==='/health'||req.url==='/health-central-2')){res.setHeader('Cache-Control','no-store');res.end(JSON.stringify({ok:true,service:'jp-leiloes-whatsapp-gateway',version:'central-12-fast-disconnect',sessions:sessions.size}));return}
   try{
     const data=await readJson(req);
     if(req.method==='POST'&&req.url==='/connect'){
