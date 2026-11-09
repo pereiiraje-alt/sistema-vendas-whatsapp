@@ -49,9 +49,11 @@ module.exports=async(req,res)=>{
     }
 
     const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),35000);
+    const timeoutMs=action==='disconnect'?12000:35000;
+    const timeout=setTimeout(()=>controller.abort(),timeoutMs);
 
-    let upstream;
+    let upstream=null;
+    let upstreamError=null;
     try{
       upstream=await fetch(GATEWAY_API+'/'+action,{
         method:'POST',
@@ -59,9 +61,26 @@ module.exports=async(req,res)=>{
         body:JSON.stringify({...body,action:undefined,token:deviceToken}),
         signal:controller.signal
       });
+    }catch(error){
+      upstreamError=error;
     }finally{
       clearTimeout(timeout);
     }
+
+    if(action==='disconnect'){
+      await serviceFetch('/rest/v1/rpc/whatsapp_gateway_session_deactivate',{
+        method:'POST',
+        body:JSON.stringify({p_token:deviceToken})
+      }).catch(()=>null);
+
+      return res.status(200).json({
+        ok:true,
+        disconnected:true,
+        forced:!!upstreamError||!upstream?.ok
+      });
+    }
+
+    if(upstreamError)throw upstreamError;
 
     const raw=await upstream.text();
     res.status(upstream.status);
