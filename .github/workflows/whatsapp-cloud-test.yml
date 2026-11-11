@@ -1,0 +1,30 @@
+name: WhatsApp Cloud Test
+
+on:
+  push:
+    branches:
+      - teste-whatsapp-cloud
+    paths:
+      - 'whatsapp-cloud/**'
+      - '.github/workflows/whatsapp-cloud-test.yml'
+  pull_request:
+    paths:
+      - 'whatsapp-cloud/**'
+      - '.github/workflows/whatsapp-cloud-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: whatsapp-cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: whatsapp-cloud/package.json
+      - run: npm install
+      - run: npm run check
+      - run: npm test
