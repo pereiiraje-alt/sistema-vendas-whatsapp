@@ -306,7 +306,7 @@
           </div>
           <div class="wa-connected-actions">
             <button class="ghost mini" type="button" data-wa-refresh>Atualizar</button>
-            ${getToken()?'<button class="ghost mini" type="button" data-wa-disconnect>Desconectar</button>':''}
+            <button class="wa-disconnect-btn" type="button" data-wa-disconnect>Desconectar WhatsApp</button>
           </div>
         </div>
 
@@ -416,16 +416,24 @@
     root.querySelectorAll('[data-wa-refresh]').forEach(btn=>btn.addEventListener('click',()=>renderWhatsappPage()));
 
     root.querySelector('[data-wa-disconnect]')?.addEventListener('click',async e=>{
-      if(!confirm('Desconectar este WhatsApp do JP Leilões?'))return;
+      if(!confirm('Desconectar este WhatsApp do JP Leilões?\n\nOs envios automáticos serão interrompidos até você conectar novamente.'))return;
       const btn=e.currentTarget;
+      const old=btn.textContent;
       btn.disabled=true;
+      btn.textContent='Desconectando...';
       try{
-        await gatewayRequest('/disconnect');
+        if(getToken()){
+          try{await gatewayRequest('/disconnect')}catch(err){console.warn('Logout remoto:',err)}
+        }
+        await rpcWithAuthRetry('disconnect_company_whatsapp',{});
         clearToken();
+        alert('WhatsApp desconectado com sucesso.');
         await renderWhatsappPage();
       }catch(err){
-        alert('Não foi possível desconectar: '+(err.message||err));
-      }finally{btn.disabled=false}
+        alert('Não foi possível desconectar o WhatsApp: '+(err.message||err));
+      }finally{
+        if(btn.isConnected){btn.disabled=false;btn.textContent=old}
+      }
     });
   }
 
@@ -442,6 +450,8 @@
     .wa-error{padding:12px 14px;border:1px solid #fecaca;background:#fff7f7;color:#b42318;border-radius:12px;margin:16px 0}
     .wa-connected{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0;padding:14px;border:1px solid #cfe8d9;background:#f2fbf5;border-radius:14px}
     .wa-connected-actions{display:flex;gap:7px;flex-wrap:wrap}
+  .wa-disconnect-btn{border:1px solid #efb4b4;background:#fff6f6;color:#b42318;border-radius:10px;padding:10px 13px;font:800 12px/1 inherit;cursor:pointer}
+  .wa-disconnect-btn:hover{background:#feecec}.wa-disconnect-btn:disabled{opacity:.6;cursor:wait}
     .wa-phone{display:flex;gap:10px;align-items:center}.wa-phone>span{width:32px;height:32px;border-radius:50%;background:#0a8147;color:#fff;display:grid;place-items:center;font-weight:900}
     .wa-phone small{display:block;color:#75867c;font-size:9px;font-weight:900}.wa-phone b{display:block;margin-top:2px}.wa-phone em{display:block;margin-top:3px;color:#08783f;font-size:11px;font-style:normal;font-weight:750}
     .wa-section{margin-top:20px}.wa-section h3{margin:4px 0}.wa-section p{margin:0 0 12px}
@@ -465,7 +475,7 @@
       .wa-connect-card{grid-template-columns:1fr;text-align:left}
       .wa-connect-icon{margin:0}
       .wa-connect-card>button,.wa-qr-button{width:100%}
-      .wa-connected{align-items:flex-start;flex-direction:column}.wa-connected button{width:100%}
+      .wa-connected{align-items:flex-start;flex-direction:column}.wa-connected-actions{width:100%;display:grid;grid-template-columns:1fr}.wa-connected button{width:100%;min-height:48px}.wa-disconnect-btn{font-size:14px}
       .wa-pair-code{font-size:29px}.wa-code-wrap ol{padding-left:22px}
     }
   `;
